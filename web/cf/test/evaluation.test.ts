@@ -71,4 +71,22 @@ describe("readEval", () => {
     ]);
     expect(report.by_kind.mistake).toEqual({ n: 4, useful: 1, rate: 0.25 });
   });
+
+  it("sépare les cohortes de prompt, 'none' pour les reviews sans run", async () => {
+    const kv = kvWith(
+      [
+        { ts: "g1", kind: "game" },
+        { ts: "g2", kind: "game", run: { prompt_version: "350f7c404b5b" } },
+      ],
+      [
+        { ts: "g1", items: [mistake(false, "trop-vague")] },
+        { ts: "g2", items: [mistake(true)] },
+      ],
+    );
+    const report = await readEval(kv, "s");
+    expect(report.by_prompt_version["none"].mistake_useful_rate).toBe(0);
+    expect(report.by_prompt_version["350f7c404b5b"].mistake_useful_rate).toBe(1);
+    expect(report.by_prompt_version["none"].n_game_reviews_annotated).toBe(1);
+    expect(report.objective.mistake_useful_rate).toBe(0.5);   // toutes cohortes
+  });
 });

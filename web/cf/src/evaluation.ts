@@ -33,6 +33,12 @@ export interface EvalReport {
   global_rate: number | null;
   by_kind: Record<string, { n: number; useful: number; rate: number | null }>;
   top_tags: { tag: string; n: number }[];
+  by_prompt_version: Record<string, {
+    n_game_reviews_annotated: number;
+    mistake_useful_rate: number | null;
+    n_items: number;
+    global_rate: number | null;
+  }>;
 }
 
 const KINDS = ["strength", "mistake", "habit", "focus"] as const;
@@ -72,6 +78,30 @@ export async function readEval(kv: KVLike, slug: string): Promise<EvalReport> {
     if (!it.useful && it.tag) tags.set(it.tag, (tags.get(it.tag) ?? 0) + 1);
   }
 
+  // Cohorte de prompt : "none" pour les reviews d'avant le bloc `run`. Sans
+  // cette coupe, un changement de prompt reste noyé dans la moyenne globale.
+  const cohortByTs = new Map<string, string>();
+  for (const r of reviews) {
+    if (r.ts) cohortByTs.set(r.ts, r.run?.prompt_version ?? "none");
+  }
+  const byPromptVersion: EvalReport["by_prompt_version"] = {};
+  for (const version of [...new Set(cohortByTs.values())].sort()) {
+    const subset = feedbacks.filter((f) => f.ts && cohortByTs.get(f.ts) === version);
+    const subItems = subset.flatMap((f) => f.items ?? []);
+    const subGame = subset.filter((f) => gameTs.has(f.ts));
+    const subMistakes = subGame.flatMap((f) => f.items ?? [])
+      .filter((it) => it.kind === "mistake");
+    byPromptVersion[version] = {
+      n_game_reviews_annotated: subGame.length,
+      mistake_useful_rate: rate(
+        subMistakes.filter((it) => it.useful).length,
+        subMistakes.length,
+      ),
+      n_items: subItems.length,
+      global_rate: rate(subItems.filter((it) => it.useful).length, subItems.length),
+    };
+  }
+
   return {
     n_game_reviews: gameTs.size,
     objective: {
@@ -88,5 +118,6 @@ export async function readEval(kv: KVLike, slug: string): Promise<EvalReport> {
     top_tags: [...tags.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([tag, n]) => ({ tag, n })),
+    by_prompt_version: byPromptVersion,
   };
 }

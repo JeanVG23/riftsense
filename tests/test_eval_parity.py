@@ -36,9 +36,11 @@ def test_both_report_the_same_shape():
     """Le frontend lit une seule forme de rapport, quelle que soit sa source."""
     ts = EVAL_TS.read_text()
     for field in ("n_game_reviews", "objective", "target_met", "global_rate",
-                  "by_kind", "top_tags", "n_reviews_annotated", "n_items"):
+                  "by_kind", "top_tags", "n_reviews_annotated", "n_items",
+                  "by_prompt_version"):
         assert f"{field}" in ts, field
     report = fb.eval_report("nobody", root=ROOT / "tests" / "nonexistent")
     assert set(report) >= {"n_game_reviews", "objective", "target_met",
                            "global_rate", "by_kind", "top_tags",
-                           "n_reviews_annotated", "n_items"}
+                           "n_reviews_annotated", "n_items",
+                           "by_prompt_version"}
