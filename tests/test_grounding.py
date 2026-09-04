@@ -201,3 +201,30 @@ def test_report_aggregates_over_a_reviews_file(tmp_path):
     assert rep["clocks"]["anchored_rate"] == 0.5
     assert len(rep["offenders"]) == 1
     assert "9 999 g" in rep["offenders"][0]["numbers"]
+
+
+def _versioned(evidence: str, version: str | None) -> dict:
+    rec = _record(evidence)
+    rec["run"] = {} if version is None else {"prompt_version": version}
+    return rec
+
+
+def test_report_filters_on_prompt_version(tmp_path):
+    root = tmp_path / "07_coaching"
+    (root / "p").mkdir(parents=True)
+    (root / "p" / "reviews.jsonl").write_text(
+        json.dumps(_versioned("mort à 4:42, 290 g non dépensés", None),
+                   ensure_ascii=False) + "\n"
+        + json.dumps(_versioned("mort à 22:07, 9 999 g non dépensés", "abc123"),
+                     ensure_ascii=False) + "\n")
+
+    ancienne = G.report("p", root=root, prompt_version="none")
+    assert ancienne["n_reviews"] == 1
+    assert ancienne["numbers"]["grounded_rate"] == 1.0
+    assert ancienne["prompt_version"] == "none"
+
+    nouvelle = G.report("p", root=root, prompt_version="abc123")
+    assert nouvelle["n_reviews"] == 1
+    assert nouvelle["numbers"]["grounded_rate"] == 0.0
+
+    assert G.report("p", root=root)["n_reviews"] == 2

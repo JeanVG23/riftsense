@@ -362,16 +362,24 @@ def score(check: dict) -> dict:
     }
 
 
-def report(player: str, root=None, kind: str | None = None) -> dict:
+def report(player: str, root=None, kind: str | None = None,
+           prompt_version: str | None = None) -> dict:
     records = feedback_mod.list_reviews(player, root)
     if kind:
         records = [r for r in records
                    if (r.get("kind") or "aggregate") == kind]
+    if prompt_version:
+        # "none" cible les reviews d'avant le bloc `run` (pas de version tracée) :
+        # sans ce sentinelle, la cohorte historique serait inatteignable.
+        wanted = None if prompt_version == "none" else prompt_version
+        records = [r for r in records
+                   if (r.get("run") or {}).get("prompt_version") == wanted]
     checks = [check_review(r) for r in records]
     numbers = [n for c in checks for n in c["numbers"]]
     clocks = [c for check in checks for c in check["clocks"]]
     return {
         "player": player,
+        "prompt_version": prompt_version,
         "n_reviews": len(checks),
         "numbers": {"n": len(numbers),
                     "grounded_rate": _rate(numbers, ("exact", "arrondi")),
@@ -427,11 +435,13 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="grounding.py", description=__doc__)
     ap.add_argument("--player", default="spadzze")
     ap.add_argument("--kind", choices=["game", "aggregate"], default=None)
+    ap.add_argument("--prompt-version", default=None,
+                    help="filtre une cohorte de prompt ('none' = reviews sans run)")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--details", action="store_true",
                     help="liste les chiffres et horodatages non ancrés")
     args = ap.parse_args(argv)
-    rep = report(args.player, kind=args.kind)
+    rep = report(args.player, kind=args.kind, prompt_version=args.prompt_version)
     print(json.dumps(rep, ensure_ascii=False, indent=2) if args.json
           else render(rep, args.details))
     return 0
