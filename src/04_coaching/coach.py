@@ -194,7 +194,8 @@ def pending_game_matches(records: list[dict], reviews: list[dict],
 
 
 def run_batch(player: str, scope: str, target: str, model: str, n: int,
-              root=None, silver_dir=None, specialized: bool = False) -> int:
+              root=None, silver_dir=None, specialized: bool = False,
+              timeout: int = 180) -> int:
     """Génère jusqu'à n reviews par-game sur les games du scope pas encore
     reviewées (kind=game). Continue sur échec d'une game ; bilan final."""
     silver = Path(silver_dir) if silver_dir is not None else rl.silver_dir()
@@ -221,7 +222,7 @@ def run_batch(player: str, scope: str, target: str, model: str, n: int,
                                         target=target, silver_dir=silver,
                                         records=records, ref=ref)
             generate = generate_specialized_game_review if specialized else generate_game_review
-            review, run = generate(pl, model)
+            review, run = generate(pl, model, timeout=timeout)
         except FileNotFoundError as e:
             print(f"✗ {mid} : {e}", file=sys.stderr)
             failed += 1
@@ -323,6 +324,9 @@ def main() -> int:
     ap.add_argument("--outcome", default="loss", choices=["overall", "win", "loss"])
     ap.add_argument("--target", default="challenger")
     ap.add_argument("--model", default=None)
+    ap.add_argument("--timeout", type=int, default=None,
+                    help="délai d'attente réseau en secondes (défaut 180, "
+                         "surclassable via OLLAMA_TIMEOUT ou .env)")
     grp = ap.add_mutually_exclusive_group()
     grp.add_argument("--game", nargs="?", const="latest", default=None,
                      metavar="MATCH_ID",
@@ -350,10 +354,16 @@ def main() -> int:
     if args.model is None:
         args.model = (os.environ.get("OLLAMA_MODEL")
                       or rl.load_env().get("OLLAMA_MODEL", DEFAULT_MODEL))
+    # Résolution timeout : --timeout CLI > OLLAMA_TIMEOUT (shell env) > .env > défaut 180.
+    # Même motif que la résolution du modèle ci-dessus.
+    if args.timeout is None:
+        args.timeout = int(os.environ.get("OLLAMA_TIMEOUT")
+                           or rl.load_env().get("OLLAMA_TIMEOUT", 180))
 
     if args.game_batch is not None:
         return run_batch(args.player, args.scope, args.target,
-                         args.model, args.game_batch, specialized=args.specialized)
+                         args.model, args.game_batch, specialized=args.specialized,
+                         timeout=args.timeout)
 
     ts = datetime.now().isoformat(timespec="seconds")
     per_game = args.game is not None
@@ -374,7 +384,7 @@ def main() -> int:
     try:
         generate = (generate_specialized_game_review if per_game and args.specialized
                     else generate_game_review if per_game else generate_review)
-        review, run = generate(pl, args.model)
+        review, run = generate(pl, args.model, timeout=args.timeout)
     except llm_client.LLMError as e:
         print(f"✗ appel LLM échoué : {e}", file=sys.stderr)
         return 1
