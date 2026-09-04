@@ -431,3 +431,11 @@ def test_eval_report_splits_cohorts_by_prompt_version(tmp_path):
     assert cohorts["none"]["n_game_reviews_annotated"] == 1
     # la métrique globale reste celle de l'objectif produit, toutes cohortes
     assert rep["objective"]["mistake_useful_rate"] == 0.5
+
+
+def test_cohort_of_treats_empty_prompt_version_as_none():
+    """`prompt_version: ""` n'est pas une cohorte distincte : pas de version
+    déclarée, donc "none" comme un `run` absent."""
+    reviews = [{"ts": "t1", "run": {"prompt_version": ""}}]
+    cohorts = F.cohort_of(reviews)
+    assert cohorts["t1"] == "none"

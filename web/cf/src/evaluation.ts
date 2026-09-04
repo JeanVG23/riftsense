@@ -82,7 +82,7 @@ export async function readEval(kv: KVLike, slug: string): Promise<EvalReport> {
   // cette coupe, un changement de prompt reste noyé dans la moyenne globale.
   const cohortByTs = new Map<string, string>();
   for (const r of reviews) {
-    if (r.ts) cohortByTs.set(r.ts, r.run?.prompt_version ?? "none");
+    if (r.ts) cohortByTs.set(r.ts, r.run?.prompt_version || "none");
   }
   const byPromptVersion: EvalReport["by_prompt_version"] = {};
   for (const version of [...new Set(cohortByTs.values())].sort()) {

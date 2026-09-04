@@ -89,4 +89,14 @@ describe("readEval", () => {
     expect(report.by_prompt_version["none"].n_game_reviews_annotated).toBe(1);
     expect(report.objective.mistake_useful_rate).toBe(0.5);   // toutes cohortes
   });
+
+  it("range une prompt_version vide dans la cohorte 'none', pas une cohorte ''", async () => {
+    const kv = kvWith(
+      [{ ts: "g1", kind: "game", run: { prompt_version: "" } }],
+      [{ ts: "g1", items: [mistake(true)] }],
+    );
+    const report = await readEval(kv, "s");
+    expect(report.by_prompt_version["none"]).toBeDefined();
+    expect(report.by_prompt_version[""]).toBeUndefined();
+  });
 });
