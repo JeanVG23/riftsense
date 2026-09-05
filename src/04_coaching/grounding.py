@@ -52,7 +52,7 @@ CLOCK_NEAR_S = 30         # horodatage voisin d'un événement réel
 def cited_numbers(text: str) -> list[tuple[str, float, str]]:
     """[(brut, valeur, unité)] du texte, horloges exclues."""
     stripped = _CLOCK_RE.sub(" ", text)
-    states = _unit_states(stripped.lower())
+    states = _unit_states(stripped)
     out = []
     for m in _NUM_RE.finditer(stripped):
         raw = m.group(0)
@@ -92,14 +92,27 @@ _UNIT_TRIGGERS = (
     (("dégât", "degat", "damage", "dmg", "inflige", "subis"), "dmg"),
     (("gold_swing",), "g"),
 )
-_SENTENCE_BREAK_RE = re.compile(r"[.;]")
+# Point/point-virgule : fin de phrase, remise à zéro INCONDITIONNELLE.
+_HARD_BREAK_RE = re.compile(r"[.;]")
+# Virgule : remise à zéro par défaut (une clause introduit un sujet différent,
+# cf. relecture tour 3 : « Tu subis 1230 de dégâts..., ta CS tombe à 45 » ne
+# doit PAS laisser « dégâts » gouverner la CS ni l'XP d'une clause suivante).
+# SEULE exception : la virgule qui enchaîne une énumération « (Nom) Valeur »
+# (ex. « dégâts Baron 1043, Ahri 591, Syndra 599 » ou « 609 auto + 1 099
+# sorts ») telle que le payload la fournit (`damage.top_sources`) — dans CE cas
+# précis, et uniquement celui-là, le mot-clé précédent continue de s'appliquer
+# à travers la virgule. Un nom propre (« Ahri ») est optionnel : un chiffre nu
+# juste après la virgule (sans verbe ni nouveau sujet) reste une énumération.
+_ENUM_CONTINUATION_RE = re.compile(r"^(?:[A-ZÀ-Ý][\wÀ-ÿ']*\s+)?\d")
+_COMMA_RE = re.compile(r",")
 
 
-def _unit_states(low: str) -> list[tuple[int, str | None]]:
+def _unit_states(stripped: str) -> list[tuple[int, str | None]]:
     """[(position, unité en vigueur À PARTIR de cette position)], triée. L'unité
     change à chaque mot-clé `_UNIT_TRIGGERS` et se réinitialise à `None` à
-    chaque limite de phrase, pour qu'un mot-clé ne « fuie » jamais dans une
-    phrase suivante sans rapport."""
+    chaque limite de phrase ou de clause, pour qu'un mot-clé ne « fuie » jamais
+    vers une clause suivante sans rapport."""
+    low = stripped.lower()
     events: list[tuple[int, str | None]] = []
     for keywords, unit in _UNIT_TRIGGERS:
         for kw in keywords:
@@ -110,8 +123,20 @@ def _unit_states(low: str) -> list[tuple[int, str | None]]:
                     break
                 events.append((i, unit))
                 start = i + 1
-    for m in _SENTENCE_BREAK_RE.finditer(low):
+    for m in _HARD_BREAK_RE.finditer(stripped):
         events.append((m.start(), None))
+    # Une virgule DÉCIMALE (« 46,7 ») n'est pas une limite de clause : ignorer
+    # les virgules qui tombent À L'INTÉRIEUR d'un nombre déjà reconnu par
+    # `_NUM_RE`, sous peine de couper l'énumération en plein milieu d'un
+    # pourcentage entre deux valeurs de la même liste.
+    number_spans = [m.span() for m in _NUM_RE.finditer(stripped)]
+    for m in _COMMA_RE.finditer(stripped):
+        pos = m.start()
+        if any(start <= pos < end for start, end in number_spans):
+            continue
+        tail = stripped[m.end():m.end() + 24].lstrip()
+        if not _ENUM_CONTINUATION_RE.match(tail):
+            events.append((pos, None))
     events.sort(key=lambda e: e[0])
     return [(0, None)] + events
 

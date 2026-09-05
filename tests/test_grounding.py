@@ -187,6 +187,41 @@ def test_unit_keyword_governance_resets_at_sentence_boundary():
     assert statuses["777 any"] == "non_ancre"        # la phrase suivante n'en herite pas
 
 
+def test_unit_keyword_governance_resets_at_comma():
+    """Relecture, tour 3 : la portee de phrase (tour 2) ne se reinitialisait
+    QUE sur point/point-virgule, pas sur la virgule. Cas demontre : dans une
+    seule phrase a plusieurs clauses separees par des virgules, un mot-cle de
+    degats en debut de phrase capturait des nombres de clauses SANS RAPPORT
+    (une CS, un ecart d'XP) simplement parce qu'aucune virgule ne coupait
+    l'etat. C'est la collision du tour 1 sous une autre forme."""
+    cites = G.cited_numbers("Tu subis 1230 de degats sur ce trade, ta CS tombe a 45, "
+                            "ton XP diff est de -320 a 14 minutes, et ton gold_state "
+                            "est faible.")
+    by_value = {value: unit for _, value, unit in cites}
+    assert by_value[45.0] != "dmg", cites
+    assert by_value[320.0] != "dmg", cites
+
+
+def test_bare_digit_enumeration_survives_comma_reset():
+    """La virgule remet l'etat a zero PAR DEFAUT (test precedent), sauf quand
+    elle enchaine une simple continuation d'enumeration du payload, avec ou
+    sans nom propre devant le chiffre (« 609 auto + 1 099 sorts », observe
+    dans data/07_coaching/spadzze/reviews.jsonl) : ce n'est pas une clause a
+    sujet different, juste la suite de la meme liste de degats."""
+    payload = _payload()
+    payload["journal"]["deaths"][0]["damage"] = {
+        "total_damage": 2389,
+        "top_sources": [
+            {"source": "LeeSin", "type": "OTHER", "damage": 609, "basic_damage": 609},
+            {"source": "LeeSin", "type": "OTHER", "damage": 1099, "spell_damage": 1099},
+        ],
+    }
+    record = _record("99,4 % des dégâts, 609 auto + 1 099 sorts, mort à 4:42")
+    record["payload"] = payload
+    check = G.check_review(record)
+    assert all(n["status"] != "non_ancre" for n in check["numbers"]), check["numbers"]
+
+
 def test_negative_control_rate_on_bare_number_perturbation():
     """Constat B, tour 2 : le controle negatif precedent sur les citations SANS
     unite n'etait qu'un cas unique, pas une mesure de taux, contrairement a la
