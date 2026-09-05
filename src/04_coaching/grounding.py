@@ -52,6 +52,7 @@ CLOCK_NEAR_S = 30         # horodatage voisin d'un événement réel
 def cited_numbers(text: str) -> list[tuple[str, float, str]]:
     """[(brut, valeur, unité)] du texte, horloges exclues."""
     stripped = _CLOCK_RE.sub(" ", text)
+    states = _unit_states(stripped.lower())
     out = []
     for m in _NUM_RE.finditer(stripped):
         raw = m.group(0)
@@ -62,38 +63,66 @@ def cited_numbers(text: str) -> list[tuple[str, float, str]]:
         unit = unit_of_citation(stripped[m.end():m.end() + 8])
         if unit == ANY:
             # Sans mot d'unité collé au nombre : les blocs `damage` et
-            # `consequences` sont souvent cités bruts, le mot-clé arrivant
-            # avant le nombre plutôt qu'après (« dégâts Baron 1043 »,
-            # « team_gold_swing_90s -7737 »). On cherche alors un mot-clé
-            # dmg/gold à PROXIMITÉ (fenêtre bornée), et UNIQUEMENT lui : le
-            # nombre devient spécifiquement `dmg` ou `g`, jamais les deux à
-            # la fois. C'est ce qui évite la collision qu'un simple ajout de
-            # `dmg`+`g` au repli générique ANY recréait (un dégât inventé
-            # tombant par coïncidence près d'un gold sans rapport) : sans
-            # mot-clé proche, le nombre reste ANY et ne cherche ni dmg ni g.
-            unit = (_nearby_unit(stripped, m.start(), m.end()) or ANY)
+            # `consequences` sont souvent cités bruts, le mot-clé désignant
+            # dégâts/gold arrivant AVANT le nombre plutôt qu'après (« dégâts
+            # Baron 1043, Ahri 591 », « team_gold_swing_90s -7737 »), parfois
+            # à des dizaines de caractères (une énumération). `_unit_at`
+            # retrouve le dernier mot-clé rencontré DANS LA MÊME PHRASE, sans
+            # limite de distance arbitraire mais borné à la phrase en cours
+            # (`_SENTENCE_BREAK_RE`) : le nombre devient spécifiquement `dmg`
+            # ou `g`, jamais les deux à la fois, et jamais au-delà d'un point/
+            # point-virgule. C'est ce qui évite la collision qu'un simple
+            # ajout de `dmg`+`g` au repli générique ANY recréait (un dégât
+            # inventé tombant par coïncidence près d'un gold sans rapport) :
+            # sans mot-clé dans la phrase, le nombre reste ANY.
+            unit = _unit_at(states, m.start()) or ANY
         out.append((raw, value, unit))
     return out
 
 
-_NEARBY_WINDOW = 30       # chars scrutés avant/après le nombre pour un mot-clé
-# Mots-clés d'unité cherchés À PROXIMITÉ (pas dans tout le texte) : bornés aux
-# deux familles concernées (dégâts, gold), jamais un mot-clé générique qui
-# rouvrirait le cloisonnement pour cs/pct/etc.
-_NEARBY_KEYWORDS = (
-    (("dégât", "degat", "dommage", "damage", "dmg"), "dmg"),
-    (("gold",), "g"),
+# Mots-clés d'unité cherchés dans la phrase courante : bornés aux deux
+# familles concernées (dégâts, écart de gold d'équipe), et purgés des faux-amis
+# ambigus. « dommage » a été RETIRÉ : en français courant c'est d'abord une
+# interjection (« Dommage, tu perds la lane... ») et non le concept de jeu, ce
+# qui aurait fait déclencher `dmg` sur la seule foi d'une exclamation. « gold »
+# seul a été resserré en « gold_swing » : le mot-clé bare matchait aussi
+# `gold_state` (dénombrement, pas un montant) et aurait fait dériver l'état
+# vers `g` pour tout nombre qui suit dans la même phrase.
+_UNIT_TRIGGERS = (
+    (("dégât", "degat", "damage", "dmg", "inflige", "subis"), "dmg"),
+    (("gold_swing",), "g"),
 )
+_SENTENCE_BREAK_RE = re.compile(r"[.;]")
 
 
-def _nearby_unit(stripped: str, start: int, end: int) -> str | None:
-    head = stripped[max(0, start - _NEARBY_WINDOW):start].lower()
-    tail = stripped[end:end + _NEARBY_WINDOW].lower()
-    for window in (head, tail):
-        for keywords, unit in _NEARBY_KEYWORDS:
-            if any(keyword in window for keyword in keywords):
-                return unit
-    return None
+def _unit_states(low: str) -> list[tuple[int, str | None]]:
+    """[(position, unité en vigueur À PARTIR de cette position)], triée. L'unité
+    change à chaque mot-clé `_UNIT_TRIGGERS` et se réinitialise à `None` à
+    chaque limite de phrase, pour qu'un mot-clé ne « fuie » jamais dans une
+    phrase suivante sans rapport."""
+    events: list[tuple[int, str | None]] = []
+    for keywords, unit in _UNIT_TRIGGERS:
+        for kw in keywords:
+            start = 0
+            while True:
+                i = low.find(kw, start)
+                if i == -1:
+                    break
+                events.append((i, unit))
+                start = i + 1
+    for m in _SENTENCE_BREAK_RE.finditer(low):
+        events.append((m.start(), None))
+    events.sort(key=lambda e: e[0])
+    return [(0, None)] + events
+
+
+def _unit_at(states: list[tuple[int, str | None]], pos: int) -> str | None:
+    unit = None
+    for start, u in states:
+        if start > pos:
+            break
+        unit = u
+    return unit
 
 
 def cited_clocks(text: str) -> list[str]:

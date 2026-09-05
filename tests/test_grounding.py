@@ -152,6 +152,70 @@ def test_negative_control_catches_bare_number_unit_collision():
     assert [n["status"] for n in check["numbers"]] == ["non_ancre"], check["numbers"]
 
 
+def test_interjection_dommage_does_not_trigger_dmg_unit():
+    """Relecture, tour 2 (constat A) : « dommage » est d'abord une interjection
+    en francais courant (« Dommage, tu perds la lane... »), pas le concept de
+    jeu. Il a ete retire des mots-cles pour ne pas faire declencher `dmg` sur
+    la seule foi d'une exclamation : un nombre invente proche d'un vrai degat
+    ne doit s'ancrer QUE si un vrai mot-clé de degats (« inflige », « degats »,
+    « subis »...) est present dans la phrase."""
+    payload = _payload()
+    payload["journal"]["deaths"][0]["damage"] = {
+        "total_damage": 2389,
+        "top_sources": [{"source": "SRU_Baron", "type": "MONSTER", "damage": 1228}],
+    }
+    record = _record("Dommage, tu payes 1230 à 4:42")
+    record["payload"] = payload
+    check = G.check_review(record)
+    assert [n["status"] for n in check["numbers"]] == ["non_ancre"], check["numbers"]
+
+
+def test_unit_keyword_governance_resets_at_sentence_boundary():
+    """« inflige »/« subis »/« gold_swing » sont polysemiques en theorie (un
+    coach pourrait ecrire « tu subis un nerf ce patch » sans lien avec des
+    degats), mais leur portee est BORNEE a la phrase courante : un point ou un
+    point-virgule remet l'etat a zero, donc un mot-cle d'une phrase ne peut
+    jamais faire ancrer un nombre sans rapport de la phrase suivante."""
+    payload = _payload()
+    payload["journal"]["deaths"][0]["consequences"] = {"team_gold_swing_90s": -500}
+    record = _record("team_gold_swing_90s -500 après ta mort à 4:42. "
+                     "Un total sans rapport de 777 apparaît plus loin.")
+    record["payload"] = payload
+    check = G.check_review(record)
+    statuses = {n["raw"]: n["status"] for n in check["numbers"]}
+    assert statuses["500 g"] != "non_ancre"          # le mot-cle de sa phrase s'applique
+    assert statuses["777 any"] == "non_ancre"        # la phrase suivante n'en herite pas
+
+
+def test_negative_control_rate_on_bare_number_perturbation():
+    """Constat B, tour 2 : le controle negatif precedent sur les citations SANS
+    unite n'etait qu'un cas unique, pas une mesure de taux, contrairement a la
+    famille a unite explicite (`test_negative_control_rate_on_systematic_
+    perturbation`). Meme protocole applique aux citations de `damage`/
+    `team_gold_swing_90s` citees brutes : x1,37 doit rester tres majoritairement
+    detecte comme non ancre. Taux mesure lors de l'ecriture de ce test : 4/4
+    (100 %) ; seuil fixe a 90 % pour laisser une marge sans jamais accepter un
+    taux mediocre."""
+    payload = _payload()
+    payload["journal"]["deaths"][0]["damage"] = {
+        "total_damage": 2389,
+        "top_sources": [
+            {"source": "SRU_Baron", "type": "MONSTER", "damage": 1043},
+            {"source": "Ahri", "type": "OTHER", "damage": 591},
+        ],
+    }
+    payload["journal"]["deaths"][0]["consequences"] = {"team_gold_swing_90s": -7737}
+    record = _record("dégâts Baron 1043, Ahri 591, mort à 4:42, "
+                     "team_gold_swing_90s -7737")
+    record["payload"] = payload
+    index = G.payload_index(payload)
+    cites = [c for text in G._insight_texts(record["review"]) for c in G.cited_numbers(text)]
+    assert len(cites) >= 3
+    caught = sum(1 for _, value, unit in cites
+                 if G.classify_number(value * 1.37, index, unit) == "non_ancre")
+    assert caught / len(cites) >= 0.9
+
+
 def test_consequences_clocks_beyond_deaths_and_recalls_are_grounded():
     """`payload_clocks` ne lisait que journal.deaths / journal.recalls : les
     horloges des blocs `consequences` (objectifs/batiments perdus) existent
