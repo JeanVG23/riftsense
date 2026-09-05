@@ -129,7 +129,27 @@ def test_bare_damage_and_gold_swing_values_are_grounded_without_unit_word():
     record["payload"] = payload
     check = G.check_review(record)
     assert all(n["status"] != "non_ancre" for n in check["numbers"]), check["numbers"]
-    assert any(n["unit"] == G.ANY for n in check["numbers"])   # confirme le cas ANY
+
+
+def test_negative_control_catches_bare_number_unit_collision():
+    """Relecture, tour 1 : fusionner `dmg` et `g` dans le meme repli ANY
+    recreait la collision inter-unites que le cloisonnement existe pour
+    empecher. Cas demontre par le relecteur : un degat INVENTE (1230) tombe par
+    coincidence a moins de 1 % d'un gold non depense REEL (1225, cf. `_payload`)
+    ; sans mot-cle « degats »/« gold » a proximite dans le texte, il ne doit
+    PAS s'ancrer sur ce gold sans rapport. Un taux d'ancrage qui ne mesure pas
+    cette famille (nombres cites sans unite) ne vaut rien : c'est elle qui
+    manquait au controle negatif existant (`FALSIFIED` ne falsifie que des
+    citations a unite EXPLICITE)."""
+    payload = _payload()
+    payload["journal"]["deaths"][0]["damage"] = {
+        "total_damage": 2389,
+        "top_sources": [{"source": "SRU_Baron", "type": "MONSTER", "damage": 1043}],
+    }
+    record = _record("elle m'inflige 1230, mort à 4:42")
+    record["payload"] = payload
+    check = G.check_review(record)
+    assert [n["status"] for n in check["numbers"]] == ["non_ancre"], check["numbers"]
 
 
 def test_consequences_clocks_beyond_deaths_and_recalls_are_grounded():
@@ -152,17 +172,31 @@ def test_window_constant_is_grounded_but_stays_bounded():
     jamais comme valeur : la reconnaitre est une definition de feature (cf.
     `game_journal.GOLD_SWING_WINDOW_S`), pas une regle generique qui ancrerait
     n'importe quel nombre de nom de cle. Un autre nombre de fenetre invente
-    (45 s) ne doit pas s'ancrer pour autant."""
+    (45 s) ne doit pas s'ancrer pour autant, et la constante des objectifs/
+    batiments (`CONSEQUENCE_WINDOW_S` = 60 s) suit la meme logique."""
     payload = _payload()
-    payload["journal"]["deaths"][0]["consequences"] = {"team_gold_swing_90s": -7737}
-    record = _record("swing d'equipe sur 90 secondes apres ta mort a 4:42")
+    payload["journal"]["deaths"][0]["consequences"] = {
+        "objectives_lost": [{"type": "BARON_NASHOR", "clock": "22:14", "delta_s": 16}],
+        "team_gold_swing_90s": -7737,
+    }
+    record = _record("swing d'equipe sur 90 secondes, objectif pris dans les "
+                     "60 secondes, mort a 4:42")
     record["payload"] = payload
     check = G.check_review(record)
-    assert [n["status"] for n in check["numbers"]] == ["exact"]
+    assert [n["status"] for n in check["numbers"]] == ["exact", "exact"]
 
     invented = _record("swing d'equipe sur 45 secondes apres ta mort a 4:42")
     invented["payload"] = payload
     assert G.check_review(invented)["numbers"][0]["status"] == "non_ancre"
+
+
+def test_window_constant_is_not_grounded_when_block_is_absent():
+    """Constat de relecture : les constantes de fenetre ne sont des definitions
+    valides que si le bloc qu'elles definissent existe reellement dans CE
+    payload. Un payload sans `consequences` ne doit pas laisser passer « 90
+    secondes » par defaut."""
+    check = G.check_review(_record("mort a 4:42, rien a 90 secondes"))
+    assert [n["status"] for n in check["numbers"]] == ["non_ancre"]
 
 
 def test_derived_share_may_be_cited_rounded():

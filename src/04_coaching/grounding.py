@@ -59,8 +59,41 @@ def cited_numbers(text: str) -> list[tuple[str, float, str]]:
             value = float(raw.translate(_SPACES).replace(",", "."))
         except ValueError:
             continue
-        out.append((raw, value, unit_of_citation(stripped[m.end():m.end() + 8])))
+        unit = unit_of_citation(stripped[m.end():m.end() + 8])
+        if unit == ANY:
+            # Sans mot d'unité collé au nombre : les blocs `damage` et
+            # `consequences` sont souvent cités bruts, le mot-clé arrivant
+            # avant le nombre plutôt qu'après (« dégâts Baron 1043 »,
+            # « team_gold_swing_90s -7737 »). On cherche alors un mot-clé
+            # dmg/gold à PROXIMITÉ (fenêtre bornée), et UNIQUEMENT lui : le
+            # nombre devient spécifiquement `dmg` ou `g`, jamais les deux à
+            # la fois. C'est ce qui évite la collision qu'un simple ajout de
+            # `dmg`+`g` au repli générique ANY recréait (un dégât inventé
+            # tombant par coïncidence près d'un gold sans rapport) : sans
+            # mot-clé proche, le nombre reste ANY et ne cherche ni dmg ni g.
+            unit = (_nearby_unit(stripped, m.start(), m.end()) or ANY)
+        out.append((raw, value, unit))
     return out
+
+
+_NEARBY_WINDOW = 30       # chars scrutés avant/après le nombre pour un mot-clé
+# Mots-clés d'unité cherchés À PROXIMITÉ (pas dans tout le texte) : bornés aux
+# deux familles concernées (dégâts, gold), jamais un mot-clé générique qui
+# rouvrirait le cloisonnement pour cs/pct/etc.
+_NEARBY_KEYWORDS = (
+    (("dégât", "degat", "dommage", "damage", "dmg"), "dmg"),
+    (("gold",), "g"),
+)
+
+
+def _nearby_unit(stripped: str, start: int, end: int) -> str | None:
+    head = stripped[max(0, start - _NEARBY_WINDOW):start].lower()
+    tail = stripped[end:end + _NEARBY_WINDOW].lower()
+    for window in (head, tail):
+        for keywords, unit in _NEARBY_KEYWORDS:
+            if any(keyword in window for keyword in keywords):
+                return unit
+    return None
 
 
 def cited_clocks(text: str) -> list[str]:
@@ -192,11 +225,25 @@ def _add_derived(payload: dict, out: dict[str, set[float]]) -> None:
 # `game_journal.py`, jamais une valeur du payload). `team_gold_swing_90s` porte
 # sa fenêtre dans le NOM de la clé (« _90s »), pas dans une valeur citable : un
 # coach qui écrit « swing mesuré sur 90 secondes » décrit la DÉFINITION de la
-# feature, pas un chiffre du journal. On les ajoute ici nommément, une par une :
-# PAS de règle générique qui ancrerait tout nombre trouvé dans un nom de clé
-# (ce serait la porte ouverte que le cloisonnement par unité interdit).
-_FEATURE_WINDOW_SECONDS = (game_journal.CONSEQUENCE_WINDOW_S,
-                           game_journal.GOLD_SWING_WINDOW_S)
+# feature, pas un chiffre du journal. Chacune n'est ajoutée QUE si le bloc
+# qu'elle définit est réellement présent dans CE payload (cf. `_has_key`) :
+# sinon un payload sans `consequences` citerait légitiment « 90 s » sans
+# qu'aucune feature de ce nom n'y existe. PAS de règle générique qui ancrerait
+# tout nombre trouvé dans un nom de clé (la porte ouverte que le cloisonnement
+# par unité interdit) : seules ces deux constantes précises, nommément listées.
+_FEATURE_WINDOWS = (
+    ("team_gold_swing_90s", game_journal.GOLD_SWING_WINDOW_S),
+    ("objectives_lost", game_journal.CONSEQUENCE_WINDOW_S),
+    ("buildings_lost", game_journal.CONSEQUENCE_WINDOW_S),
+)
+
+
+def _has_key(node, target: str) -> bool:
+    if isinstance(node, dict):
+        return target in node or any(_has_key(child, target) for child in node.values())
+    if isinstance(node, list):
+        return any(_has_key(child, target) for child in node)
+    return False
 
 
 def payload_index(payload: dict) -> dict[str, set[float]]:
@@ -209,8 +256,9 @@ def payload_index(payload: dict) -> dict[str, set[float]]:
     for text in _strings_and_keys(payload):
         names.update(abs(value) for _, value, _ in cited_numbers(text))
     out[ANY] = names
-    for seconds in _FEATURE_WINDOW_SECONDS:
-        out["s"].add(float(seconds))
+    for marker, seconds in _FEATURE_WINDOWS:
+        if _has_key(payload, marker):
+            out["s"].add(float(seconds))
     return out
 
 
@@ -280,13 +328,15 @@ def classify_number(value: float, index: dict[str, set[float]],
         # Sans unité : un dénombrement, une minute, une distance, ou le nombre
         # porté par un nom de métrique (« gd14 », « @20 »). Une fraction brute
         # (« 0,29 des morts ») reste rapprochable du bloc de pourcentages.
-        # `dmg`/`g` : les blocs enrichis `damage` et `consequences` sont souvent
-        # cités bruts (« dégâts Baron 1043 », « team_gold_swing_90s -7737 »), le
-        # mot d'unité arrivant avant le nombre plutôt qu'après (`unit_of_citation`
-        # ne regarde qu'après) ; les inclure ici les reconnaît sans rouvrir le
-        # cloisonnement des citations qui PORTENT une unité explicite (« 290 % »
-        # reste jugé sur `pct` seul, jamais sur `g`/`dmg`).
-        buckets = ["n", "min", "u", "dmg", "g", ANY] + (["pct"] if value < 1 else [])
+        # `dmg`/`g` n'y figurent PAS : un nombre réellement sans mot-clé à
+        # proximité (`cited_numbers`/`_nearby_unit`) reste ici, et ne doit PAS
+        # chercher dans les blocs de dégâts/gold, sous peine de recréer la
+        # collision qu'un ajout précédent avait introduite (un dégât inventé
+        # rapproché par coïncidence d'un gold sans rapport). Les citations de
+        # `dmg`/`g` sans mot d'unité collé sont déjà résolues EN AMONT, dans
+        # `cited_numbers`, à la faveur d'un mot-clé trouvé à proximité : elles
+        # arrivent ici avec `unit == "dmg"` ou `"g"`, jamais `ANY`.
+        buckets = ["n", "min", "u", ANY] + (["pct"] if value < 1 else [])
         available = set().union(*(index.get(b) or set() for b in buckets))
     elif unit == "min":
         # « gold diff @14 » : le repère de minute vient du NOM de la métrique.
