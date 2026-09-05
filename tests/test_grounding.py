@@ -107,6 +107,64 @@ def test_numbers_from_llm_causes_never_become_grounding_sources():
     assert G.check_review(record)["numbers"][0]["status"] == "non_ancre"
 
 
+def test_bare_damage_and_gold_swing_values_are_grounded_without_unit_word():
+    """Angle mort mesure sur 10 analyses fraiches : les valeurs de `damage` et de
+    `team_gold_swing_90s` sont citees sans mot d'unite (« Baron 1043 », « swing
+    -7737 »), donc classees ANY par `unit_of_citation` ; l'index doit quand meme
+    les reconnaitre puisqu'elles existent reellement dans le payload."""
+    payload = _payload()
+    payload["journal"]["deaths"][0]["damage"] = {
+        "total_damage": 2389,
+        "top_sources": [
+            {"source": "SRU_Baron", "type": "MONSTER", "damage": 1043},
+            {"source": "Ahri", "type": "OTHER", "damage": 591},
+        ],
+    }
+    payload["journal"]["deaths"][0]["consequences"] = {
+        "objectives_lost": [{"type": "BARON_NASHOR", "clock": "22:14", "delta_s": 16}],
+        "team_gold_swing_90s": -7737,
+    }
+    record = _record("dégâts Baron 1043, Ahri 591, Baron perdu 16s après, "
+                     "team_gold_swing_90s -7737, mort à 4:42")
+    record["payload"] = payload
+    check = G.check_review(record)
+    assert all(n["status"] != "non_ancre" for n in check["numbers"]), check["numbers"]
+    assert any(n["unit"] == G.ANY for n in check["numbers"])   # confirme le cas ANY
+
+
+def test_consequences_clocks_beyond_deaths_and_recalls_are_grounded():
+    """`payload_clocks` ne lisait que journal.deaths / journal.recalls : les
+    horloges des blocs `consequences` (objectifs/batiments perdus) existent
+    pourtant reellement dans le payload et etaient classees non_ancre."""
+    payload = _payload()
+    payload["journal"]["deaths"][0]["consequences"] = {
+        "objectives_lost": [{"type": "BARON_NASHOR", "clock": "22:14", "delta_s": 16}],
+        "buildings_lost": [{"type": "OUTER_TURRET", "lane": "BOT_LANE", "clock": "16:44"}],
+    }
+    record = _record("Baron perdu à 22:14, tourelle perdue à 16:44, mort à 4:42")
+    record["payload"] = payload
+    check = G.check_review(record)
+    assert [c["status"] for c in check["clocks"]] == ["exact", "exact", "exact"]
+
+
+def test_window_constant_is_grounded_but_stays_bounded():
+    """`team_gold_swing_90s` porte sa fenetre de 90 s dans le NOM de la cle,
+    jamais comme valeur : la reconnaitre est une definition de feature (cf.
+    `game_journal.GOLD_SWING_WINDOW_S`), pas une regle generique qui ancrerait
+    n'importe quel nombre de nom de cle. Un autre nombre de fenetre invente
+    (45 s) ne doit pas s'ancrer pour autant."""
+    payload = _payload()
+    payload["journal"]["deaths"][0]["consequences"] = {"team_gold_swing_90s": -7737}
+    record = _record("swing d'equipe sur 90 secondes apres ta mort a 4:42")
+    record["payload"] = payload
+    check = G.check_review(record)
+    assert [n["status"] for n in check["numbers"]] == ["exact"]
+
+    invented = _record("swing d'equipe sur 45 secondes apres ta mort a 4:42")
+    invented["payload"] = payload
+    assert G.check_review(invented)["numbers"][0]["status"] == "non_ancre"
+
+
 def test_derived_share_may_be_cited_rounded():
     """« 50 % de tes morts (1/2) » est derivable du journal, pas invente."""
     check = G.check_review(_record("1 mort sur 2 en BOT à 4:42, soit 50 % de tes morts"))

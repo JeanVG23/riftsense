@@ -30,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))  # accès src/core/
 
 import feedback as feedback_mod
+import game_journal
 
 # --- extraction des nombres cités --------------------------------------------
 
@@ -187,6 +188,17 @@ def _add_derived(payload: dict, out: dict[str, set[float]]) -> None:
                 out["min"].add(float(int(minutes) + (1 if int(seconds) else 0)))
 
 
+# Constantes de FENÊTRE DE FEATURE des blocs `consequences` (définies dans
+# `game_journal.py`, jamais une valeur du payload). `team_gold_swing_90s` porte
+# sa fenêtre dans le NOM de la clé (« _90s »), pas dans une valeur citable : un
+# coach qui écrit « swing mesuré sur 90 secondes » décrit la DÉFINITION de la
+# feature, pas un chiffre du journal. On les ajoute ici nommément, une par une :
+# PAS de règle générique qui ancrerait tout nombre trouvé dans un nom de clé
+# (ce serait la porte ouverte que le cloisonnement par unité interdit).
+_FEATURE_WINDOW_SECONDS = (game_journal.CONSEQUENCE_WINDOW_S,
+                           game_journal.GOLD_SWING_WINDOW_S)
+
+
 def payload_index(payload: dict) -> dict[str, set[float]]:
     """{unité: valeurs citables}. `ANY` reste le repli des citations sans unité
     explicite, et porte en plus les nombres des NOMS de métriques (`@14`)."""
@@ -197,14 +209,34 @@ def payload_index(payload: dict) -> dict[str, set[float]]:
     for text in _strings_and_keys(payload):
         names.update(abs(value) for _, value, _ in cited_numbers(text))
     out[ANY] = names
+    for seconds in _FEATURE_WINDOW_SECONDS:
+        out["s"].add(float(seconds))
     return out
 
 
 def payload_clocks(payload: dict) -> set[str]:
-    journal = payload.get("journal") or {}
-    return {row["clock"] for name in ("deaths", "recalls")
-            for row in (journal.get(name) or [])
-            if isinstance(row, dict) and row.get("clock")}
+    """Horloges disponibles dans TOUT le payload : pas seulement `journal.deaths`
+    et `journal.recalls`, mais aussi les blocs `consequences` enrichis
+    (objectifs et bâtiments perdus après une mort) qui portent chacun leur
+    propre `clock`. Toute clé `clock` du payload est une horloge légitimement
+    citable, où qu'elle se trouve."""
+    out: set[str] = set()
+    _collect_clocks(payload, "", out)
+    return out
+
+
+def _collect_clocks(node, key: str, out: set[str]) -> None:
+    if key in _UNGROUNDED_SUBTREES:
+        return
+    if isinstance(node, dict):
+        clock = node.get("clock")
+        if isinstance(clock, str):
+            out.add(clock)
+        for child_key, child in node.items():
+            _collect_clocks(child, child_key, out)
+    elif isinstance(node, list):
+        for child in node:
+            _collect_clocks(child, key, out)
 
 
 def _clock_seconds(clock: str) -> int:
@@ -246,10 +278,15 @@ def classify_number(value: float, index: dict[str, set[float]],
     available = index.get(unit) or set()
     if unit == ANY:
         # Sans unité : un dénombrement, une minute, une distance, ou le nombre
-        # porté par un nom de métrique (« gd14 », « @20 »). Pas un gold, toujours
-        # cité avec son unité. Une fraction brute (« 0,29 des morts ») reste
-        # rapprochable du bloc de pourcentages.
-        buckets = ["n", "min", "u", ANY] + (["pct"] if value < 1 else [])
+        # porté par un nom de métrique (« gd14 », « @20 »). Une fraction brute
+        # (« 0,29 des morts ») reste rapprochable du bloc de pourcentages.
+        # `dmg`/`g` : les blocs enrichis `damage` et `consequences` sont souvent
+        # cités bruts (« dégâts Baron 1043 », « team_gold_swing_90s -7737 »), le
+        # mot d'unité arrivant avant le nombre plutôt qu'après (`unit_of_citation`
+        # ne regarde qu'après) ; les inclure ici les reconnaît sans rouvrir le
+        # cloisonnement des citations qui PORTENT une unité explicite (« 290 % »
+        # reste jugé sur `pct` seul, jamais sur `g`/`dmg`).
+        buckets = ["n", "min", "u", "dmg", "g", ANY] + (["pct"] if value < 1 else [])
         available = set().union(*(index.get(b) or set() for b in buckets))
     elif unit == "min":
         # « gold diff @14 » : le repère de minute vient du NOM de la métrique.
