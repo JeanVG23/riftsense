@@ -87,12 +87,45 @@ def test_zone_expectation_detects_a_coach_that_ignores_the_journal():
                                 _review(zone="TOP et tour BOT perdue"))["passed"]
 
 
-def test_gold_expectation_uses_the_cited_amounts():
-    assert CF.max_gold_cited(_review(gold="1 225 g")) == 1225.0
+def test_gold_expectation_passes_when_original_unspent_gold_is_gone():
+    payload = _payload()
     assert CF.check_unspent_gold_zero(_review(gold="1 225 g"),
-                                      _review(gold="0 g"))["passed"] is True
+                                      _review(gold="0 g"), payload)["passed"] is True
+
+
+def test_gold_expectation_fails_if_original_unspent_gold_is_recited():
+    """Raison d'etre du controle : reciter le gold non depense d'origine doit
+    faire echouer, meme si l'attente porte desormais sur les valeurs du
+    payload plutot que sur le maximum cite."""
+    payload = _payload()
     assert CF.check_unspent_gold_zero(_review(gold="1 225 g"),
-                                      _review(gold="1 225 g"))["passed"] is False
+                                      _review(gold="1 225 g"), payload)["passed"] is False
+
+
+def test_gold_expectation_ignores_unrelated_large_gold_values():
+    """Regression du 2026-09-04 : `team_gold_swing_90s` et les couts d'items
+    sont des nombres en `g` bien plus grands que le gold non depense, et le
+    controle les prenait a tort pour du gold non depense encore cite (0 % de
+    reussite mesure sur 3 executions alors que le modele avait bien suivi la
+    perturbation)."""
+    payload = _payload()
+    new_review = {
+        "strengths": [],
+        "mistakes": [{"point": "objectif perdu", "cause": "mort en window",
+                      "evidence": "inner mid perdu a 24:21, -4 991 g en 90 s"}],
+        "next_focus": "f", "confidence": 0.8}
+    verdict = CF.check_unspent_gold_zero(_review(gold="1 225 g"), new_review, payload)
+    assert verdict["passed"] is True
+
+
+def test_gold_expectation_ignores_values_below_the_floor():
+    """Sous GOLD_FLOOR, un gold non depense n'est pas un signal : le reciter
+    ne doit pas faire echouer le controle."""
+    payload = {"journal": {
+        "deaths": [{"unspent_gold": 90}],
+        "recalls": [{"gold_before": 120}]}}
+    new_review = _review(gold="90 g")
+    assert CF.check_unspent_gold_zero(_review(), new_review, payload)["passed"] is True
 
 
 # --- execution -----------------------------------------------------------------
