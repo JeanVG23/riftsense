@@ -1889,12 +1889,20 @@ git commit -m "feat(grounding): horloges de fenetre et titre soumis au controle 
 
 ---
 
-### Task 11: `by_category` dans les deux runtimes
+### Task 11: `by_category` et plafond à 5 erreurs dans les deux runtimes
 
 **Files:**
 - Modify: `src/04_coaching/feedback.py` (`eval_report`, + helper `by_category`)
 - Modify: `web/cf/src/evaluation.ts`
-- Test: `tests/test_coaching_feedback.py`, `tests/test_eval_parity.py`
+- Modify: `web/cf/src/schema.ts` (`GameInsight`, `isGameInsight`, `validateGameReview`)
+- Test: `tests/test_coaching_feedback.py`, `tests/test_eval_parity.py`, `web/cf/test/schema.test.ts`
+
+**Pourquoi le schéma du Worker est dans cette tâche :** `web/cf/src/feedback.ts:72` passe
+la review par `validateGameReview` AVANT d'accepter une annotation venue du site. Ce
+validateur plafonne encore `mistakes` à 3 : une review à 4 ou 5 erreurs poussée dans KV
+serait rejetée en silence, et le joueur ne pourrait plus annoter depuis le web. Le Worker
+ne GÉNÈRE pas de review par-game (`coach.ts` n'utilise que le prompt agrégé) : il n'y a
+donc rien à porter de `SYSTEM_GAME` ni de `game_review_json_schema` côté TypeScript.
 
 **Interfaces:**
 - Produces: `eval_report(...)["by_category"] = {categorie: {"n": int, "useful": int, "rate": float | None}}`, seau `"none"` pour les items sans catégorie. Même forme dans `EvalReport.by_category` côté TypeScript.
@@ -2025,16 +2033,63 @@ et calculer, à partir des feedbacks et des reviews indexées par `ts`, la même
 Run: `poetry run pytest tests/test_coaching_feedback.py tests/test_eval_parity.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Vérifier le typage du Worker**
+- [ ] **Step 6: Aligner le validateur de review par-game du Worker**
+
+Écrire d'abord les tests dans `web/cf/test/schema.test.ts` :
+
+```ts
+it("accepte jusqu'a cinq erreurs", () => {
+  const review = validGameReview();
+  review.mistakes = [review.mistakes[0], review.mistakes[0], review.mistakes[0],
+                     review.mistakes[0], review.mistakes[0]];
+  expect(validateGameReview(review)).not.toBeNull();
+});
+
+it("rejette six erreurs", () => {
+  const review = validGameReview();
+  review.mistakes = new Array(6).fill(review.mistakes[0]);
+  expect(validateGameReview(review)).toBeNull();
+});
+
+it("laisse passer une review sans categorie ni titre", () => {
+  // Les 27 reviews deja persistees n'en ont pas : les rejeter rendrait leurs
+  // annotations impossibles depuis le site.
+  const review = validGameReview();
+  delete (review.mistakes[0] as Record<string, unknown>).category;
+  expect(validateGameReview(review)).not.toBeNull();
+});
+
+it("conserve categorie et titre quand ils sont presents", () => {
+  const review = validGameReview();
+  review.mistakes[0].category = "TRACKING_JUNGLE";
+  review.mistakes[0].title = "Gank bot sans indice jungle";
+  expect(validateGameReview(review)?.mistakes[0].category).toBe("TRACKING_JUNGLE");
+});
+```
+
+Run: `cd web/cf && npx vitest run test/schema.test.ts`
+Expected: FAIL sur les deux premiers tests.
+
+Puis dans `web/cf/src/schema.ts` : `GameInsight` gagne `category?: string` et `title?: string`
+(OPTIONNELS : la validation dure de la liste fermée reste côté Pydantic, à la génération ;
+côté Worker le contrat est la LECTURE de reviews déjà persistées, dont les plus anciennes
+n'ont pas ces champs), `isGameInsight` accepte leur absence et rejette une valeur d'un
+autre type, `validateGameReview` passe le plafond de 3 à 5 et recopie les deux champs.
+
+Run: `cd web/cf && npx vitest run test/schema.test.ts test/feedback.test.ts`
+Expected: PASS
+
+- [ ] **Step 7: Vérifier le typage du Worker**
 
 Run: `cd web/cf && npx tsc --noEmit` (ou le script de vérification déclaré dans `web/cf/package.json`)
 Expected: 0 erreur
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/04_coaching/feedback.py web/cf/src/evaluation.ts tests/test_coaching_feedback.py tests/test_eval_parity.py
-git commit -m "feat(eval): taux d'utilite par categorie, avec effectif, dans les deux runtimes"
+git add src/04_coaching/feedback.py web/cf/src/evaluation.ts web/cf/src/schema.ts \
+        tests/test_coaching_feedback.py tests/test_eval_parity.py web/cf/test/schema.test.ts
+git commit -m "feat(eval): taux par categorie et plafond a 5 erreurs dans les deux runtimes"
 ```
 
 ---
