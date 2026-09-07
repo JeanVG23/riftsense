@@ -42,7 +42,7 @@ def test_generated_files_match_the_generator():
         elif path.read_text(encoding="utf-8") != expected:
             stale.append(path)
     assert not missing and not stale, (
-        f"manquants={missing} perimes={stale} — lancer `make generate-shared`")
+        f"manquants={missing} perimes={stale} : lancer `make generate-shared`")
 
 
 def test_generation_is_idempotent():
