@@ -193,6 +193,11 @@ data/
 web/
   cf/             Worker TypeScript de production : API, assets, KV, Ollama SSE
                   (src/http.ts = réponses d'erreur + pagination partagées)
+                  src/auth.ts = mot de passe COACH_AUTH_PASSWORD + cookie HMAC (30 j)
+                  src/coach_gate.ts = Durable Object de verrou, une instance par joueur
+                  src/game_coach.ts = coaching d'UNE partie (POST /api/coach/game)
+                  src/coaching_context.ts = scopes, champion principal, fraîcheur des bilans
+                  src/curation.ts = désignation de la partie pédagogiquement utile
   frontend/       SPA statique servie par le Worker
 shared/         prompts/*.txt (source de vérité, lue par prompt.py ET par le Worker)
                 + schemas/*.json (générés depuis Pydantic)
@@ -275,7 +280,10 @@ Renommer un dossier data SANS mettre à jour le code → le code recrée l'ancie
   `--seed-reviews` n'amorce les reviews que si la clé est absente ; `--push-coaching` fusionne
   reviews + annotations locales dans KV par `ts` (`merge_jsonl` : la ligne distante écrite
   depuis le site survit, la ligne locale gagne sur un `ts` commun) — sans lui, les annotations
-  CLI resteraient invisibles du taux publié.
+  CLI resteraient invisibles du taux publié. Publie aussi le **bundle de payloads unitaires**
+  (`payload.build_game_bundle`, 50 parties les plus récentes, garde-fou 20 Mio,
+  `--skip-game-payloads` pour sauter l'étape) : le Worker n'a pas accès au raw Riot, donc le
+  coaching par-game du site ne peut exister que si ce bundle est construit localement.
 - **`densify_targets.py`** — sélection **chirurgicale** des joueurs à densifier vers le sweet
   spot ~30 games/joueur (cf. `analyze_auc_vs_ngames.py`). 0 API : relit `adc_dataset.parquet`
   (comptage par joueur sur le référentiel double-ADC), cible la bande `[--min-games, --threshold[`,
@@ -391,7 +399,11 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   `plot_custom_shap.py`.
 - **`04_coaching/`** : narration LLM (Ollama Cloud, structured output).
   `payload.py` (gold perso+réf → payload déterministe, **safe-only** : positioning ⊂
-  COACHING_SAFE, profondeur `descriptive_only`), `prompt.py` (system asymétrie + benchmark-relatif,
+  COACHING_SAFE, profondeur `descriptive_only` ; **échantillon qualitatif borné** :
+  `_game_review_sample` produit `none` / `unbalanced` (1 review, une seule issue représentée) /
+  `balanced` (≤ 2 victoires + 2 défaites), dédup par `match_id`, scope résolu par
+  `rl.filter_scope` — `meta` distingue `n_game_reviews_available*` de `n_game_reviews_used*`,
+  cette parité n'est PAS un winrate), `prompt.py` (system asymétrie + benchmark-relatif,
   FR ; **le texte des prompts vit dans `shared/prompts/*.txt`**, `prompt.py` ne fait que le lire
   et stripper le newline final, exactement comme le Worker via `web/cf/src/generated/shared.ts` :
   un seul texte pour les deux runtimes), `schema.py` (Pydantic : `Review` 1-3 forces / 3 erreurs /
@@ -431,6 +443,18 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   `context` + règle de gold relatif au prochain achat de chaque recall), `coach.py --game [latest|MATCH_ID]` (records `kind: "game"` +
   `match_id`), `coach.py --game-batch [N]` (défaut 10 : reviews par-game des N dernières games ADC
   pas encore reviewées, dédup par `match_id`, poursuit sur échec, bilan final).
+  **Chemin par-game côté web** : `payload.build_game_bundle` sérialise ces payloads (clé KV
+  `coaching:{slug}:game-payloads`, `payload_hash` + `benchmark_scope` = champion sinon rôle
+  sinon global) ; `web/cf/src/game_coach.ts` relit l'entrée demandée, réutilise une review
+  existante sans appel LLM et ne régénère que sur `force`. Les motifs d'indisponibilité
+  publiés (`raw_missing`/`benchmark_missing`/`not_eligible`) sont dérivés du **type**
+  d'exception (`RawMissing`/`BenchmarkMissing`/`GameNotEligible`), jamais du texte du message.
+  ⚠️ Les trois chemins qui consomment du LLM côté site (`/api/coach`, `/api/coach/game`,
+  `/api/chat`) sont derrière `auth.ts` (`COACH_AUTH_PASSWORD`), et sérialisés par joueur par
+  le Durable Object `CoachGate` (verrou tenu jusqu'à la fermeture réelle du flux SSE, sinon
+  deux générations concurrentes écrivent le même JSONL). Le client Ollama du Worker
+  streame (`stream: true`) : sans streaming, une génération > 125 s finit en HTTP 524, Ollama
+  Cloud étant lui-même derrière Cloudflare.
   `feedback.py annotate --pending` : itère en série toutes les reviews sans feedback. `summary` :
   taux par section + top tags + par modèle + tendance + verbatims `tag_notes` + bloc `Objectif
   par-game` (`objective_stats` : % mistakes utiles sur les reviews `kind: "game"`). Le champ
@@ -471,6 +495,23 @@ ranked solo (queue 420). Spec : `docs/superpowers/specs/`.
 
 ## État d'avancement
 
+- **Incrément LLM enrichi validé (cohorte de prompt)** ✅ — 2026-09-07. Lot frais de 10 reviews
+  par-game sous la cohorte `350f7c404b5b` (`kimi-k2.6`), évalué automatiquement AVANT toute
+  annotation : ancrage des nombres **97,2 %** (252 nombres, 92,5 % exacts), des horodatages
+  **99,3 %** (134 horloges), **0 violation d'asymétrie** ; contrefactuels (3 runs,
+  `data/07_coaching/spadzze/eval/counterfactual.json`) sensibilité **1,00**, ancrage 93,1 %.
+  Annotation humaine ensuite : 10/10 reviews, **100 % de `mistakes` utiles** (40 items) contre
+  96,4 % pour la cohorte antérieure `none` (12 reviews). Critère produit (≥ 70 % sur ≥ 10
+  reviews) atteint. ⚠️ Les deux cohortes sont deux populations **observées** : games, payload
+  et prompt ont changé ensemble, l'écart n'est pas attribuable au seul prompt.
+- **Coaching unitaire servi par le site** ✅ — 2026-09-07. `POST /api/coach/game` analyse UNE
+  partie depuis le bundle KV de payloads, `GET /api/c/{slug}/coaching-context` dit quoi
+  analyser (scopes, champion principal, fraîcheur des bilans) et `curation.ts` désigne la
+  partie pédagogiquement utile. Les appels payés sont protégés par mot de passe (`auth.ts`) et
+  sérialisés par joueur par le Durable Object `CoachGate` : c'est la réponse au risque d'une
+  « mise à jour globale » qui aurait régénéré 30 games d'un coup.
+  ⚠️ Déploiement : `npx wrangler secret put COACH_AUTH_PASSWORD` + un `wrangler deploy` pour
+  appliquer la migration `v1-coach-gate` ; sans le binding, l'API répond mais sans verrou.
 - **Migration web Cloudflare** ✅ — 2026-08-31. `web/cf/` sert l'API TypeScript et le frontend
   sur `https://coaching-lol.jeanvg.fr`, avec lecture/écriture Cloudflare KV et coaching Ollama
   diffusé en SSE. La collecte Riot et le calcul ML restent locaux puis sont publiés par
@@ -602,9 +643,12 @@ ranked solo (queue 420). Spec : `docs/superpowers/specs/`.
    `src/04_coaching/README.md` ; surclassable via `--model`/`OLLAMA_MODEL`).
    ✅ **Boucle d'éval** — `feedback.py annotate/summary`.
    ✅ **Compte-rendu par-game** — `coach.py --game`.
-   ✅ **Boucle batch+pending** (2026-07-06) — outillage en place. Il reste à **annoter
-   effectivement ≥10 reviews par-game** (métrique ≥70 % de mistakes utiles). L'approche C
-   (génération auto post-game) reste à suivre. Ensuite **coacher le plancher** — cibler les
+   ✅ **Boucle batch+pending** (2026-07-06) — outillage en place.
+   ✅ **Métrique produit atteinte** (2026-09-07) : 10 reviews par-game annotées sur la cohorte
+   `350f7c404b5b`, 100 % de mistakes utiles (seuil ≥70 % sur ≥10). Le prochain lot doit servir
+   à mesurer les axes du feedback de lecture (recalls jugés, jungle tracking, erreurs
+   découpées et titrées : spec `2026-09-05-coaching-recalls-tracking-categories-design.md`),
+   pas à reconfirmer le seuil. Ensuite **coacher le plancher** — cibler les
    games du pire décile p10 (insight ML per-player : le rang = le plancher, pas la moyenne) et
    boucle de focus inter-games (adhérence au `next_focus` mesurée par les features).
 2. **Benchmark Zeri** densifié (sampling champion ciblé) si la slice reste trop fine.

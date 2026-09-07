@@ -1,9 +1,17 @@
 # Coaching par-game : jugement des recalls, tracking jungle, erreurs catégorisées
 
 **Date** : 2026-09-05
-**Statut** : design validé, plan à écrire
+**Statut** : design validé et amendé après relecture, plan à écrire
 **Origine** : feedback de Jean après lecture des 10 reviews de la cohorte
 `350f7c404b5b` (Priorité 0 de `todo.md`).
+**Amendements après relecture** : chemin multi-agents intégré (chef 1-5,
+deux empreintes) ; `VISION` retirée, sans matière ancrable au journal ;
+`mock_llm` et `trim_items` suivis pour `make demo` ; mécanisme réel des
+plafonds (`maxLength` = validation Pydantic + retry, 3 tentatives) ;
+horloges `from`/`to` et `title` ajoutés au grounding ; complétude 20 clés /
+22 positions du plan des tourelles ; mort du jungler (`victimId`) comme
+indice public ; `age_s` dédupliqué ; `into: [""]` filtré ; effectif `n`
+par catégorie ; perturbation `no_opponent_spike`.
 
 ## 1. Le problème
 
@@ -80,11 +88,19 @@ src/core/journal_signals.py   NOUVEAU, pur, 0 I/O
 src/core/turrets.py           NOUVEAU, pur : charge sr_turrets.json,
                               nearest_standing(), destroyed_at()
 
-src/core/game_journal.py      assemble : 4 appels de plus, aucune logique neuve
+src/core/game_journal.py      assemble : cinq appels de plus, aucune logique neuve
 src/core/champion_profiles.py load_items() gagne `finished: bool`
+src/04_coaching/mock_llm.py   gagne category/title par insight (make demo suit)
+src/pipeline_ops/build_demo_fixtures.py  trim_items garde en plus into/tags
 src/pipeline_ops/build_turret_map.py  NOUVEAU, one-shot, 0 API
 data/00_static/sr_turrets.json        NOUVEAU, force-add
 ```
+
+`journal_signals` reçoit l'index `_Timeline` de `game_journal` en duck-typing
+(sans l'importer : l'assembleur importe déjà les signaux, l'inverse serait
+circulaire). Le paramètre reste `items: dict | None = None` pour le catalogue :
+les fixtures de démo le transportent tel quel, `trim_items` doit donc garder
+`into` et `tags` dès que `_parse_items` les lit (cf. §6.2).
 
 `game_journal.py` fait déjà 417 lignes et assemble trois concerns. Y ajouter
 cinq dérivations le rendrait illisible. Le découpage suit la règle du dépôt :
@@ -124,6 +140,11 @@ position distincte par clé `(teamId, laneType, towerType)`, et deux pour
 `data/00_static/sr_turrets.json`. Il **échoue** si une clé présente plus d'une
 position pour une tourelle simple ou plus de deux pour une tourelle de nexus :
 cela signalerait un changement de carte, pas un fichier à écraser en silence.
+Il **échoue aussi si l'échantillon ne couvre pas les 20 clés / 22 positions**
+attendues sur la SR : une clé manquante biaiserait silencieusement
+`nearest_standing` (tourelle « debout » qui n'a jamais été observée tombée).
+Un balayage de 80 timelines les couvre toutes ; un `--limit` trop bas échoue
+donc, à juste titre, au lieu d'écrire une table incomplète.
 Idempotent, `--dry-run`. Le fichier est force-add au dépôt comme
 `champion_traits.json` : c'est une configuration source dérivée, pas une donnée.
 
@@ -165,6 +186,12 @@ Chaque entrée de `journal["recalls"]` gagne trois blocs.
 Fenêtre : de la frame à ou avant la visite (`m0 = t0 // 60000`) jusqu'à
 `m0 + 2`, soit 120 s. CS = `minionsKilled + jungleMinionsKilled`.
 
+La fenêtre inclut donc jusqu'à ~60 s de lane AVANT la visite : le CS gagné
+avant le recall dilue `cs_missed_est`. C'est un choix délibéré, documenté en
+tête de module : sous-estimer la perte vaut mieux qu'accuser à tort, et
+l'alternative (démarrer à la frame suivant la visite) surestimerait le CS
+qu'il était mécaniquement impossible de prendre.
+
 `expected_cs` = `baseline_cs_per_min * 2`, où `baseline_cs_per_min` est la
 **médiane des deltas de CS par minute de la partie, en excluant les minutes
 contenant un recall ou une mort**. Sans cette exclusion, la ligne de base est
@@ -190,15 +217,27 @@ ou si l'adversaire de lane n'est pas résolu.
 `finished` d'un objet, dans `champion_profiles.load_items` :
 
 ```python
-finished = (not item.get("into")
-            and item["gold"]["total"] >= FINISHED_MIN_COST   # 1600
-            and "Consumable" not in item.get("tags", []))
+into = it.get("into") or []
+finished = (not [i for i in into if i]          # successeurs non vides
+            and it["gold"]["total"] >= FINISHED_MIN_COST   # 1600
+            and "Consumable" not in it.get("tags", []))
 ```
+
+Les chaînes vides de `into` sont filtrées : Data Dragon a déjà marqué des
+objets finaux d'un `into: [""]` historique, et un simple `not into` les
+aurait classés composants. Vérifié sur 16.13.1 : aucun objet dans ce cas, et
+6 composants ≥1600 dotés d'un `into` (Seeker's, Shattered Armguard…), tous
+exclus à juste titre.
 
 `FINISHED_MIN_COST = 1600` est une constante de tête de module : elle écarte
 les bottes de tier 2 (1000 à 1100) et les composants sans successeur, tout en
 gardant les objets légendaires les moins chers. Un composant comme Noonquiver
 (1200) a un `into` non vide et serait de toute façon écarté.
+
+`build_demo_fixtures.trim_items` doit garder `into` et `tags` en plus du nom
+et du coût : « Ne garde que ce que `_parse_items` lit » est son contrat. Sans
+cela, la démo classerait fini tout objet ≥1600 (fausse divergence
+prod/démo, invisible au test de parité).
 
 ### 6.3 Contexte adverse et conséquence
 
@@ -228,19 +267,28 @@ Chaque entrée de `journal["deaths"]` gagne deux blocs.
 ```json
 "jungle_signals": {
   "champion": "Vi",
-  "last": {"type": "CHAMPION_KILL", "clock": "8:12", "age_s": 40,
-           "zone": "TOP", "same_side_as_death": false},
-  "age_s": 40
+  "age_s": 40,
+  "last": {"type": "CHAMPION_KILL", "clock": "8:12",
+           "zone": "TOP", "same_side_as_death": false}
 }
 ```
+
+`age_s` vit au niveau du bloc uniquement : c'est l'âge du dernier indice (ou
+depuis le début de partie s'il n'y en a pas). Le dupliquer dans `last`
+exposerait deux valeurs que le LLM pourrait croire contradictoires.
 
 Sont **publics**, donc admissibles :
 
 | Événement | Pourquoi le joueur le savait |
 |---|---|
 | `CHAMPION_KILL` où le jungler est tueur ou assistant | kill feed |
+| `CHAMPION_KILL` où le jungler est la victime | kill feed : un jungler mort ne peut pas ganker, c'est l'indice le plus fort |
 | `ELITE_MONSTER_KILL` de sa main | annonce et HUD |
 | `BUILDING_KILL`, `TURRET_PLATE_DESTROYED` de sa main | annonce |
+
+La mort du jungler est un indice sur son ancienne position uniquement : le
+bloc ne modélise PAS son respawn ni sa position après mort, et le prompt
+n'affirme jamais où il se trouve maintenant.
 
 Sont **exclus** : `WARD_KILL` (invisible hors vision), `LEVEL_UP`,
 `ITEM_PURCHASED`, et toute position de frame du jungler. C'est la ligne
@@ -287,7 +335,7 @@ interprétation.
 InsightCategory = Literal[
     "TRADE_LANE", "WAVE_MANAGEMENT", "TRACKING_JUNGLE",
     "POSITIONNEMENT_COMBAT", "ECONOMIE_RECALL", "BUILD_ACHATS",
-    "VISION", "OBJECTIFS", "EXECUTION_TEAMFIGHT", "GESTION_AVANCE_RETARD"]
+    "OBJECTIFS", "EXECUTION_TEAMFIGHT", "GESTION_AVANCE_RETARD"]
 
 class GameInsight(AnchoredInsight):
     category: InsightCategory
@@ -302,7 +350,23 @@ aujourd'hui. Les plafonds de longueur rendent le pavé de 900 caractères
 **invalide**, pas déconseillé : c'est la même mécanique qui a réglé le
 « je sais pas pourquoi je suis mort » en rendant `cause` obligatoire.
 
-`mistakes` passe de `min_length=3, max_length=3` à `min_length=1, max_length=5`.
+**`VISION` est retirée de la liste.** Le journal par-game ne contient aucune
+matière de vision ancrable (pas de `WARD_PLACED` du joueur ; les proxys
+`ML_ONLY` de `positioning` sont exclus par l'asymétrie) : une erreur
+`VISION` serait inévitablement non ancrée, tag « stat-inventée » assuré. Elle
+reviendra le jour où le journal portera des blocs de wards du joueur
+(asymétrie-safe : `WARD_PLACED` porte `participantId`), si le coaching de
+vision devient un objectif.
+
+**Mécanisme des plafonds.** La grammaire JSON d'Ollama contraint
+`minItems`/`maxItems`, pas `maxLength` sur les chaînes : les plafonds de
+longueur s'appliquent donc à la validation Pydantic, via le retry de
+`_generate` (tentatives rejetées comptées dans `schema_retries`). Pour
+absorber le surplus de contraintes de cette cohorte, `_generate` passe de 2 à
+**3 tentatives** : un pavé récidiviste coûte des tokens, pas la game.
+
+`mistakes` passe de `min_length=1, max_length=3` (état actuel ; c'est la
+`Review` agrégée qui est fixée à 3) à `min_length=1, max_length=5`.
 
 **Compatibilité.** Les 27 reviews déjà persistées n'ont ni `category` ni
 `title`. Elles ne sont jamais revalidées par Pydantic à la lecture
@@ -310,10 +374,39 @@ aujourd'hui. Les plafonds de longueur rendent le pavé de 900 caractères
 affiche ou agrège ces champs doit tolérer leur absence. C'est une exigence
 testée, pas une intention.
 
+**`make demo` suit ou casse.** `mock_llm._game_review` doit émettre
+`category` et `title` (obligatoires au schéma, la validation de la démo
+échouerait sinon) et citer au moins un bloc neuf quand il est présent (ex.
+`cs_cost` sur le recall choisi) : le mock n'est utile que parce qu'il
+traverse le vrai chemin et ne cite que du matériel réel. Le chemin
+multi-agents reste hors démo (le chef exige une sélection d'IDs que le mock
+ne produit pas), comme aujourd'hui.
+
+**Chemin multi-agents (`--specialized`).** `AxisReview` hérite de
+`GameReview` : `category`/`title` s'appliquent aux deux sous-agents sans
+travail supplémentaire, et `_axis_payload` laisse passer les morts et les
+recalls complets : les blocs neufs atteignent naturellement l'axe concerné.
+Trois conséquences à écrire :
+
+- `ChiefSelection.priority_mistake_ids` passe de `max_length=3` à
+  `max_length=5` : sans cela, la review finale assemblée resterait plafonnée
+  à 3 erreurs et la motivation du §1.3 ne vaudrait que pour le mono-agent.
+  `SYSTEM_CHIEF` suit (« 1 à 5 erreurs »).
+- **Deux empreintes bougent**, pas une : `GAME_PROMPT_VERSION` et
+  `SPECIALIZED_PROMPT_VERSION` (dérivée de `SYSTEM_GAME` + axes + chef,
+  donc entraînée par les mêmes règles). Les cohortes restent séparées par
+  `run.prompt_version`, comme aujourd'hui.
+- Les axes partagent la même liste fermée, sans restriction par axe : la
+  matière disponible dans la tranche de payload de chaque axe fait déjà le
+  tri (une erreur `TRACKING_JUNGLE` ne peut pas sortir de l'axe économie,
+  faute de `jungle_signals` ancrable dans sa tranche).
+
 ## 9. Prompt
 
 `SYSTEM_GAME` évolue ; `prompt.version_of` change donc d'empreinte et ouvre
-une cohorte. Modifications :
+une cohorte. **Deux empreintes bougent en fait** : `GAME_PROMPT_VERSION` et
+`SPECIALIZED_PROMPT_VERSION` (les axes dérivent de `SYSTEM_GAME`, cf. §8).
+Modifications :
 
 - **Règle 4 (recalls), étendue.** Une visite sans objet fini ne peut pas être
   citée en force. Elle devient une erreur `ECONOMIE_RECALL` seulement si le
@@ -328,29 +421,53 @@ une cohorte. Modifications :
   l'ancienneté du dernier indice, son côté de carte, l'absence du support, le
   dépassement de la tourelle extérieure. **Interdiction absolue d'affirmer
   quoi que ce soit sur la disponibilité des summoners** : la donnée n'existe
-  pas. Interdiction de prescrire à partir de `map_depth`.
+  pas. Interdiction de prescrire à partir de `map_depth`. Interdiction
+  d'affirmer où se trouve le jungler maintenant : le journal ne donne que des
+  indices datés.
 - **Nouvelle règle, une idée par erreur.** Chaque erreur porte une
-  `category` de la liste fermée et un `title` de 60 caractères. Deux
-  mécanismes distincts font deux erreurs, pas une longue. Regrouper reste
-  autorisé quand c'est le **même** mécanisme à plusieurs horodatages.
-- **Règle de format**, mise à jour : nouvelles clés, `mistakes` de 1 à 5.
+  `category` de la liste fermée et un `title` de 60 caractères. `title` est
+  l'ÉTIQUETTE standardisée du mécanisme (pour lire d'un coup d'œil et
+  compter entre parties) ; `point` est la LEÇON complète. Ne recopie pas
+  `point` dans `title`. Deux mécanismes distincts font deux erreurs, pas une
+  longue. Regrouper reste autorisé quand c'est le **même** mécanisme à
+  plusieurs horodatages.
+- **Règle de format**, mise à jour : nouvelles clés `category`/`title` sur
+  forces et erreurs, `mistakes` de 1 à 5 ; `SYSTEM_CHIEF` passe à « 1 à 5
+  erreurs ».
 
 ## 10. Évaluation et publication
 
 - **`grounding.py`** doit indexer les blocs neufs, sans quoi le taux
   d'ancrage chuterait artificiellement, exactement le piège rencontré la
-  semaine passée avec le bloc `damage`. Nouvelles unités à cloisonner : `cs`
-  (comptes de CS) et `distance` (unités de carte). Sans cloisonnement, une
-  distance de 2 850 ancrerait un montant de gold de 2 850. Nouveaux
-  horodatages à indexer : `jungle_signals.last.clock`,
-  `death_after_visit.clock`, `opponent_spike.clock`, `cs_cost.window`.
+  semaine passée avec le bloc `damage`. Les unités `cs` et `u` (distance)
+  existent déjà dans `UNITS`, et les blocs neufs héritent de la bonne unité
+  par leur nom de clé (`cs_cost` transmet `cs` à ses enfants, `distance` →
+  `u`) : le cloisonnement demandé est déjà en place pour eux. Deux vrais
+  chantiers :
+  - `_collect_clocks` ne collecte que les clés `clock` :
+    `cs_cost.window` (`{"from": "7:00", "to": "9:00"}`) est invisible.
+    Étendre la collecte aux clés `from`/`to` dont la valeur matche le
+    motif `mm:ss` (le garde-fou du motif évite de ramasser un `from`/`to`
+    étranger aux horloges). Les horodatages `jungle_signals.last.clock`,
+    `death_after_visit.clock` et `opponent_spike.clock` sont déjà couverts
+    par la collecte actuelle.
+  - `asymmetry_violations` n'examine que `point`/`cause`/`evidence` : un
+    `title` « surextension à répétition » échapperait au contrôle
+    descriptif. Ajouter `title` aux clés examinées.
 - **`feedback.py eval_report`** gagne `by_category` : taux d'utilité ventilé
   par catégorie, obtenu en joignant chaque `FeedbackItem (kind, index)` à la
   catégorie de l'insight correspondant de la review. Les items sans catégorie
-  (anciennes reviews) tombent dans un seau `"none"`.
-- **`web/cf/src/evaluation.ts`** publie la même ventilation, et
+  (anciennes reviews) tombent dans un seau `"none"`. **Chaque seau expose son
+  effectif `n`** : à 10-27 annotations sur 9 catégories, un taux sans effectif
+  est du bruit, la plupart des seaux seront vides ou presque.
+- **`web/cf/src/evaluation.ts`** publie la même ventilation (avec `n`), et
   `tests/test_eval_parity.py` verrouille les clés imbriquées entre les deux
   runtimes, comme il le fait déjà pour `by_prompt_version`.
+- **`counterfactual.py`** gagne une perturbation `no_opponent_spike` :
+  retirer les blocs `opponent_spike` des recalls du payload, régénérer, et
+  vérifier que le coach cesse de citer un spike adverse. Sans elle, les
+  blocs neufs passeraient l'éval de la cohorte sans jamais être testés en
+  sensibilité. Les sorties restent dans `eval/`, jamais dans `reviews.jsonl`.
 - **`web/frontend/`** affiche la catégorie en pastille et le titre en tête de
   chaque insight, avec repli propre sur les reviews sans catégorie.
 
@@ -358,16 +475,17 @@ une cohorte. Modifications :
 
 | Fichier | Ce qu'il verrouille |
 |---|---|
-| `tests/test_turret_map.py` | le balayage échoue sur position multiple ; `nearest_standing` ignore une tourelle tombée |
-| `tests/test_journal_signals.py` | fenêtre de CS, exclusion des minutes contaminées de la ligne de base, bloc omis en fin de partie ; `finished` sur bottes, composant, légendaire, consommable ; fenêtre de spike adverse ; dernier indice public et **exclusion des `WARD_KILL`** ; support absent et `beyond_own_outer_turret` |
+| `tests/test_turret_map.py` | le balayage échoue sur position multiple ET sur effectif incomplet (< 20 clés / 22 positions) ; `nearest_standing` ignore une tourelle tombée |
+| `tests/test_journal_signals.py` | fenêtre de CS, exclusion des minutes contaminées de la ligne de base, bloc omis en fin de partie ; `finished` sur bottes, composant, légendaire, consommable ET `into: [""]` ; fenêtre de spike adverse ; dernier indice public y compris la MORT du jungler (`victimId`), et **exclusion des `WARD_KILL`** ; support absent et `beyond_own_outer_turret` |
 | `tests/test_game_journal.py` | les blocs neufs apparaissent, et le journal reste identique sans catalogue injecté |
 | `tests/test_coaching_payload_game.py` | `build_game` transmet le catalogue et les blocs remontent au payload |
-| `tests/test_coaching_prompt.py` | les règles neuves sont présentes ; l'empreinte `version_of` a bougé |
-| `tests/test_coaching_schema.py` | catégorie hors liste rejetée ; `cause` de 400 caractères rejetée ; 5 erreurs acceptées, 6 rejetées |
-| `tests/test_grounding.py` | une distance n'ancre pas un gold ; les horodatages neufs sont reconnus ; le contrôle négatif reste calibré |
-| `tests/test_coaching_feedback.py` | `by_category` ; une review sans catégorie tombe dans `"none"` |
+| `tests/test_coaching_prompt.py` | les règles neuves sont présentes ; les DEUX empreintes ont bougé (`GAME_PROMPT_VERSION`, `SPECIALIZED_PROMPT_VERSION`) ; `SYSTEM_CHIEF` dit « 1 à 5 » |
+| `tests/test_coaching_schema.py` | catégorie hors liste rejetée ; `cause` de 400 caractères rejetée ; `title` de 61 rejeté ; 5 erreurs acceptées, 6 rejetées ; la sélection du chef accepte 5 erreurs, rejette 6 |
+| `tests/test_grounding.py` | une distance n'ancre pas un gold ; les horodatages neufs sont reconnus, y compris `window.from`/`window.to` ; un `title` descriptif est signalé par `asymmetry_violations` ; le contrôle négatif reste calibré |
+| `tests/test_coaching_feedback.py` | `by_category` avec effectif `n` par seau ; une review sans catégorie tombe dans `"none"` |
 | `tests/test_eval_parity.py` | clés imbriquées de `by_category` identiques Python et TypeScript |
-| `tests/test_demo.py` | `make demo` reste vert de bout en bout |
+| `tests/test_counterfactual.py` | `no_opponent_spike` : sans le bloc, le coach ne cite plus le spike adverse |
+| `tests/test_demo.py` | `make demo` reste vert de bout en bout ; les items des fixtures portent `into`/`tags`, le mock émet `category`/`title` |
 
 ## 12. Conséquences assumées
 
@@ -384,5 +502,8 @@ une cohorte. Modifications :
   en tient compte : le champ porte sa précision, la règle de prompt interdit
   le chiffre nu, et le jugement s'appuie d'abord sur `cs_diff_swing`, qui est
   relatif et donc robuste.
+- **`expected_cs` reste un float.** Le coach qui cite « 17 CS » pour 16,8 est
+  couvert par le repli d'arrondi de `classify_number` (`round(c) == value`),
+  vérifié : inutile de dériver un entier, la citation arrondie est légitime.
 - **`sr_turrets.json` est figé par patch.** Un remaniement de la carte ferait
   échouer `build_turret_map.py`, ce qui est le comportement voulu.

@@ -1,75 +1,116 @@
 # TODO — Coaching LoL
 
-> Suite logique après la **Phase 2 narration LLM** (merge `feat/llm-coaching`).
-> Source : spec `docs/superpowers/specs/2026-06-30-llm-coaching-narration-design.md` (§ Hors scope / Critères de succès) + `CLAUDE.md` (§ Prochaines étapes).
+> État au 2026-09-07. Ce fichier ne conserve que les travaux encore actionnables.
+> Les résultats historiques et fonctionnalités terminées sont documentés dans
+> `CLAUDE.md`, `docs/MODEL_CARD.md` et `src/04_coaching/README.md`.
 
-## ⚡ Immédiat — valider l'incrément narration (critères de succès non atteints)
+## ✅ Priorité 0 — incrément LLM enrichi validé (2026-09-07)
 
-- [x] **Premier run réel** — `deepseek-v4-pro` (commit `5ced84b`). A révélé que deepseek-v4-pro n'honore pas la contrainte `format` → prompt durci (règle 7 + règle 3 étendue à toutes les `descriptive_only`). Review conforme, asymétrie tenue, profondeur en observation neutre.
-- [x] **A/B modèles manuel** — même payload (spadzze/adc/loss) rejoué sur 4 modèles, tous conformes au schéma (3 forces / 3 erreurs / 2 habitudes) :
-  | Modèle | Conf. | Format | Profondeur (règle 3) | Benchmark contextuel | Note |
-  |---|---|---|---|---|---|
-  | `deepseek-v4-pro` | 0.60 | OK (après durcissement) | neutre « écart typique de rang » | non | baseline, plate |
-  | `glm-5.2` | 0.55 | OK natif | non mentionnée (sûr) | non | la plus concise, deltas bien mis en forme |
-  | `minimax-m3` | 0.50 | OK natif | non mentionnée (sûr) | **oui** (`all-in: -429g @10 vs +24g`) | narration la plus riche, exploite `context_benchmark` |
-  | `kimi-k2.6` | 0.60 | OK natif | **la meilleure** (« marqueurs descriptifs de ton rang, pas des fautes ») | non | respecte le plus fidèlement l'asymétrie/règle 3 ; plus lent (timeout) |
-  - **Verdict** : `kimi-k2.6` ≥ `minimax-m3` > `glm-5.2` > `deepseek-v4-pro`. Le durcissement du prompt est **model-agnostic** (les 4 honorent le schéma) → confirme la thèse projet « la qualité dépend du prompt+features, pas du modèle ». `minimax-m3` à privilégier si on veut exploiter le benchmark contextuel ; `kimi-k2.6` pour le respect maximal de l'asymétrie.
-  - Catalogue Ollama Cloud récupéré via `GET https://ollama.com/api/tags` (35 modèles) ; pas de `kimi-k2.7` général (existe en `-code`), `kimi-k2.6` retenu.
-  - Reste à faire : vérifier `OLLAMA_MODEL` du `.env` (correctif `1ca1973`) — poser `OLLAMA_MODEL=kimi-k2.6` et lancer sans `--model`.
+Lot frais de 10 reviews par-game généré sous la cohorte de prompt `350f7c404b5b`
+(`kimi-k2.6`), évalué automatiquement AVANT toute annotation humaine :
 
-## 🚧 Court terme — fermer la boucle d'évaluation (le vrai goulot)
+- **Éval automatique** : ancrage des nombres 97,2 % (252 nombres, 92,5 % exacts),
+  horodatages 99,3 % (134 horloges), 0 violation d'asymétrie
+  (`grounding.py --player spadzze --kind game --prompt-version 350f7c404b5b`) ;
+  contrefactuels 3 runs, sensibilité 1,00, ancrage 93,1 %
+  (`data/07_coaching/spadzze/eval/counterfactual.json`).
+- **Annotation humaine** : 10/10 reviews annotées, 100 % de `mistakes` utiles (40 items),
+  contre 96,4 % pour la cohorte antérieure `none` (12 reviews). Critère produit
+  (≥70 % sur ≥10 reviews) atteint.
+- Les deux cohortes restent deux populations **observées** : games, payload et prompt ont
+  changé ensemble, l'écart n'est pas attribuable au seul prompt.
 
-- [x] **Scoring d'utilité** — boucle de feedback « ce conseil était-il juste / utile ? » ✅
-  - Implémenté : `src/04_coaching/feedback.py` (CLI `annotate`/`summary`), schéma
-    `Feedback`/`FeedbackItem` dans `schema.py`. CLI interactive par-insight (9 items,
-    `y/n/s` + tag fixe `NEG_TAGS` + note sur faux), persiste
-    `data/07_coaching/<player>/feedback.jsonl` (1 ligne/review, réannotation écrase par `ts`).
-  - `summary` agrège : taux global, par section, top tags (signal actionnable pour durcir
-    le prompt), par modèle, tendance (5 dernières vs précédentes, low_sample `<10`).
-  - Spéc : `docs/superpowers/specs/2026-06-30-utility-scoring-design.md`.
-  - Objectif atteint : pouvoir dire si le coach s'améliore (intrinsèquement vérifiable
-    grâce au benchmark challenger, contrairement aux opinions absolues).
-  - **Reste à faire** : nourrir la boucle (annoter les vraies reviews Spadzze au fil de
-    l'usage), puis itérer le prompt sur les top tags dominants.
-- [ ] **Compte-rendu par-game** (fin de partie) — incrément payload par-game, pas seulement agrégé.
-  - Nécessite un payload par game (1 game → 1 review) en plus du payload agrégé N games.
-  - Réutiliser `payload.build` en mode « single game » (ou un `build_one`).
+Reste facultatif : `model_ab.py --player spadzze --n 3` (`kimi-k2.6` vs `glm-5.3`) si le
+choix du modèle doit être rouvert. Le payload y est contrôlé, la mesure porte sur ancrage,
+sensibilité, schéma et latence.
 
-## 🔧 Consolidation technique
+## ⚡ Priorité 0 bis — exploiter le feedback de lecture des 10 reviews
 
-- [ ] **Refactor `compare.py`** — exposer une fonction de données partagée plutôt que dupliquer la logique « delta saillant » entre `compare` et `payload._*_signals`. Recouvrement assumé aujourd'hui (consommateurs distincts) ; à mutualiser maintenant que les deux existent.
-- [ ] **Industrialisation** — poursuivre la migration vers Pydantic + Parquet/DuckDB (cf. Notes de développement CLAUDE.md) : `04_dataset` Parquet, `05_model`, flux consolidé.
-- [ ] **Robustesse ML/SHAP** — valider la qualité des **prescriptions SHAP vs heuristiques** (les features sont là, mais la pertinence des prescriptions reste à valider).
+Design validé et amendé :
+`docs/superpowers/specs/2026-09-05-coaching-recalls-tracking-categories-design.md`
+(recalls jugés aux CS perdues et au spike adverse, jungle tracking, erreurs découpées et
+titrées par catégorie). Rien n'est implémenté : ni `src/core/turrets.py`, ni
+`src/core/journal_signals.py`, ni la table `data/00_static/sr_turrets.json`.
 
-## 📊 Données — densifier si besoin
+- [ ] **Écrire le plan** depuis la spec amendée, puis l'exécuter en TDD.
+- [ ] **Regénérer un lot** sous la nouvelle empreinte de prompt et le comparer à la cohorte
+  `350f7c404b5b` comme troisième population observée (le seuil ≥70 % est déjà atteint : la
+  question devient la précision des recalls et la lisibilité des erreurs, pas l'utilité).
+- [ ] **Décider du coût d'une mise à jour globale** côté site. Le verrou `CoachGate` et le
+  coaching unitaire à la demande évitent la régénération de 30 games d'un clic ; il reste à
+  fixer si un bouton « tout mettre à jour » existe, et sous quel plafond.
 
-- [ ] **Benchmark Zeri** densifié (sampling champion ciblé) si la slice `zeri` reste trop fine pour des conseils fiables.
-- [ ] **Vérifier l'équilibrage des classes (ML)** : nous avons probablement beaucoup plus de games en Diamond et Challenger qu'en Master et GM, ce qui pourrait déséquilibrer l'entraînement et les prédictions.
+## 🔎 Priorité 1 — corriger le diagnostic ML avant de réentraîner
 
-## 🌐 Dev web & Production — Cloudflare Worker + KV + SPA Alpine.js ✅
+- [ ] **Corriger le faux positif `dataset_report` 1 345 → 982.** Le split canonique contient
+  l'union des datasets rang + LP (1 345 joueurs), alors que le classifieur de rang consomme
+  `adc_player_dataset.parquet` (982 joueurs). `model_crosscheck` additionne aujourd'hui toute
+  l'union au lieu de l'intersecter avec la population réellement consommée.
+  - Population rang actuelle attendue après intersection : train 687, calibration 148,
+    test 147, total 982.
+  - Ne pas conclure à une dérive ni réentraîner sur la seule différence 1 345/982.
+- [ ] **Ajouter une identité de dataset aux artefacts ML** (empreinte des `puuid`, features,
+  seuil `MIN_PLAYER_GAMES`, split et fenêtre de données). Déclencher un réentraînement
+  seulement si cette identité ou le protocole diffère réellement du modèle servi.
+- [ ] **Décider explicitement de la politique temporelle.** Les données actuelles viennent
+  uniquement du patch 16.13 et ont environ 60–73 jours : soit le modèle est une étude figée
+  sur ce patch et on le documente, soit il est servi comme produit courant et il faut définir
+  un cycle collecte → rebuild → évaluation held-out → publication.
 
-> Infrastructure de production déployée sur **Cloudflare Worker** (`web/cf/`) + Cloudflare KV (`DATA`) + SPA Alpine.js (`web/frontend/`) sur `https://coaching-lol.jeanvg.fr`.
-> Migration complète depuis Fly.io effectuée le 2026-08-31 (voir `docs/superpowers/specs/2026-08-30-cloudflare-migration-design.md` et `web/README.md`).
-> L'ancien backend FastAPI (`web/backend/`) est archivé (remplacé par le Worker TypeScript).
+## 📊 Priorité 2 — données et objectif ML
 
-- [x] **Cadrage fonctionnel V1** — un compte = un slug (`spadzze`...), endpoints `/api/accounts`, `/api/c/{slug}/games`, `/api/c/{slug}/rank`, `/api/c/{slug}/predicted-rank`, `/api/c/{slug}/reviews`, `/api/c/{slug}/shap`.
-- [x] **Streaming SSE** — streaming temps réel du coaching Ollama via SSE (`POST /api/coach`).
-- [x] **Stockage KV & Découplage** — KV stocke les données exposées, le calcul lourd ML et les appels Riot restent locaux et sont synchronisés via `src/collection/refresh_cloudflare.py` / `sync_cloudflare.py`.
-- [x] **Frontend SPA** — Interface Alpine.js, Chart.js et CSS custom (`web/frontend/`).
-- [x] **Boucle de feedback** — `POST /api/feedback` avec rate-limiting par IP.
-- [x] **Migration Cloudflare Worker** — Worker TypeScript autonome servant API + assets statiques sur domaine personnalisé `https://coaching-lol.jeanvg.fr`.
+- [ ] **Choisir une frontière de rang défendable avant de collecter davantage.**
+  - Grandmaster est une population structurellement petite : ne pas créer de ticket
+    « densifier GM » impossible à fermer.
+  - Pour une frontière Master/GM, fusionner GM avec Master ou Challenger selon la question,
+    ou collecter plusieurs régions si une estimation GM spécifique est indispensable.
+  - La frontière `dia_chall` est la seule clairement séparable aujourd'hui (AUC ≈0,72 contre
+    ≈0,59 pour `high_elo`) : densifier Diamond est pertinent uniquement si elle devient
+    l'objectif principal.
+- [ ] **Reformuler la robustesse SHAP.** SHAP explique actuellement le profil ML ; il ne doit
+  pas devenir automatiquement une prescription. Mesurer la stabilité des directions entre
+  folds, graines, modèles et patches, puis confronter uniquement les features
+  `COACHING_SAFE` aux heuristiques et au feedback humain.
 
-## 🟦 Phase 2 — CV / Live Client (gated)
+### Pas de densification à lancer actuellement
 
-- [ ] **Computer vision pour les trous** — uniquement si le coach basé timeline **démontre sa valeur** (boucle d'éval positive). Sinon le problème vient des features, pas de la vision.
-  - Cibles : cooldowns exacts, skillshots loupés/touchés, micro-position entre frames 60 s, zone de caméra.
-  - Piste maligne : rejouer depuis les **replays `.rofl`** en mode spectateur (Live Client API + caméra disponibles, sans impacter la game live).
-  - ToS Riot : overlay en lecture seule, **aucune automatisation d'input**.
+- **Zeri référentiel** : déjà 454 à 1 385 games selon le rang ; les principaux buckets de
+  contexte sont au-dessus du seuil de repli. Densifier seulement après un changement de patch
+  ou si une nouvelle sous-slice tombe sous son seuil d'effectif.
+- **Zeri personnel** : 24 games pour Spadzze. Ce manque se résorbe par l'usage/collecte du
+  joueur, pas par davantage de référentiel.
+- **Équilibre binaire** : le dataset per-player est déjà équilibré à 491 high / 491 low.
+  Le sujet restant est la définition de la frontière, pas un undersampling supplémentaire.
 
-## ✅ Déjà fait (référence)
+## 🔧 Priorité 3 — maintenance opportuniste
 
-- Phase 1 validée (positionnement reconstruit sans vision, AUC dia_chall 0.655 → 0.724).
-- Référentiels multi-rangs (~4454 games / patch 16.13, Diamond→Challenger).
-- ML/SHAP industrialisé (Ensemble XGBoost/RF/EBM, dataset densifié ~7 873 rows).
-- Macro-positionnement (17 features, manifeste COACHING_SAFE/ML_ONLY).
-- **Narration LLM** (Ollama Cloud, `deepseek-v4-pro`, structured output, Review typée Pydantic, persistance `data/07_coaching/`). Asymétrie gardée bout-en-bout.
+- [ ] **Mutualiser `compare.py` et `payload._*_signals`** seulement lors de la prochaine
+  évolution des signaux/seuils. Le recouvrement existe, mais les consommateurs sont distincts
+  et les tests de parité réduisent le risque immédiat.
+- [ ] **Remplacer “industrialisation Pydantic + Parquet/DuckDB” par des tickets concrets**
+  lorsqu'un défaut observé le justifie. Parquet, `04_dataset`, `05_model` et les schémas
+  Pydantic du coaching sont déjà en place ; DuckDB n'est pas nécessaire au volume courant.
+- [ ] **Nettoyer la documentation devenue incohérente** : volumes historiques obsolètes,
+  critères d'évaluation désormais atteints et sens de `avg/max_map_depth` (valeur haute =
+  marqueur plus Diamond/risqué dans le code, jamais une prescription positive).
+
+## 🟦 Phase 2 — Computer vision / Live Client (gated)
+
+Le gate d'utilité global est atteint, mais cela ne suffit pas à justifier la CV. Les derniers
+feedbacks connus sur le manque de causalité étaient adressables avec les données Riot et ont
+motivé l'enrichissement LLM actuel.
+
+- [ ] **N'ouvrir qu'un spike CV ciblé** si le nouveau lot fait ressortir des erreurs récurrentes
+  dues à une information réellement absente de l'API : cooldown exact, skillshot, micro-position
+  entre frames ou zone de caméra.
+  - Préférer les replays `.rofl` en spectateur pour mesurer le gain hors game live.
+  - Définir avant le spike une métrique et un exemple de conseil rendu possible par la CV.
+  - Respecter les ToS Riot : lecture seule, aucune automatisation d'input.
+
+## ✅ Acquis à ne plus remettre dans la file de travaux
+
+- Reviews agrégées et par-game (`--game`, `--game-batch`), agents spécialisés optionnels.
+- Payload enrichi : dégâts fatals, matchup, sorts/runes/build et prochain achat réel.
+- Structured output, validation Pydantic, grounding, contrefactuels et feedback humain.
+- Cloudflare Worker + KV + SPA, streaming SSE et chat coaching asymétrie-safe.
+- Pipeline Parquet/ML/SHAP et manifeste `COACHING_SAFE` / `ML_ONLY`.
