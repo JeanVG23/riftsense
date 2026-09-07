@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import statistics
 
-from riotlib import clock_of, cs_of
+from riotlib import approx_zone, clock_of, cs_of
 
 PRECISION_CS = 2          # plancher impose par des frames a 60 s
 CS_WINDOW_MIN = 2         # fenetre de mesure d'un recall : 120 s
@@ -144,3 +144,61 @@ def death_after_visit(death_times: list[int], t0: int) -> dict | None:
         if t0 < t <= t0 + RECALL_DEATH_WINDOW_S * 1000:
             return {"clock": clock_of(t), "delta_s": round((t - t0) / 1000)}
     return None
+
+
+# Événements du jungler ennemi que le joueur A VUS. `WARD_KILL` est absent, et
+# doit le rester : il est invisible hors vision. `LEVEL_UP` et `ITEM_PURCHASED`
+# aussi. Aucune position de frame du jungler n'entre ici.
+PUBLIC_JUNGLE_EVENTS = ("CHAMPION_KILL", "ELITE_MONSTER_KILL",
+                        "BUILDING_KILL", "TURRET_PLATE_DESTROYED")
+_HALVES = {"TOP": "TOP", "BOT": "BOT"}
+
+
+def _same_side(zone: str, death_zone: str) -> bool:
+    """Même moitié de carte (TOP contre BOT). MID et JUNGLE/RIVER n'ont pas de
+    moitié : la comparaison est alors fausse plutôt qu'inventée."""
+    left, right = _HALVES.get(zone), _HALVES.get(death_zone)
+    return bool(left and right and left == right)
+
+
+def _is_public_clue(ev: dict, jungle_pid: int) -> bool:
+    etype = ev.get("type")
+    if etype == "CHAMPION_KILL":
+        # Victime incluse : le kill feed l'annonce, et un jungler mort ne peut
+        # pas ganker. C'est l'indice le plus fort du bloc.
+        involved = ({ev.get("killerId"), ev.get("victimId")}
+                    | set(ev.get("assistingParticipantIds") or []))
+        return jungle_pid in involved
+    if etype in PUBLIC_JUNGLE_EVENTS:
+        return ev.get("killerId") == jungle_pid
+    return False
+
+
+def jungle_signals(tl, jungle_pid: int | None, champion: str | None,
+                   t_ms: int, death_zone: str) -> dict | None:
+    """Dernier indice PUBLIC du jungler ennemi avant `t_ms`, et son ancienneté.
+
+    Le bloc dit où le jungler a été VU, jamais où il se trouve maintenant :
+    la mort du jungler renseigne son ancienne position, pas son respawn.
+
+    `age_s` vit au niveau du bloc uniquement. Le dupliquer dans `last`
+    exposerait deux valeurs que le LLM pourrait croire contradictoires.
+    """
+    if jungle_pid is None:
+        return None
+    last, last_t = None, None
+    # Borne haute a `t_ms - 1` : la mort analysee est elle-meme un
+    # `CHAMPION_KILL` du jungler quand c'est lui qui gank. L'inclure rendrait
+    # `age_s` nul par construction et l'indice tautologique.
+    for ev in tl.events_between(-1, t_ms - 1):
+        if not _is_public_clue(ev, jungle_pid):
+            continue
+        pos = ev.get("position") or {}
+        zone = approx_zone(pos.get("x", 0), pos.get("y", 0))
+        last_t = ev.get("timestamp", 0)
+        last = {"type": ev.get("type"), "clock": clock_of(last_t),
+                "zone": zone, "same_side_as_death": _same_side(zone, death_zone)}
+    # Aucun indice : l'age compte depuis le debut de la partie, ce qui est
+    # l'information reelle (« tu n'as pas vu ce jungler depuis 9 minutes »).
+    age_ms = t_ms - last_t if last_t is not None else t_ms
+    return {"champion": champion, "age_s": round(age_ms / 1000), "last": last}

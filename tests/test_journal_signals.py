@@ -151,3 +151,98 @@ def test_death_after_visit_takes_the_first_death_in_the_window():
     assert S.death_after_visit([t0 + 91000], t0) is None
     assert S.death_after_visit([t0], t0) is None, "la mort doit suivre la visite"
     assert S.death_after_visit([], t0) is None
+
+
+class _FakeTimeline:
+    """Duck-typing de `game_journal._Timeline` : seule `events_between` est lue."""
+
+    def __init__(self, events):
+        self.events = sorted(events, key=lambda ev: ev["timestamp"])
+
+    def events_between(self, t0, t1):
+        return [ev for ev in self.events if t0 < ev["timestamp"] <= t1]
+
+    def frame_before(self, t_ms):
+        return getattr(self, "frame", None)
+
+
+JUNGLE = 10          # pid du jungler ennemi
+BOT_XY = {"x": 13000, "y": 2000}
+TOP_XY = {"x": 2000, "y": 13000}
+
+
+def _kill(t_ms, victim, killer, assists=(), pos=None):
+    return {"type": "CHAMPION_KILL", "timestamp": t_ms, "victimId": victim,
+            "killerId": killer, "assistingParticipantIds": list(assists),
+            "position": dict(pos or BOT_XY)}
+
+
+def test_jungle_signals_reads_the_last_public_clue():
+    tl = _FakeTimeline([
+        _kill(4 * 60000, victim=3, killer=JUNGLE, pos=BOT_XY),
+        _kill(8 * 60000 + 12000, victim=4, killer=JUNGLE, pos=TOP_XY),
+    ])
+    out = S.jungle_signals(tl, JUNGLE, "Vi", t_ms=8 * 60000 + 52000,
+                           death_zone="BOT")
+    assert out == {"champion": "Vi", "age_s": 40,
+                   "last": {"type": "CHAMPION_KILL", "clock": "8:12",
+                            "zone": "TOP", "same_side_as_death": False}}
+
+
+def test_jungle_signals_counts_the_death_of_the_jungler_as_a_clue():
+    """Le kill feed l'annonce, et un jungler mort ne peut pas ganker."""
+    tl = _FakeTimeline([_kill(7 * 60000, victim=JUNGLE, killer=2, pos=TOP_XY)])
+    out = S.jungle_signals(tl, JUNGLE, "Vi", t_ms=7 * 60000 + 30000,
+                           death_zone="TOP")
+    assert out["last"]["type"] == "CHAMPION_KILL"
+    assert out["last"]["same_side_as_death"] is True
+    assert out["age_s"] == 30
+
+
+def test_jungle_signals_accepts_objectives_and_buildings_of_his_hand():
+    for etype, extra in (("ELITE_MONSTER_KILL", {"monsterType": "DRAGON"}),
+                         ("BUILDING_KILL", {"towerType": "OUTER_TURRET"}),
+                         ("TURRET_PLATE_DESTROYED", {})):
+        tl = _FakeTimeline([{"type": etype, "timestamp": 6 * 60000,
+                             "killerId": JUNGLE, "position": dict(BOT_XY),
+                             **extra}])
+        out = S.jungle_signals(tl, JUNGLE, "Vi", t_ms=6 * 60000 + 10000,
+                               death_zone="BOT")
+        assert out["last"]["type"] == etype, etype
+
+
+def test_jungle_signals_excludes_ward_kills_and_private_events():
+    """`WARD_KILL` est invisible hors vision : l'admettre casserait l'asymetrie."""
+    tl = _FakeTimeline([
+        {"type": "WARD_KILL", "timestamp": 8 * 60000, "killerId": JUNGLE,
+         "position": dict(BOT_XY)},
+        {"type": "LEVEL_UP", "timestamp": 8 * 60000 + 10000, "participantId": JUNGLE},
+        {"type": "ITEM_PURCHASED", "timestamp": 8 * 60000 + 20000,
+         "participantId": JUNGLE, "itemId": 1055},
+    ])
+    out = S.jungle_signals(tl, JUNGLE, "Vi", t_ms=9 * 60000, death_zone="BOT")
+    assert out["last"] is None
+    # Aucun indice : l'age compte depuis le debut de la partie.
+    assert out["age_s"] == 540
+
+
+def test_jungle_signals_ignores_the_death_being_analysed():
+    """Le gank lui-meme n'est pas un indice prealable : sinon age_s = 0 toujours."""
+    t_death = 9 * 60000
+    tl = _FakeTimeline([_kill(t_death, victim=1, killer=JUNGLE),
+                        _kill(6 * 60000, victim=3, killer=JUNGLE)])
+    out = S.jungle_signals(tl, JUNGLE, "Vi", t_ms=t_death, death_zone="BOT")
+    assert out["last"]["clock"] == "6:00"
+    assert out["age_s"] == 180
+
+
+def test_jungle_signals_is_none_without_a_resolved_jungler():
+    assert S.jungle_signals(_FakeTimeline([]), None, None, 60000, "BOT") is None
+
+
+def test_jungle_signals_never_duplicates_the_age():
+    """`age_s` vit au niveau du bloc uniquement : le dupliquer dans `last`
+    exposerait deux valeurs que le LLM pourrait croire contradictoires."""
+    tl = _FakeTimeline([_kill(4 * 60000, victim=3, killer=JUNGLE)])
+    out = S.jungle_signals(tl, JUNGLE, "Vi", t_ms=5 * 60000, death_zone="BOT")
+    assert "age_s" not in out["last"]
