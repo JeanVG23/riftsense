@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { NEG_TAGS, reviewJsonSchema, validateGameReview, validateReview } from "../src/schema";
+import {
+  gameReviewJsonSchema, NEG_TAGS, reviewJsonSchema, validateGameReview, validateReview,
+} from "../src/schema";
 
 const INSIGHT = (point: string, evidence: string) => ({ point, evidence });
 
@@ -78,6 +80,26 @@ describe("validateGameReview", () => {
       ...validGameReview(),
       strengths: [{ point: "bon timing", evidence: "12:30" }],
     })).toBeNull();
+  });
+
+  it("exige une cause non vide et un horaire dans chaque preuve", () => {
+    expect(validateGameReview({
+      ...validGameReview(), mistakes: [{ point: "m", cause: "  ", evidence: "12:30" }],
+    })).toBeNull();
+    expect(validateGameReview({
+      ...validGameReview(), mistakes: [{ point: "m", cause: "c", evidence: "sans heure" }],
+    })).toBeNull();
+  });
+});
+
+describe("gameReviewJsonSchema", () => {
+  it("reflète les bornes et l'ancrage de GameReview", () => {
+    const schema = gameReviewJsonSchema() as any;
+    expect(schema.properties.strengths).toMatchObject({ maxItems: 2 });
+    expect(schema.properties.mistakes).toMatchObject({ minItems: 1, maxItems: 3 });
+    expect([...schema.properties.mistakes.items.required].sort())
+      .toEqual(["cause", "evidence", "point"]);
+    expect(schema.properties.mistakes.items.properties.evidence.pattern).toContain("\\d");
   });
 });
 

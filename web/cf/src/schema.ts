@@ -1,5 +1,7 @@
 /** Validation Review — miroir strict de src/04_coaching/schema.py. */
 
+import { GAME_REVIEW_SCHEMA, REVIEW_SCHEMA } from "./generated/shared";
+
 export interface Insight {
   point: string;
   evidence: string;
@@ -55,7 +57,9 @@ function isConfidence(value: unknown): value is number {
 
 function isGameInsight(value: unknown): value is GameInsight {
   return isInsight(value)
-    && typeof (value as GameInsight).cause === "string";
+    && typeof (value as GameInsight).cause === "string"
+    && (value as GameInsight).cause.trim() !== ""
+    && /\d+:\d\d/.test((value as GameInsight).evidence);
 }
 
 export function validateReview(raw: unknown): Review | null {
@@ -97,31 +101,12 @@ export function validateGameReview(raw: unknown): GameReview | null {
   };
 }
 
+// Les schémas sont dérivés de Pydantic (src/04_coaching/schema.py) : une contrainte
+// de génération est déclarée une seule fois, du côté qui fait aussi la validation.
 export function reviewJsonSchema(): Record<string, unknown> {
-  const insight = {
-    type: "object",
-    properties: {
-      point: { type: "string" },
-      evidence: { type: "string" },
-    },
-    required: ["point", "evidence"],
-    additionalProperties: false,
-  };
-  return {
-    type: "object",
-    properties: {
-      strengths: { type: "array", minItems: 1, maxItems: 3, items: insight },
-      mistakes: { type: "array", minItems: 3, maxItems: 3, items: insight },
-      habits: {
-        type: "array",
-        minItems: 2,
-        maxItems: 2,
-        items: { type: "string" },
-      },
-      next_focus: { type: "string" },
-      confidence: { type: "number", minimum: 0, maximum: 1 },
-    },
-    required: ["strengths", "mistakes", "habits", "next_focus", "confidence"],
-    additionalProperties: false,
-  };
+  return REVIEW_SCHEMA;
+}
+
+export function gameReviewJsonSchema(): Record<string, unknown> {
+  return GAME_REVIEW_SCHEMA;
 }
