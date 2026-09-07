@@ -45,7 +45,7 @@ GAMES   ?= 5
 ROUNDS  ?= 5
 PAUSE   ?= 10
 
-.PHONY: help demo demo-clean test lint fixtures \
+.PHONY: help demo demo-clean test lint fixtures generate-shared \
         pipeline plan silver gold dataset split models report \
         collect lp-label sync sync-push graph force
 
@@ -69,6 +69,7 @@ help:
 	@echo "  make test      pytest + vitest"
 	@echo "  make lint      ruff + typecheck TypeScript"
 	@echo "  make fixtures  régénère tests/fixtures/demo depuis les données locales"
+	@echo "  make generate-shared  prompts + schemas partages -> Worker"
 
 # ---------------------------------------------------------------- démo ---------
 
@@ -210,9 +211,11 @@ lp-label:
 	$(PY) src/collection/fetch_apex_lp.py --region $(REGION)
 
 sync:
+	@echo "→ payloads unitaires reconstruits depuis le cache raw local (0 appel Riot)"
 	$(PY) src/collection/sync_cloudflare.py --dry-run --push-coaching
 
 sync-push:
+	@echo "→ payloads unitaires reconstruits depuis le cache raw local (0 appel Riot)"
 	$(PY) src/collection/sync_cloudflare.py --push-coaching
 
 # -------------------------------------------------------------- qualité --------
@@ -221,6 +224,12 @@ sync-push:
 # poste qui collecte. L'audit de pseudonymisation tourne à la fin.
 fixtures:
 	@$(PY) src/pipeline_ops/build_demo_fixtures.py
+
+# Prompts + schémas partagés (0 réseau, 0 API, idempotent) : source de vérité pour
+# les deux runtimes. À relancer après toute modification de shared/prompts/*.txt ou
+# de src/04_coaching/schema.py.
+generate-shared:
+	@$(PY) src/pipeline_ops/generate_shared.py
 
 test:
 	@$(PY) -m pytest tests/ -q

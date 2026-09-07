@@ -194,6 +194,8 @@ web/
   cf/             Worker TypeScript de production : API, assets, KV, Ollama SSE
                   (src/http.ts = réponses d'erreur + pagination partagées)
   frontend/       SPA statique servie par le Worker
+shared/         prompts/*.txt (source de vérité, lue par prompt.py ET par le Worker)
+                + schemas/*.json (générés depuis Pydantic)
 config/           accounts.json (ignoré, données perso) + accounts.example.json (gabarit)
 ```
 ⚠️ `web/backend/` (FastAPI, ère Fly.io) a été SUPPRIMÉ le 2026-09-04. Les trois modules
@@ -256,7 +258,8 @@ Renommer un dossier data SANS mettre à jour le code → le code recrée l'ancie
   actif : la déplacer se fait ICI, ces constantes étaient recopiées dans ~11 scripts.
 - **`cli.py`** — `arg`/`flag`/`int_arg`/`csv_arg` : parseur argv des scripts de collecte
   (recopié à l'identique dans 7 fichiers). `live_capture.py` garde sa copie (stdlib-only assumé).
-- **`kv_keys.py`** — gabarits des clés Cloudflare KV côté Python (`key("gold", slug=…, scope=…)`).
+- **`kv_keys.py`** — gabarits des clés Cloudflare KV côté Python (`key("gold", slug=…, scope=…)`),
+  dont le bundle local `coaching:{slug}:game-payloads` consommé par le coaching unitaire web.
   Miroir de `KEYS` dans `web/cf/src/readers.ts`, verrouillé par `tests/test_kv_keys_parity.py`
   (deux runtimes = deux tables, mais toute divergence de nom/gabarit fait échouer le test).
 
@@ -332,6 +335,12 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   portent, parce qu'un joueur nommé « Aatrox » ferait réécrire le `championName` de toutes
   les games par un remplacement global. `audit()` relit ce qui a été écrit et échoue sur
   survivance ; `tests/test_demo.py` rejoue ce contrôle à chaque run.
+- **`generate_shared.py`** : sérialise les artefacts partagés entre les deux runtimes,
+  `shared/prompts/*.txt` + les schémas Pydantic -> `shared/schemas/*.json` et
+  `web/cf/src/generated/shared.ts` (committé, pour que `wrangler deploy` ne dépende
+  d'aucun runtime Python). `make generate-shared`. La parité est vérifiée par
+  `tests/test_shared_contract.py`, qui compare le fichier généré sur disque à ce que
+  le générateur produit : un prompt modifié sans régénération échoue en CI.
 
 ### Modules `reporting/` et `experiments/`
 
@@ -383,12 +392,20 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
 - **`04_coaching/`** : narration LLM (Ollama Cloud, structured output).
   `payload.py` (gold perso+réf → payload déterministe, **safe-only** : positioning ⊂
   COACHING_SAFE, profondeur `descriptive_only`), `prompt.py` (system asymétrie + benchmark-relatif,
-  FR), `schema.py` (Pydantic : `Review` 1-3 forces / 3 erreurs / 2 habitudes / 1 focus / confidence,
-  **preuve chiffrée par point** — forcer exactement 3 forces poussait au remplissage, cause du tag
-  feedback « trop-vague » ; `GameReview` 0-2 forces / 1-3 erreurs `GameInsight` — **`cause`
-  obligatoire (POURQUOI : mécanisme de mort / comportement) + horodatage mm:ss dans l'evidence,
-  sur forces ET erreurs** (réponse feedback « je sais pas pourquoi je suis mort ») ;
-  pas de habits sur 1 game ; `Feedback`/`FeedbackItem`),
+  FR ; **le texte des prompts vit dans `shared/prompts/*.txt`**, `prompt.py` ne fait que le lire
+  et stripper le newline final, exactement comme le Worker via `web/cf/src/generated/shared.ts` :
+  un seul texte pour les deux runtimes), `schema.py` (Pydantic : `Review` 1-3 forces / 3 erreurs /
+  2 habitudes / 1 focus / confidence, **preuve chiffrée par point** — forcer exactement 3 forces
+  poussait au remplissage, cause du tag feedback « trop-vague » ; `GameReview` 0-2 forces / 1-3
+  erreurs `GameInsight` — **`cause` obligatoire (POURQUOI : mécanisme de mort / comportement) +
+  horodatage mm:ss dans l'evidence, sur forces ET erreurs** (réponse feedback « je sais pas
+  pourquoi je suis mort ») ; pas de habits sur 1 game ; `Feedback`/`FeedbackItem`.
+  `review_json_schema()`/`game_review_json_schema()` renvoient désormais le schéma **strict**
+  (inliné : `$defs`/`$ref` résolus, sans `title`/`description`, `additionalProperties: false`,
+  contrainte mm:ss portée par un `pattern` du schéma plutôt que par un validateur seul) : c'est
+  ce schéma, sérialisé une fois, que consomme aussi le Worker. `schema_version_of` +
+  `REVIEW_SCHEMA_VERSION`/`GAME_REVIEW_SCHEMA_VERSION` = empreinte sha256 du schéma, au même
+  titre que `prompt.version_of` pour le prompt),
   `grounding.py` (vérifications d'ancrage, 0 réseau), `counterfactual.py` (tests
   contrefactuels, 1 appel par perturbation),
   `llm_client.py` (client `https://ollama.com/api/chat`, `OLLAMA_API_KEY`, `format`=JSON-schema,
@@ -397,10 +414,16 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   `feedback.py` (CLI `annotate`/`summary` : boucle d'éval par-insight).
   **Traçabilité des runs** : chaque review persistée porte un bloc `run`
   (`prompt_version` = empreinte sha256 du system prompt via `prompt.version_of`, donc
-  impossible à oublier de bumper ; `latency_ms`/`total_tokens` cumulés **retries de schéma
-  inclus** ; `schema_retries` ; `cost_usd` = `None` tant que `llm_client.PRICE_PER_MTOK`
-  est vide, Ollama Cloud étant facturé à l'abonnement). Sans ce bloc, une variation du
-  taux d'utilité n'est attribuable ni au prompt ni au modèle.
+  impossible à oublier de bumper ; **`schema_version`** = même empreinte côté schéma via
+  `schema_version_of`, présent dans les deux runtimes ; `latency_ms`/`total_tokens` cumulés
+  **retries de schéma inclus** ; `schema_retries` ; `cost_usd` = `None` tant que
+  `llm_client.PRICE_PER_MTOK` est vide, Ollama Cloud étant facturé à l'abonnement). Sans ce
+  bloc, une variation du taux d'utilité n'est attribuable ni au prompt ni au modèle.
+  ⚠️ Les empreintes de prompt (`PROMPT_VERSION`/`GAME_PROMPT_VERSION`) sont figées par
+  `tests/test_shared_contract.py` : `web/cf/src/coaching_context.ts` compare le
+  `prompt_version` d'une review persistée à la version courante pour la classer
+  `ready`/`stale` côté web, donc un hash qui bougerait sans le vouloir périmerait
+  silencieusement cette classification.
   **Chemin par-game** : `payload.build_game` (journal `game_journal` + repères référentiel à issue
   égale ; recalls enrichis d'items résolus {nom, coût} via `champion_profiles.load_items` — plus
   d'`item_ids` bruts côté LLM ; bloc `context` = comp botlane/jungle/mid + `lane_pattern`/
