@@ -29,6 +29,37 @@ class Review(BaseModel):
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
 
 
+def _check_required_subset(node) -> None:
+    """Lève si un noeud `required`/`properties` est insatisfiable.
+
+    Un `required` citant une clé absente de `properties`, combiné à
+    `additionalProperties: false`, ferme l'objet tout en exigeant un champ qu'il
+    ne peut plus contenir : le LLM ne peut satisfaire le schéma, et Ollama
+    échoue en boucle silencieusement (consommant les retries) plutôt que de
+    signaler un schéma mal formé.
+    """
+    if isinstance(node, list):
+        for item in node:
+            _check_required_subset(item)
+        return
+    if not isinstance(node, dict):
+        return
+    properties = node.get("properties")
+    required = node.get("required")
+    if isinstance(properties, dict) and isinstance(required, list):
+        missing = set(required) - set(properties.keys())
+        if missing:
+            raise ValueError(
+                f"schéma insatisfiable : required cite des clés absentes de "
+                f"properties : {sorted(missing)}")
+    if isinstance(properties, dict):
+        for sub in properties.values():
+            _check_required_subset(sub)
+    for key, value in node.items():
+        if key != "properties":
+            _check_required_subset(value)
+
+
 def _strict(schema: dict) -> dict:
     """Schéma Pydantic -> schéma envoyé au LLM.
 
@@ -37,6 +68,13 @@ def _strict(schema: dict) -> dict:
     docstrings Pydantic partent dans le `format` d'Ollama), et fermeture des objets
     par `additionalProperties: false`. Le résultat est le schéma que le Worker
     écrivait à la main : une seule définition pour les deux runtimes.
+
+    `title`/`description` ne sont dépouillés qu'au niveau d'un noeud de schéma
+    (métadonnées Pydantic) : la table `properties` d'un noeud objet est traitée
+    à part, ses clés sont des NOMS DE CHAMPS opaques, jamais filtrées. Un futur
+    champ nommé `title` disparaîtrait sinon de `properties` en restant dans
+    `required`, schéma insatisfiable sous `additionalProperties: false` (cf.
+    `_check_required_subset`, appelé en sortie).
     """
     defs = schema.pop("$defs", {})
 
@@ -47,12 +85,23 @@ def _strict(schema: dict) -> dict:
             return node
         if "$ref" in node:
             return walk(copy.deepcopy(defs[node["$ref"].rsplit("/", 1)[1]]))
-        out = {k: walk(v) for k, v in node.items() if k not in ("title", "description")}
+        out = {}
+        for k, v in node.items():
+            if k in ("title", "description"):
+                continue
+            if k == "properties" and isinstance(v, dict):
+                # Table de noms de champs (opaques) -> schémas : les clés
+                # restent telles quelles, seules les valeurs sont des noeuds.
+                out[k] = {name: walk(sub) for name, sub in v.items()}
+            else:
+                out[k] = walk(v)
         if out.get("type") == "object":
             out["additionalProperties"] = False
         return out
 
-    return walk(schema)
+    result = walk(schema)
+    _check_required_subset(result)
+    return result
 
 
 def review_json_schema() -> dict:
@@ -140,7 +189,12 @@ class SpecializedGameReview(GameReview):
 
 
 def chief_selection_json_schema(mistake_ids: list[str], strength_ids: list[str]) -> dict:
-    schema = ChiefSelection.model_json_schema()
+    """Schéma envoyé au LLM chef : durci par `_strict` comme les deux autres
+    sites (troisième site d'envoi, cf. `review_json_schema`/`game_review_json_schema`),
+    puis les enums d'IDs (variables à chaque game) sont injectés APRÈS coup,
+    sur le résultat strict : ils ne participent donc pas à `schema_version`
+    (cf. `CHIEF_SELECTION_SCHEMA_VERSION`, dérivé du schéma SANS enums)."""
+    schema = _strict(ChiefSelection.model_json_schema())
     props = schema["properties"]
     props["summary_insight_id"]["enum"] = mistake_ids
     props["priority_mistake_ids"]["items"]["enum"] = mistake_ids
@@ -192,3 +246,10 @@ def schema_version_of(sch: dict) -> str:
 
 REVIEW_SCHEMA_VERSION = schema_version_of(review_json_schema())
 GAME_REVIEW_SCHEMA_VERSION = schema_version_of(game_review_json_schema())
+
+# Version du CONTRAT ChiefSelection, sans injection des enums d'IDs (ceux-ci
+# varient à chaque game : les inclure ferait de schema_version un identifiant
+# par-appel plutôt qu'un identifiant de contrat, inagrégeable dans le bloc
+# `run` publié en KV. `chief_selection_json_schema()` calcule un schéma
+# différent par appel (enums injectés) mais expose toujours CETTE version.
+CHIEF_SELECTION_SCHEMA_VERSION = schema_version_of(_strict(ChiefSelection.model_json_schema()))

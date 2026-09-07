@@ -152,7 +152,7 @@ def generate_specialized_game_review(pl: dict, model: str, timeout: int = 180):
     chief_schema = schema_mod.chief_selection_json_schema(mistake_ids, strength_ids)
     chief, chief_run = _generate(
         system, user, chief_schema, schema_mod.ChiefSelection, model,
-        prompt_mod.version_of(system), schema_mod.schema_version_of(chief_schema),
+        prompt_mod.version_of(system), schema_mod.CHIEF_SELECTION_SCHEMA_VERSION,
         timeout)
     runs.append({"stage": "chief", **chief_run})
 
