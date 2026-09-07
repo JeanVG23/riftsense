@@ -53,6 +53,14 @@ def _depth(x: float, y: float, my_team: int) -> float:
     return raw if my_team == 100 else -raw
 
 
+# Alias public : `journal_signals` a besoin de la profondeur signée, et importer
+# le nom privé d'un module depuis un autre contournerait la frontière que le
+# manifeste COACHING_SAFE / ML_ONLY sert précisément à rendre explicite.
+# ⚠️ La profondeur est DESCRIPTIVE (cf. `_territory`) : haute = marqueur de
+# risque, jamais une force ni une prescription.
+signed_depth = _depth
+
+
 def _territory(snaps: list, pid: int, my_team: int) -> dict:
     """Calcule la fraction de temps en terrain ennemi, profondeur moyenne/max, over-extension.
 

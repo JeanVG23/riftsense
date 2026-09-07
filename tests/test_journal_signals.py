@@ -246,3 +246,77 @@ def test_jungle_signals_never_duplicates_the_age():
     tl = _FakeTimeline([_kill(4 * 60000, victim=3, killer=JUNGLE)])
     out = S.jungle_signals(tl, JUNGLE, "Vi", t_ms=5 * 60000, death_zone="BOT")
     assert "age_s" not in out["last"]
+
+
+TABLE = [
+    {"team": 100, "lane": "BOT_LANE", "tier": "OUTER_TURRET", "x": 10504, "y": 1029},
+    {"team": 100, "lane": "BOT_LANE", "tier": "INNER_TURRET", "x": 6919, "y": 1483},
+    {"team": 200, "lane": "BOT_LANE", "tier": "OUTER_TURRET", "x": 13866, "y": 4505},
+]
+
+
+def _support_frames(zones):
+    """{minute: participantFrame} depuis {minute: (x, y)}."""
+    return {minute: _pf(x=xy[0], y=xy[1]) for minute, xy in zones.items()}
+
+
+def test_ally_context_reports_the_support_and_the_standing_turret():
+    """Valeurs verifiees a la main sur la table reelle : moi en (13000, 1500),
+    zone BOT, profondeur signee -301 ; le support est parti TOP."""
+    support = _support_frames({6: (13200, 1800), 7: (2000, 13000),
+                               8: (2000, 13000)})
+    out = S.ally_context(support, my_team=100, role="BOTTOM",
+                         t_ms=8 * 60000 + 31000, my_pos=(13000, 1500),
+                         my_zone="BOT", destroyed=set(), table=TABLE)
+    assert out["support"]["zone"] == "TOP"
+    assert out["support"]["distance"] == 15914
+    # Dernier passage du support dans ma zone : frame 6:00, mort a 8:31 = 151 s.
+    assert out["support"]["away_from_my_zone_s"] == 151
+    assert out["nearest_friendly_turret"] == {
+        "lane": "BOT_LANE", "tier": "OUTER_TURRET", "distance": 2540}
+    assert out["beyond_own_outer_turret"] is True
+    assert out["map_depth"] == -301
+
+
+def test_ally_context_says_zero_when_the_support_is_with_me():
+    support = _support_frames({7: (13200, 1800), 8: (13200, 1800)})
+    out = S.ally_context(support, my_team=100, role="BOTTOM",
+                         t_ms=8 * 60000 + 10000, my_pos=(13000, 1500),
+                         my_zone="BOT", destroyed=set(), table=TABLE)
+    assert out["support"]["away_from_my_zone_s"] == 0
+    assert out["support"]["distance"] == 361
+
+
+def test_ally_context_omits_the_support_block_when_unresolved():
+    out = S.ally_context({}, my_team=100, role="BOTTOM", t_ms=8 * 60000,
+                         my_pos=(13000, 1500), my_zone="BOT", destroyed=set(),
+                         table=TABLE)
+    assert "support" not in out
+    assert "map_depth" in out
+
+
+def test_ally_context_ignores_a_destroyed_turret():
+    fallen = {(100, "BOT_LANE", "OUTER_TURRET")}
+    out = S.ally_context({}, my_team=100, role="BOTTOM", t_ms=8 * 60000,
+                         my_pos=(13000, 1500), my_zone="BOT", destroyed=fallen,
+                         table=TABLE)
+    assert out["nearest_friendly_turret"] == {
+        "lane": "BOT_LANE", "tier": "INNER_TURRET", "distance": 6081}
+    # Tombee, la tourelle exterieure ne definit plus de frontiere.
+    assert "beyond_own_outer_turret" not in out
+
+
+def test_ally_context_is_false_when_behind_my_own_outer_turret():
+    out = S.ally_context({}, my_team=100, role="BOTTOM", t_ms=8 * 60000,
+                         my_pos=(8000, 1200), my_zone="BOT", destroyed=set(),
+                         table=TABLE)
+    assert out["beyond_own_outer_turret"] is False
+
+
+def test_signed_depth_is_public_and_signed():
+    """Importer un `_depth` prive depuis un autre module contournerait la
+    frontiere que le manifeste d'asymetrie rend explicite."""
+    import positioning as P
+    assert P.signed_depth(14000, 14000, 100) > 0
+    assert P.signed_depth(14000, 14000, 200) < 0
+    assert P.signed_depth is P._depth

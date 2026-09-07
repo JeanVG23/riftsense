@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import statistics
 
+import positioning
+import turrets as turret_map
 from riotlib import approx_zone, clock_of, cs_of
 
 PRECISION_CS = 2          # plancher impose par des frames a 60 s
@@ -202,3 +204,57 @@ def jungle_signals(tl, jungle_pid: int | None, champion: str | None,
     # l'information reelle (« tu n'as pas vu ce jungler depuis 9 minutes »).
     age_ms = t_ms - last_t if last_t is not None else t_ms
     return {"champion": champion, "age_s": round(age_ms / 1000), "last": last}
+
+
+def ally_context(support_frames: dict[int, dict], my_team: int, role: str,
+                 t_ms: int, my_pos: tuple[float, float], my_zone: str,
+                 destroyed: set, table=None) -> dict:
+    """Ce que le joueur voyait de son propre côté au moment de sa mort.
+
+    ASYMÉTRIE : la position d'un allié est affichée sur la minimap, celle du
+    joueur est la sienne, et l'état des tourelles est public. Rien ici ne vient
+    du fog.
+
+    `map_depth` est DESCRIPTIVE, jamais prescriptive : le modèle EBM la classe
+    « valeur haute vers diamond », donc une profondeur élevée est un marqueur de
+    risque et pas un défaut à corriger. Le prompt porte déjà cette règle pour la
+    review agrégée, elle est étendue au par-game.
+    """
+    x, y = my_pos
+    out: dict = {"map_depth": round(positioning.signed_depth(x, y, my_team))}
+
+    frame = None
+    for minute in sorted(support_frames):
+        if minute * 60000 <= t_ms:
+            frame = support_frames[minute]
+    if frame is not None:
+        pos = frame.get("position") or {}
+        sx, sy = pos.get("x", 0), pos.get("y", 0)
+        zone = approx_zone(sx, sy)
+        # Dernière frame à laquelle le support était dans MA zone. Aucune :
+        # l'écart compte depuis le début de la partie.
+        seen = None
+        for minute in sorted(support_frames):
+            if minute * 60000 > t_ms:
+                break
+            other = (support_frames[minute].get("position") or {})
+            if approx_zone(other.get("x", 0), other.get("y", 0)) == my_zone:
+                seen = minute * 60000
+        out["support"] = {
+            "zone": zone,
+            "distance": round(((sx - x) ** 2 + (sy - y) ** 2) ** 0.5),
+            "away_from_my_zone_s": round((t_ms - (seen if seen is not None else 0))
+                                         / 1000) if zone != my_zone else 0,
+        }
+
+    nearest = turret_map.nearest_standing(x, y, my_team, destroyed, table=table)
+    if nearest:
+        out["nearest_friendly_turret"] = nearest
+    outer = turret_map.own_outer(my_team, role, destroyed, table=table)
+    if outer:
+        # Vrai ou faux, pas une interpretation : la profondeur du joueur
+        # depasse-t-elle celle de sa tourelle exterieure encore debout ?
+        out["beyond_own_outer_turret"] = (
+            positioning.signed_depth(x, y, my_team)
+            > positioning.signed_depth(outer["x"], outer["y"], my_team))
+    return out
