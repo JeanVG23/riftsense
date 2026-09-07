@@ -23,6 +23,7 @@ TEMPLATES = {
     "reviews": "coaching:{slug}:reviews",
     "feedback": "coaching:{slug}:feedback",
     "chats": "coaching:{slug}:chats",
+    "game_payloads": "coaching:{slug}:game-payloads",
 }
 
 

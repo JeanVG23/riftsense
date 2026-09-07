@@ -45,9 +45,9 @@
     "wards_placed_early": 4
    },
    "death_gold_state": {
-    "behind": 0.44,
-    "ahead": 0.32,
-    "even": 0.24
+    "even": 0.4,
+    "behind": 0.36,
+    "ahead": 0.24
    },
    "by_zone": {
     "BOT": 0.3733,
@@ -140,9 +140,9 @@
     "wards_placed_early": 4
    },
    "death_gold_state": {
-    "ahead": 0.4444,
+    "ahead": 0.3704,
     "behind": 0.3704,
-    "even": 0.1852
+    "even": 0.2593
    },
    "by_zone": {
     "BOT": 0.5185,
@@ -229,9 +229,9 @@
     "wards_placed_early": 4.5
    },
    "death_gold_state": {
-    "behind": 0.4792,
-    "even": 0.2708,
-    "ahead": 0.25
+    "even": 0.4792,
+    "behind": 0.3542,
+    "ahead": 0.1667
    },
    "by_zone": {
     "MID": 0.375,
@@ -326,9 +326,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.3704,
-      "even": 0.3333,
-      "ahead": 0.2963
+      "even": 0.5556,
+      "behind": 0.2963,
+      "ahead": 0.1481
      },
      "by_zone": {
       "JUNGLE/RIVER": 0.4074,
@@ -419,9 +419,9 @@
       "wards_placed_early": 4.5
      },
      "death_gold_state": {
-      "behind": 0.6,
-      "ahead": 0.2857,
-      "even": 0.1143
+      "behind": 0.5429,
+      "ahead": 0.2571,
+      "even": 0.2
      },
      "by_zone": {
       "BOT": 0.4286,
@@ -514,9 +514,8 @@
       "wards_placed_early": 5.0
      },
      "death_gold_state": {
-      "ahead": 0.4615,
-      "even": 0.3846,
-      "behind": 0.1538
+      "even": 0.6154,
+      "ahead": 0.3846
      },
      "by_zone": {
       "MID": 0.5385,
@@ -603,9 +602,9 @@
       "wards_placed_early": 5
      },
      "death_gold_state": {
-      "ahead": 0.3514,
-      "behind": 0.3514,
-      "even": 0.2973
+      "even": 0.4595,
+      "ahead": 0.2973,
+      "behind": 0.2432
      },
      "by_zone": {
       "BOT": 0.4054,
@@ -696,9 +695,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "ahead": 0.5385,
-      "behind": 0.3077,
-      "even": 0.1538
+      "even": 0.3846,
+      "ahead": 0.3846,
+      "behind": 0.2308
      },
      "by_zone": {
       "JUNGLE/RIVER": 0.4615,
@@ -787,9 +786,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.64,
-      "even": 0.2,
-      "ahead": 0.16
+      "behind": 0.6,
+      "even": 0.32,
+      "ahead": 0.08
      },
      "by_zone": {
       "BOT": 0.36,
@@ -1251,7 +1250,17 @@
      "you": 8.0,
      "ref": 6.0
     }
-   }
+   },
+   "qualitative_mode": "none",
+   "n_game_reviews_available": 0,
+   "n_game_reviews_available_wins": 0,
+   "n_game_reviews_available_losses": 0,
+   "n_game_reviews_used": 0,
+   "n_game_reviews_used_wins": 0,
+   "n_game_reviews_used_losses": 0,
+   "n_game_reviews_wins": 0,
+   "n_game_reviews_losses": 0,
+   "unbalanced_causes": false
   },
   "signals": [
    {
@@ -1501,9 +1510,9 @@
     "group": "death_gold_state",
     "key": "ahead",
     "label": "morts en avance",
-    "you": 0.25,
+    "you": 0.1667,
     "ref": 0.8333,
-    "delta": -0.5833,
+    "delta": -0.6666,
     "unit": "pct",
     "notable": true
    },
@@ -1511,9 +1520,9 @@
     "group": "death_gold_state",
     "key": "even",
     "label": "morts à égalité",
-    "you": 0.2708,
+    "you": 0.4792,
     "ref": 0.1667,
-    "delta": 0.1041,
+    "delta": 0.3125,
     "unit": "pct",
     "notable": true
    }

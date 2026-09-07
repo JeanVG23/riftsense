@@ -192,3 +192,44 @@ def test_build_game_keeps_raw_matchup_without_silver_comp(tmp_path, monkeypatch)
                        gold_dir=gold, silver_dir=silver, load_raw=_load_raw)
     assert "comp" not in pl["context"]
     assert pl["context"]["matchup"]["lane_opponent"] == "Jinx"
+
+
+def test_build_game_bundle_is_bounded_hashed_and_records_unavailable(tmp_path, monkeypatch):
+    silver, gold = _dirs(tmp_path)
+    monkeypatch.setattr(PL.cprof, "load_items", lambda: {})
+    records = PL._personal_records("spadzze", silver)
+    records[0]["game_ts"] = 2
+    records[1]["game_ts"] = 1
+
+    def load(base):
+        if base.startswith("EUW1_43"):
+            return None
+        return _load_raw(base)
+
+    bundle = PL.build_game_bundle(
+        "spadzze", records=records, target="challenger", max_games=2,
+        gold_dir=gold, silver_dir=silver, load_raw=load, item_catalog={},
+        now=lambda: "2026-09-06T10:00:00Z",
+    )
+    assert bundle["generated_at"] == "2026-09-06T10:00:00Z"
+    entry = bundle["items"]["EUW1_42"]
+    assert entry["benchmark_scope"] == "adc"
+    assert len(entry["payload_hash"]) == 12
+    assert "puuid" not in json.dumps(entry)
+    assert bundle["unavailable"] == [
+        {"match_id": "EUW1_43", "reason": "benchmark_missing"}
+    ]
+
+
+def test_game_benchmark_falls_back_from_missing_role_to_all(tmp_path):
+    _, gold = _dirs(tmp_path)
+    source = gold / "referentiel" / "challenger" / "adc" / "aggregate.json"
+    target = gold / "referentiel" / "challenger" / "all" / "aggregate.json"
+    target.parent.mkdir(parents=True)
+    target.write_text(source.read_text())
+
+    scope, ref = PL._game_benchmark_scope(
+        {"champion": "Diana", "role": "JUNGLE"}, "challenger", gold, {},
+    )
+    assert scope == "all"
+    assert ref["n_games"] == 1000

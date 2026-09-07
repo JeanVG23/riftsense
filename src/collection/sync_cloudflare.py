@@ -19,11 +19,12 @@ from urllib.parse import quote
 import requests
 
 ROOT = Path(__file__).resolve().parents[2]
-for module_path in (ROOT / "src" / "core",):
+for module_path in (ROOT / "src" / "core", ROOT / "src" / "04_coaching"):
     if str(module_path) not in sys.path:
         sys.path.insert(0, str(module_path))
 
 import riotlib as rl  # noqa: E402
+import payload as coaching_payload  # noqa: E402
 from kv_keys import key as kv_key  # noqa: E402
 
 ACCOUNTS_FILE = ROOT / "config" / "accounts.json"
@@ -165,8 +166,11 @@ def push_coaching(kv: KV, slug: str) -> None:
         kv.put(key, merge_jsonl(kv.get(key), parse_jsonl(path.read_text())))
 
 
+GAME_PAYLOAD_BUNDLE_MAX_BYTES = 20 * 1024 * 1024
+
+
 def sync_account(kv: KV, slug: str, *, seed_reviews: bool = False,
-                 coaching: bool = False) -> None:
+                 coaching: bool = False, game_payloads: bool = True) -> None:
     # Une seule lecture du JSONL : le texte brut part tel quel dans KV et sert aussi
     # de source au parse local (il était lu deux fois : read_games + read_text).
     games_file = rl.silver_games(rl.KIND_PERSONAL, slug)
@@ -188,6 +192,15 @@ def sync_account(kv: KV, slug: str, *, seed_reviews: bool = False,
                     kv_key("gold", slug=slug, scope=scope_dir.name),
                     json.loads(aggregate.read_text()),
                 )
+
+    if games and game_payloads:
+        bundle = coaching_payload.build_game_bundle(slug, records=games)
+        encoded = json.dumps(bundle, ensure_ascii=False, separators=(",", ":"))
+        if len(encoded.encode("utf-8")) > GAME_PAYLOAD_BUNDLE_MAX_BYTES:
+            raise RuntimeError(
+                f"bundle coaching {slug} > {GAME_PAYLOAD_BUNDLE_MAX_BYTES} octets"
+            )
+        kv.put(kv_key("game_payloads", slug=slug), encoded)
 
     import ml_rank  # noqa: E402  (artefacts ML chargés uniquement pour le sync)
 
@@ -238,6 +251,10 @@ def _parser() -> argparse.ArgumentParser:
         help="fusionne reviews + annotations locales dans KV (le site les publie)",
     )
     parser.add_argument("--dry-run", action="store_true", help="journalise sans écrire dans KV")
+    parser.add_argument(
+        "--skip-game-payloads", action="store_true",
+        help="ne construit pas les payloads unitaires depuis le cache raw local",
+    )
     return parser
 
 
@@ -266,7 +283,8 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(f"compte inconnu : {args.slug}")
     for account in accounts:
         sync_account(kv, account["slug"], seed_reviews=args.seed_reviews,
-                     coaching=args.push_coaching)
+                     coaching=args.push_coaching,
+                     game_payloads=not args.skip_game_payloads)
     if not args.skip_ref:
         sync_referential(kv)
 

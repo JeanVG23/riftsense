@@ -34,6 +34,10 @@ RECALL_CLUSTER_GAP_MS = 30000 # achats espacés de <= 30 s = même visite de sho
 # pas le death timer réel, on attribue à la mort ce que l'ennemi prend juste après.
 CONSEQUENCE_WINDOW_S = 60     # objectifs + bâtiments pris dans les 60 s
 GOLD_SWING_WINDOW_S = 90      # swing de gold d'équipe mesuré à ~90 s
+# La fenêtre est PORTÉE PAR LE NOM de la clé : la dériver de la constante
+# évite qu'un ajustement de `GOLD_SWING_WINDOW_S` laisse un nom périmé (et
+# que `grounding._FEATURE_WINDOWS` cherche un marqueur qui n'existe plus).
+GOLD_SWING_KEY = f"team_gold_swing_{GOLD_SWING_WINDOW_S}s"
 
 
 def _clock(t_ms: int) -> str:
@@ -172,8 +176,8 @@ def _consequences(tl: _Timeline, t_ms: int, my_team: int,
     if buildings:
         out["buildings_lost"] = buildings
     if before is not None and after is not None:
-        out["team_gold_swing_90s"] = (_team_gold_diff(after, pid_team, my_team)
-                                      - _team_gold_diff(before, pid_team, my_team))
+        out[GOLD_SWING_KEY] = (_team_gold_diff(after, pid_team, my_team)
+                               - _team_gold_diff(before, pid_team, my_team))
     return out
 
 

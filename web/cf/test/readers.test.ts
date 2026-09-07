@@ -5,6 +5,7 @@ import {
   KEYS,
   matchSeq,
   readGames,
+  readGamePayloadBundle,
   readJson,
   readJsonl,
   readPred,
@@ -33,6 +34,20 @@ describe("KEYS", () => {
     expect(KEYS.reviews("spadzze")).toBe("coaching:spadzze:reviews");
     expect(KEYS.feedback("spadzze")).toBe("coaching:spadzze:feedback");
     expect(KEYS.chats("spadzze")).toBe("coaching:spadzze:chats");
+    expect(KEYS.game_payloads("spadzze")).toBe("coaching:spadzze:game-payloads");
+  });
+});
+
+describe("readGamePayloadBundle", () => {
+  it("dégrade vers un bundle vide et lit une valeur valide", async () => {
+    const kv = new MemoryKV();
+    expect((await readGamePayloadBundle(kv, "p")).items).toEqual({});
+    await kv.put(KEYS.game_payloads("p"), JSON.stringify({
+      generated_at: "2026-09-06T10:00:00Z", target: "challenger", max_games: 50,
+      items: { m1: { payload_hash: "abc", benchmark_scope: "zeri", payload: { meta: {} } } },
+      unavailable: [],
+    }));
+    expect((await readGamePayloadBundle(kv, "p")).items.m1.payload_hash).toBe("abc");
   });
 });
 

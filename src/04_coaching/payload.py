@@ -8,7 +8,9 @@ les features de profondeur sont `descriptive_only` (jamais une erreur).
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))  # accès src/core/
@@ -156,19 +158,41 @@ def _load(gold_dir: Path, kind: str, name: str, scope: str) -> dict:
     return json.loads(path.read_text())
 
 
-def _game_review_causes(reviews: list[dict], scope: str, limit: int = 20) -> list[dict]:
-    """Map : sorties par-game -> causes qualitatives, sans preuves chiffrées.
+def _review_matches_scope(record: dict, scope: str) -> bool:
+    """Une review par-game appartient à un scope rôle ou champion.
 
-    Les ``evidence`` et match_ids sont volontairement retirés. Ils viennent d'un
-    LLM et ne doivent jamais devenir des chiffres citables dans la synthèse.
+    Les anciennes reviews n'ont pas toujours ``meta.role`` : leur ``record.scope``
+    reste un fallback de compatibilité, mais le champion du payload prime pour un
+    scope champion.
     """
+    meta = (record.get("payload") or {}).get("meta") or {}
+    # `rl.filter_scope` est le résolveur unique du projet (all / rôle / champion) :
+    # une table locale de rôles est exactement ce qui avait gelé le coaching
+    # par-game sur l'ADC (cf. `filter_scope` plus bas).
+    if rl.filter_scope([{"role": meta.get("role"),
+                         "champion": meta.get("champion")}], scope):
+        return True
+    wanted = scope.lower()
+    return (wanted in rl.ROLE_SCOPES
+            and str(record.get("scope") or meta.get("scope") or "").lower() == wanted)
+
+
+def _game_review_sample(reviews: list[dict], scope: str,
+                        max_per_outcome: int = 2) -> dict:
+    """Sélection qualitative bornée avec compteurs disponibles et utilisés.
+
+    Les ``evidence`` et match_ids sont volontairement retirés des ``causes``. Ils
+    viennent d'un LLM et ne doivent jamais devenir des chiffres citables dans la
+    synthèse.
+    """
+    if max_per_outcome < 1:
+        raise ValueError("max_per_outcome doit être >= 1")
+
     eligible = []
     for record in reviews:
-        if record.get("kind") != "game":
+        if record.get("kind") != "game" or not _review_matches_scope(record, scope):
             continue
         meta = (record.get("payload") or {}).get("meta") or {}
-        if scope != "all" and record.get("scope", meta.get("scope")) != scope:
-            continue
         review = record.get("review") or {}
 
         def qualitative(section: str) -> list[dict]:
@@ -182,23 +206,54 @@ def _game_review_causes(reviews: list[dict], scope: str, limit: int = 20) -> lis
             return out
 
         strengths, mistakes = qualitative("strengths"), qualitative("mistakes")
-        if not strengths and not mistakes:
-            continue
-        eligible.append({
-            "ts": record.get("ts") or "",
-            "champion": meta.get("champion"),
-            "outcome": "win" if meta.get("win") else "loss",
-            "strengths": strengths,
-            "mistakes": mistakes,
-        })
-    eligible.sort(key=lambda row: row["ts"], reverse=True)
-    return [{k: value for k, value in row.items() if k != "ts"}
-            for row in eligible[:limit]]
+        if strengths or mistakes:
+            eligible.append({
+                "ts": record.get("ts") or "",
+                "match_id": record.get("match_id") or meta.get("match_id") or "",
+                "champion": meta.get("champion"),
+                "outcome": "win" if meta.get("win") else "loss",
+                "strengths": strengths,
+                "mistakes": mistakes,
+            })
+
+    eligible.sort(key=lambda row: (row["ts"], row["match_id"]), reverse=True)
+    # Une régénération conserve l'ancien run, mais ne transforme pas une partie en
+    # plusieurs observations qualitatives. La plus récente gagne.
+    seen_matches: set[str] = set()
+    deduped = []
+    for row in eligible:
+        identity = row["match_id"] or f"legacy:{row['ts']}"
+        if identity not in seen_matches:
+            seen_matches.add(identity)
+            deduped.append(row)
+    eligible = deduped
+    wins = [row for row in eligible if row["outcome"] == "win"]
+    losses = [row for row in eligible if row["outcome"] == "loss"]
+    if not eligible:
+        mode, selected = "none", []
+    elif wins and losses:
+        take_each = min(len(wins), len(losses), max_per_outcome)
+        mode = "balanced"
+        selected = wins[:take_each] + losses[:take_each]
+        selected.sort(key=lambda row: (row["ts"], row["match_id"]), reverse=True)
+    else:
+        mode, selected = "unbalanced", eligible[:1]
+
+    causes = [{k: value for k, value in row.items() if k not in ("ts", "match_id")}
+              for row in selected]
+    used_wins = sum(1 for row in causes if row["outcome"] == "win")
+    used_losses = len(causes) - used_wins
+    return {
+        "mode": mode,
+        "available": {"total": len(eligible), "wins": len(wins), "losses": len(losses)},
+        "used": {"total": len(causes), "wins": used_wins, "losses": used_losses},
+        "causes": causes,
+    }
 
 
 def build(player: str, scope: str = "adc", target: str = "challenger",
           outcome: str = "loss", gold_dir=None, game_reviews=None,
-          review_limit: int = 20) -> dict:
+          max_reviews_per_outcome: int = 2) -> dict:
     gold_dir = Path(gold_dir) if gold_dir is not None else rl.gold_dir()
     me = _load(gold_dir, rl.KIND_PERSONAL, player, scope)
     ref = _load(gold_dir, rl.KIND_REF, target, scope)
@@ -224,14 +279,44 @@ def build(player: str, scope: str = "adc", target: str = "challenger",
             context[axis] = cb
 
     out = {"meta": meta, "signals": signals, "context": context}
-    causes = _game_review_causes(game_reviews or [], scope, review_limit)
+    sample = _game_review_sample(game_reviews or [], scope, max_reviews_per_outcome)
+    causes = sample["causes"]
+    available, used = sample["available"], sample["used"]
+    meta.update({
+        "qualitative_mode": sample["mode"],
+        "n_game_reviews_available": available["total"],
+        "n_game_reviews_available_wins": available["wins"],
+        "n_game_reviews_available_losses": available["losses"],
+        "n_game_reviews_used": used["total"],
+        "n_game_reviews_used_wins": used["wins"],
+        "n_game_reviews_used_losses": used["losses"],
+        # Compatibilité UI/payload historiques ; supprimer après migration.
+        "n_game_reviews_wins": available["wins"],
+        "n_game_reviews_losses": available["losses"],
+        "unbalanced_causes": sample["mode"] == "unbalanced",
+    })
     if causes:
         out["game_review_causes"] = causes
-        meta["n_game_reviews_used"] = len(causes)
     return out
 
 
 # --- Payload par-game : journal ancré + repères référentiel -------------------
+
+# Les motifs d'indisponibilité d'un payload par-game sont PUBLIÉS dans KV. Les
+# dériver du type d'exception plutôt que du texte français du message : une
+# reformulation de message reclasserait sinon silencieusement toutes les entrées.
+class RawMissing(FileNotFoundError):
+    """Le match ou sa timeline ne sont pas dans le cache raw local."""
+
+
+class BenchmarkMissing(FileNotFoundError):
+    """Aucun agrégat référentiel exploitable pour ce scope."""
+
+
+class GameNotEligible(FileNotFoundError):
+    """La game existe mais sort du périmètre coaché (hors Faille…)."""
+
+
 
 def _resolve_recall_items(recall: dict, catalog: dict) -> dict:
     """item_ids bruts -> items {nom, coût} ; ids bruts jamais exposés au LLM."""
@@ -356,27 +441,33 @@ def _select_game(records: list[dict], scope: str, match_id: str | None) -> dict:
 
 def build_game(player: str, match_id: str | None = None, scope: str = "adc",
                target: str = "challenger", gold_dir=None, silver_dir=None,
-               load_raw=None, records=None, ref=None) -> dict:
+               load_raw=None, records=None, ref=None, item_catalog=None,
+               record=None) -> dict:
     """Journal d'UNE game + repères référentiel à issue égale -> payload par-game.
 
     `records` et `ref` sont injectables : en lot (`coach.py --game-batch N`) le silver
     perso et l'agrégat référentiel sont identiques pour toutes les games, les relire
     par game coûtait N parses redondants (même motif que `load_raw`).
+
+    `record` court-circuite la sélection quand l'appelant tient déjà la ligne silver
+    (`build_game_bundle`) : la retrouver par `match_id` rebalayait tout l'historique
+    à chaque game.
     """
     gold_dir = Path(gold_dir) if gold_dir is not None else rl.gold_dir()
     silver_dir = Path(silver_dir) if silver_dir is not None else rl.silver_dir()
     load_raw = load_raw if load_raw is not None else rl._read_raw
 
-    if records is None:
-        records = _personal_records(player, silver_dir)
-    rec = _select_game(records, scope, match_id)
-    mid = rec["match_id"]
+    if record is None:
+        if records is None:
+            records = _personal_records(player, silver_dir)
+        record = _select_game(records, scope, match_id)
+    mid = record["match_id"]
     match, timeline = load_raw(f"{mid}_match"), load_raw(f"{mid}_timeline")
     if match is None or timeline is None:
-        raise FileNotFoundError(f"raw manquant pour {mid}")
-    journal = gj.game_journal(match, timeline, rec["puuid"])
+        raise RawMissing(f"raw manquant pour {mid}")
+    journal = gj.game_journal(match, timeline, record["puuid"])
     if journal is None:
-        raise FileNotFoundError(f"game {mid} hors Faille de l'invocateur")
+        raise GameNotEligible(f"game {mid} hors Faille de l'invocateur")
 
     if ref is None:
         ref = _load(gold_dir, rl.KIND_REF, target, scope)
@@ -394,14 +485,14 @@ def build_game(player: str, match_id: str | None = None, scope: str = "adc",
         "death_zone_phase": rf.get("by_zone_phase", {}),
         "death_gold_state": rf.get("death_gold_state", {}),
     }
-    catalog = cprof.load_items()
+    catalog = cprof.load_items() if item_catalog is None else item_catalog
     recalls = [_resolve_recall_items(r, catalog) for r in journal["recalls"]]
     deaths = _attach_next_purchases(journal["deaths"], recalls)
     out = {"meta": meta,
            "journal": {"deaths": deaths, "recalls": recalls},
            "benchmarks": benchmarks}
-    comp = rec.get("comp")
-    matchup = _matchup_context(match, rec["puuid"], catalog)
+    comp = record.get("comp")
+    matchup = _matchup_context(match, record["puuid"], catalog)
     if comp or matchup:
         # Champ select + scoreboard = informations visibles (asymétrie-safe).
         out["context"] = {}
@@ -410,3 +501,83 @@ def build_game(player: str, match_id: str | None = None, scope: str = "adc",
         if matchup:
             out["context"]["matchup"] = matchup
     return out
+
+
+_ROLE_TO_SCOPE = {role: scope for scope, role in rl.ROLE_SCOPES.items() if role}
+
+
+def _game_benchmark_scope(record: dict, target: str, gold_dir: Path,
+                          cache: dict) -> tuple[str, dict]:
+    """Champion si disponible, sinon rôle, puis global ; retourne l'agrégat lu.
+
+    `cache` est le mémo des agrégats déjà lus pour CE bundle (`target` y est
+    constant, il ne fait donc pas partie de la clé) : sans lui le même
+    référentiel serait reparsé une fois par game.
+    """
+    champion = str(record.get("champion") or "").lower()
+    role_scope = _ROLE_TO_SCOPE.get(record.get("role"), "all")
+    for scope in dict.fromkeys(s for s in (champion, role_scope, "all") if s):
+        if scope not in cache:
+            try:
+                cache[scope] = _load(gold_dir, rl.KIND_REF, target, scope)
+            except FileNotFoundError:
+                cache[scope] = None
+        ref = cache[scope]
+        if ref and ref.get("n_games", 0) > 0:
+            return scope, ref
+    raise BenchmarkMissing(
+        f"référentiel {target} absent pour {champion or role_scope}")
+
+
+_REASONS = {RawMissing: "raw_missing",
+            BenchmarkMissing: "benchmark_missing",
+            GameNotEligible: "not_eligible"}
+
+
+def build_game_bundle(player: str, records: list[dict] | None = None,
+                      target: str = "challenger", max_games: int = 50,
+                      gold_dir=None, silver_dir=None, load_raw=None,
+                      item_catalog=None, now=None) -> dict:
+    """Payloads unitaires nettoyés prêts à servir depuis KV, sans appel réseau."""
+    if max_games < 1:
+        raise ValueError("max_games doit être >= 1")
+    gold = Path(gold_dir) if gold_dir is not None else rl.gold_dir()
+    silver = Path(silver_dir) if silver_dir is not None else rl.silver_dir()
+    rows = records if records is not None else _personal_records(player, silver)
+    def recency(record):
+        try:
+            sequence = int(str(record.get("match_id") or "").rsplit("_", 1)[-1])
+        except ValueError:
+            sequence = 0
+        return record.get("game_ts") or 0, sequence, str(record.get("match_id") or "")
+
+    selected = sorted(rows, key=recency, reverse=True)[:max_games]
+    catalog = cprof.load_items() if item_catalog is None else item_catalog
+    raw_loader = load_raw if load_raw is not None else rl._read_raw
+    items, unavailable, ref_cache = {}, [], {}
+    for record in selected:
+        match_id = record.get("match_id")
+        if not match_id:
+            continue
+        try:
+            benchmark_scope, ref = _game_benchmark_scope(
+                record, target, gold, ref_cache,
+            )
+            game_payload = build_game(
+                player, match_id=match_id, scope=benchmark_scope, target=target,
+                gold_dir=gold, silver_dir=silver, load_raw=raw_loader,
+                records=rows, ref=ref, item_catalog=catalog, record=record,
+            )
+        except (RawMissing, BenchmarkMissing, GameNotEligible) as error:
+            unavailable.append({"match_id": match_id, "reason": _REASONS[type(error)]})
+            continue
+        canonical = json.dumps(game_payload, ensure_ascii=False, sort_keys=True,
+                               separators=(",", ":"))
+        items[match_id] = {
+            "payload_hash": hashlib.sha256(canonical.encode()).hexdigest()[:12],
+            "benchmark_scope": benchmark_scope,
+            "payload": game_payload,
+        }
+    timestamp = now() if now is not None else datetime.now(timezone.utc).isoformat()
+    return {"generated_at": timestamp, "target": target, "max_games": max_games,
+            "items": items, "unavailable": unavailable}

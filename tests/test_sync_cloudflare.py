@@ -79,7 +79,13 @@ def test_sync_account_pushes_keys(data_root, monkeypatch):
     assert json.loads(kv.store["gold:p:adc"]) == {"n_games": 8}
     assert json.loads(kv.store["pred:p"])["predicted_rank"] == "master"
     assert json.loads(kv.store["shap:p:drivers"]) == [{"feature": "gd10"}]
-    assert not [key for key in kv.store if key.startswith("coaching:")]
+    assert "coaching:p:reviews" not in kv.store
+    assert "coaching:p:feedback" not in kv.store
+    bundle = json.loads(kv.store["coaching:p:game-payloads"])
+    assert bundle["items"] == {}
+    assert bundle["unavailable"] == [
+        {"match_id": "EUW1_10", "reason": "benchmark_missing"}
+    ]
 
 
 def test_sync_account_slices_last_20_games(data_root, monkeypatch):
@@ -98,6 +104,15 @@ def test_sync_account_slices_last_20_games(data_root, monkeypatch):
     sc.sync_account(kv, "p")
     assert seen == [20]
     assert "pred:p" not in kv.store
+
+
+def test_sync_account_can_skip_game_payload_bundle(data_root, monkeypatch):
+    monkeypatch.setattr(ml_rank, "predict_rank", lambda games: None)
+    _write(data_root / "02_silver" / "personal" / "p" / "games.jsonl",
+           json.dumps({"match_id": "EUW1_1"}) + "\n")
+    kv = FakeKV()
+    sc.sync_account(kv, "p", game_payloads=False)
+    assert "coaching:p:game-payloads" not in kv.store
 
 
 def test_seed_reviews_only_when_kv_key_absent(data_root, monkeypatch):
