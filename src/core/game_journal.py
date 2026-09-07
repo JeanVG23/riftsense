@@ -15,7 +15,7 @@ from __future__ import annotations
 import bisect
 from collections import defaultdict
 
-from riotlib import (SR_MAP_ID, approx_zone, enemy_team_of, find_pid,
+from riotlib import (SR_MAP_ID, approx_zone, clock_of, enemy_team_of, find_pid,
                      frames_by_minute, iter_events, participant_id, patch_of,
                      phase_of, _gold_state)
 
@@ -40,8 +40,8 @@ GOLD_SWING_WINDOW_S = 90      # swing de gold d'équipe mesuré à ~90 s
 GOLD_SWING_KEY = f"team_gold_swing_{GOLD_SWING_WINDOW_S}s"
 
 
-def _clock(t_ms: int) -> str:
-    return f"{t_ms // 60000}:{(t_ms % 60000) // 1000:02d}"
+# Nom privé conservé : il est appelé une douzaine de fois dans ce module.
+_clock = clock_of
 
 
 def _events(timeline: dict):

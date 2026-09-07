@@ -136,6 +136,13 @@ def phase_of(minute: int) -> str:
     return "late"
 
 
+def clock_of(t_ms: int) -> str:
+    """Horloge de partie « m:ss ». Primitive partagée : `game_journal` la
+    formatait pour lui seul, `journal_signals` en a besoin sans pouvoir
+    importer l'assembleur (dépendance circulaire)."""
+    return f"{t_ms // 60000}:{(t_ms % 60000) // 1000:02d}"
+
+
 def approx_zone(x: int, y: int) -> str:
     """Classification grossière d'une position en lane/zone (PoC)."""
     d_mid = abs(x - y) / (2 ** 0.5)      # distance à la diagonale (mid)
