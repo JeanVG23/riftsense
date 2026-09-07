@@ -419,3 +419,74 @@ def test_report_filters_on_prompt_version(tmp_path):
     assert nouvelle["numbers"]["grounded_rate"] == 0.0
 
     assert G.report("p", root=root)["n_reviews"] == 2
+
+
+def test_seconds_suffix_gives_the_right_unit():
+    """`age_s` et `away_from_my_zone_s` ne matchent aucun motif existant :
+    sans regle de suffixe, un « 40 s » cite serait compte non ancre."""
+    payload = {"journal": {"deaths": [{
+        "clock": "8:52",
+        "jungle_signals": {"champion": "Vi", "age_s": 40,
+                           "last": {"type": "CHAMPION_KILL", "clock": "8:12"}},
+        "ally_context": {"support": {"zone": "TOP", "distance": 7420,
+                                     "away_from_my_zone_s": 70},
+                         "map_depth": 1840},
+    }]}}
+    index = G.payload_index(payload)
+    assert 40.0 in index["s"] and 70.0 in index["s"]
+    # Cloisonnement : une distance n'ancre pas un gold, ni l'inverse.
+    assert 7420.0 in index["u"] and 7420.0 not in index["g"]
+    assert 1840.0 in index["u"] and 1840.0 not in index["g"]
+    assert G.classify_number(40, index, "s") == "exact"
+    assert G.classify_number(7420, index, "g") == "non_ancre"
+
+
+def test_keys_ending_in_ms_or_cs_keep_their_own_unit():
+    """La regle de suffixe ne doit pas avaler `t_ms` ni `precision_cs`."""
+    payload = {"journal": {"recalls": [{
+        "t_ms": 420000,
+        "cs_cost": {"window": {"from": "7:00", "to": "9:00"},
+                    "my_cs_gained": 11, "expected_cs": 16.8,
+                    "cs_missed_est": {"value": 6, "precision_cs": 2}},
+    }]}}
+    index = G.payload_index(payload)
+    assert 420000.0 not in index["s"], "t_ms reste ignore"
+    assert 6.0 in index["cs"] and 2.0 in index["cs"]
+    assert G.classify_number(16.8, index, "cs") == "exact"
+    # Le repli d'arrondi couvre le coach qui cite « 17 CS » pour 16,8.
+    assert G.classify_number(17, index, "cs") in ("exact", "arrondi")
+
+
+def test_window_clocks_are_collectable():
+    """`_collect_clocks` ne lisait que les cles `clock` : la fenetre de mesure
+    d'un recall (`from`/`to`) etait invisible."""
+    payload = {"journal": {"recalls": [
+        {"clock": "7:38", "cs_cost": {"window": {"from": "7:00", "to": "9:00"}},
+         "opponent_spike": {"clock": "7:52", "delta_s": 14},
+         "death_after_visit": {"clock": "8:31", "delta_s": 53}}]}}
+    clocks = G.payload_clocks(payload)
+    assert {"7:38", "7:00", "9:00", "7:52", "8:31"} <= clocks
+
+
+def test_a_stray_from_key_is_not_taken_for_a_clock():
+    """Le garde-fou du motif evite de ramasser un `from`/`to` etranger."""
+    payload = {"context": {"from": "champ select", "to": "16.13"}}
+    assert G.payload_clocks(payload) == set()
+
+
+def test_a_descriptive_title_is_flagged():
+    """Un `title` « surextension a repetition » echappait au controle."""
+    review = {"mistakes": [{"point": "Recentre-toi apres chaque vague.",
+                            "cause": "tu prolonges en lane",
+                            "evidence": "mort a 8:31",
+                            "title": "Surextension a repetition"}]}
+    violations = G.asymmetry_violations(review)
+    assert violations and "mistakes" in violations[0]
+
+
+def test_a_neutral_title_is_not_flagged():
+    review = {"mistakes": [{"point": "Recall plus tot avant le drake.",
+                            "cause": "tu restes sans gold a depenser",
+                            "evidence": "recall a 7:38, 6 CS perdus",
+                            "title": "Recall tardif avant drake"}]}
+    assert G.asymmetry_violations(review) == []

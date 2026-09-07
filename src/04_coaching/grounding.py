@@ -169,8 +169,10 @@ ANY = "any"
 # Unité déduite du nom de champ. Ordre significatif : le premier motif gagne.
 _KEY_UNITS = (
     (("damage", "_dmg"), "dmg"),
-    (("gold", "gd10", "gd14", "gd20", "cost", "price"), "g"),
+    # `cs_` avant `cost` : `cs_cost` (fenêtre de mesure de CS perdus, task 8)
+    # porte les deux sous-chaînes, et son unité est des CS, pas du gold.
     (("csd", "cs_", "creep"), "cs"),
+    (("gold", "gd10", "gd14", "gd20", "cost", "price"), "g"),
     (("delta_s", "dead_time", "duration_s", "_seconds"), "s"),
     (("minute", "duration_min"), "min"),
     (("depth", "dist"), "u"),
@@ -186,10 +188,23 @@ _IGNORED_KEYS = ("t_ms",)
 _UNGROUNDED_SUBTREES = ("game_review_causes", "axes")
 
 
+
+# Suffixe de nom de champ portant une unité. Les motifs de `_KEY_UNITS` sont des
+# SOUS-CHAÎNES ; certains champs ne les matchent pas (`age_s`,
+# `away_from_my_zone_s` retombaient dans le seau des dénombrements, et une
+# citation « 40 s » passait pour non ancrée). Un suffixe est sûr là où une
+# sous-chaîne ne l'est pas : `t_ms` finit par `ms`, `precision_cs` par `cs`,
+# aucun des deux ne matche `_s`.
+_KEY_SUFFIX_UNITS = (("_s", "s"),)
+
+
 def _unit_of(key: str) -> str | None:
     low = key.lower()
     for patterns, unit in _KEY_UNITS:
         if any(pattern in low for pattern in patterns):
+            return unit
+    for suffix, unit in _KEY_SUFFIX_UNITS:
+        if low.endswith(suffix):
             return unit
     return None
 
@@ -326,13 +341,22 @@ def payload_clocks(payload: dict) -> set[str]:
     return out
 
 
+# Clés portant une horloge. `clock` seule laissait la fenêtre de mesure d'un
+# recall (`{"from": "7:00", "to": "9:00"}`) invisible, donc son horodatage
+# comptait comme inventé. Le motif est le garde-fou : un `from`/`to` étranger
+# aux horloges (un patch, une phase) n'est pas ramassé.
+_CLOCK_KEYS = ("clock", "from", "to")
+_CLOCK_VALUE_RE = re.compile(r"^\d{1,2}:[0-5]\d$")
+
+
 def _collect_clocks(node, key: str, out: set[str]) -> None:
     if key in _UNGROUNDED_SUBTREES:
         return
     if isinstance(node, dict):
-        clock = node.get("clock")
-        if isinstance(clock, str):
-            out.add(clock)
+        for clock_key in _CLOCK_KEYS:
+            value = node.get(clock_key)
+            if isinstance(value, str) and _CLOCK_VALUE_RE.match(value):
+                out.add(value)
         for child_key, child in node.items():
             _collect_clocks(child, child_key, out)
     elif isinstance(node, list):
@@ -439,12 +463,18 @@ def asymmetry_violations(review: dict) -> list[str]:
     return out
 
 
+# `title` est examiné au même titre que `point`/`cause`/`evidence` : une
+# étiquette « surextension à répétition » est une prescription fondée sur une
+# feature descriptive, et elle échappait au contrôle.
+_ASYMMETRY_KEYS = ("point", "cause", "evidence", "title")
+
+
 def _texts(node) -> list[str]:
     if isinstance(node, str):
         return [node]
     if isinstance(node, dict):
         return [v for k, v in node.items()
-                if isinstance(v, str) and k in ("point", "cause", "evidence")]
+                if isinstance(v, str) and k in _ASYMMETRY_KEYS]
     if isinstance(node, list):
         return [t for child in node for t in _texts(child)]
     return []
