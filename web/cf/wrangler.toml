@@ -10,3 +10,11 @@ not_found_handling = "single-page-application"
 [[kv_namespaces]]
 binding = "DATA"
 id = "a7ea0d5fcf0449f9a4fef23e9dda5496"
+
+[[durable_objects.bindings]]
+name = "COACH_GATE"
+class_name = "CoachGate"
+
+[[migrations]]
+tag = "v1-coach-gate"
+new_sqlite_classes = ["CoachGate"]

@@ -11,6 +11,7 @@ export function jsonError(status: number, detail: string): Response {
 }
 
 export const notFound = (detail = "Not Found") => jsonError(404, detail);
+export const unauthorized = (detail = "Authentification requise") => jsonError(401, detail);
 export const methodNotAllowed = () => jsonError(405, "Method Not Allowed");
 export const unprocessable = (detail: string) => jsonError(422, detail);
 

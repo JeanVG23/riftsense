@@ -15,6 +15,7 @@ function makeEnv(): { env: Env; kv: MemoryKV } {
   const env = {
     DATA: kv,
     ASSETS: { fetch: async () => new Response(SPA_HTML) },
+    COACH_AUTH_PASSWORD: "test-auth-password",
   } as unknown as Env;
   return { env, kv };
 }
@@ -60,11 +61,24 @@ describe("GET /api/accounts", () => {
 });
 
 describe("POST /api/chat", () => {
-  it("route le chat et refuse une position ennemie cachée sans appeler Ollama", async () => {
-    const { env, kv } = await seed();
+  it("401 si non authentifié", async () => {
+    const { env } = await seed();
     const response = await handle(new Request("http://x/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug: "spadzze", review_ts: "2026-08-30T12:00:00", messages: [] }),
+    }), env);
+    expect(response.status).toBe(401);
+  });
+
+  it("route le chat et refuse une position ennemie cachée sans appeler Ollama si authentifié", async () => {
+    const { env, kv } = await seed();
+    const response = await handle(new Request("http://x/api/chat", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer test-auth-password",
+      },
       body: JSON.stringify({
         slug: "spadzze", review_ts: "2026-08-30T12:00:00",
         messages: [{ role: "user", content: "Où était le jungler ennemi ?" }],
@@ -173,6 +187,60 @@ describe("GET /api/c/{slug}/reviews|feedback|shap", () => {
     const { env } = await seed();
     expect((await handle(new Request("http://x/api/c/spadzze/reviews?kind=game&page=0"), env)).status).toBe(422);
     expect((await handle(new Request("http://x/api/c/spadzze/reviews?kind=autre"), env)).status).toBe(422);
+  });
+});
+
+describe("contexte et coaching unitaire", () => {
+  it("expose le contexte complet calculé depuis KV", async () => {
+    const { env } = await seed();
+    const response = await handle(
+      new Request("http://x/api/c/spadzze/coaching-context"), env,
+    );
+    expect(response.status).toBe(200);
+    const context = await response.json() as Record<string, any>;
+    expect(context).toHaveProperty("default_scope");
+    expect(context).toHaveProperty("matches.EUW1_30.review_status");
+    expect(context).toHaveProperty("review_samples.adc");
+    expect(context).toHaveProperty("aggregate_status.adc.loss");
+  });
+
+  it("exige l'authentification puis valide le body et la configuration avant d'ouvrir le flux unitaire", async () => {
+    const { env } = await seed();
+    const unauthed = await handle(new Request("http://x/api/coach/game", {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+    }), env);
+    expect(unauthed.status).toBe(401);
+
+    const invalid = await handle(new Request("http://x/api/coach/game", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer test-auth-password",
+      },
+      body: "{}",
+    }), env);
+    expect(invalid.status).toBe(422);
+
+    const missingKey = await handle(new Request("http://x/api/coach/game", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer test-auth-password",
+      },
+      body: JSON.stringify({ slug: "spadzze", match_id: "EUW1_30" }),
+    }), env);
+    expect(missingKey.status).toBe(500);
+    expect(await missingKey.json()).toEqual({ detail: "OLLAMA_API_KEY non configuré" });
+  });
+
+  it("POST /api/coach: 401 si non authentifié", async () => {
+    const { env } = await seed();
+    const res = await handle(new Request("http://x/api/coach", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug: "spadzze" }),
+    }), env);
+    expect(res.status).toBe(401);
   });
 });
 

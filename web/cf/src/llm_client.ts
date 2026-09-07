@@ -17,6 +17,52 @@ export interface GenerateOpts {
 
 const MAX_ATTEMPTS = 4;
 
+interface OllamaStreamChunk {
+  message?: { content?: string };
+  error?: unknown;
+}
+
+async function readStreamedContent(response: Response): Promise<string> {
+  if (!response.body) throw new Error("flux Ollama absent");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "";
+  let content = "";
+
+  const consumeLine = (rawLine: string) => {
+    const line = rawLine.trim();
+    if (!line) return;
+
+    let chunk: OllamaStreamChunk;
+    try {
+      chunk = JSON.parse(line) as OllamaStreamChunk;
+    } catch {
+      throw new Error("flux Ollama NDJSON invalide");
+    }
+    if (chunk.error !== undefined) {
+      const detail = typeof chunk.error === "string"
+        ? chunk.error
+        : JSON.stringify(chunk.error);
+      throw new Error(`erreur Ollama en cours de génération : ${detail}`);
+    }
+    if (typeof chunk.message?.content === "string") {
+      content += chunk.message.content;
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    pending += decoder.decode(value, { stream: !done });
+    const lines = pending.split("\n");
+    pending = lines.pop() ?? "";
+    for (const line of lines) consumeLine(line);
+    if (done) break;
+  }
+  consumeLine(pending);
+  return content;
+}
+
 export async function generateJson(
   model: string,
   system: string,
@@ -46,7 +92,9 @@ export async function generateJson(
             { role: "user", content: user },
           ],
           format: schema,
-          stream: false,
+          // Ollama Cloud est lui-même derrière Cloudflare. Sans streaming, une
+          // génération > 125 s ne renvoie aucun octet et finit en HTTP 524.
+          stream: true,
           options: { temperature },
         }),
         signal: AbortSignal.timeout(timeoutMs),
@@ -56,9 +104,9 @@ export async function generateJson(
       }
       if (!response.ok) lastReason = `HTTP ${response.status}`;
       if (response.ok) {
-        const body = await response.json() as { message?: { content?: string } };
+        const content = await readStreamedContent(response);
         try {
-          const parsed = JSON.parse(body.message?.content ?? "") as unknown;
+          const parsed = JSON.parse(content) as unknown;
           if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
             return parsed as Record<string, unknown>;
           }
