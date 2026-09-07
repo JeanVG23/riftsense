@@ -153,9 +153,16 @@ def trim_champions(raw: dict) -> dict:
 
 
 def trim_items(raw: dict) -> dict:
-    """Ne garde que ce que `_parse_items` lit : le nom et le coût total."""
+    """Ne garde que ce que `_parse_items` lit : nom, coût total, `into`, `tags`.
+
+    `into` et `tags` ne sont pas décoratifs : ils portent la notion d'objet fini.
+    Sans eux, la démo classerait fini tout objet à 1600 g et plus, une
+    divergence prod/démo qu'aucun test de parité ne verrait.
+    """
     return {"data": {k: {"name": it.get("name", ""),
-                         "gold": {"total": it.get("gold", {}).get("total")}}
+                         "gold": {"total": it.get("gold", {}).get("total")},
+                         "into": [nxt for nxt in (it.get("into") or []) if nxt],
+                         "tags": list(it.get("tags") or [])}
                      for k, it in raw["data"].items()}}
 
 

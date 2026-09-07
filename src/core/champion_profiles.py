@@ -67,9 +67,31 @@ def fetch_ddragon_items(version: str | None = None) -> Path:
     return dest
 
 
+# Seuil d'« objet fini ». Écarte les bottes de tier 2 (1000 à 1100) et les
+# composants sans successeur, tout en gardant les légendaires les moins chers
+# (le moins cher du catalogue 16.13.1 est à 1900). Un composant cher comme
+# Seeker's Armguard (1600) porte un `into` non vide et sort par ce test.
+FINISHED_MIN_COST = 1600
+
+
+def _is_finished(it: dict) -> bool:
+    """Objet terminé : aucun successeur, assez cher, pas un consommable.
+
+    Les chaînes vides d'`into` sont filtrées : Data Dragon a marqué des objets
+    FINAUX d'un `into: [""]` historique, et un simple `not into` les aurait
+    classés composants.
+    """
+    if [nxt for nxt in (it.get("into") or []) if nxt]:
+        return False
+    cost = it.get("gold", {}).get("total")
+    return (isinstance(cost, (int, float)) and cost >= FINISHED_MIN_COST
+            and "Consumable" not in (it.get("tags") or []))
+
+
 def _parse_items(raw: dict) -> dict:
     return {int(iid): {"name": it.get("name", f"item_{iid}"),
-                       "cost": it.get("gold", {}).get("total")}
+                       "cost": it.get("gold", {}).get("total"),
+                       "finished": _is_finished(it)}
             for iid, it in raw.items()}
 
 
