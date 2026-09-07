@@ -74,14 +74,18 @@ def perturb_zone_to_top(payload: dict) -> dict:
     return out
 
 
+# Champs de gold non dépensé du journal. UNE seule table pilote la perturbation
+# ET le contrôle : ajouter un champ ici sans toucher au contrôle laisserait le
+# test passer en silence, exactement le faux-vert que ce module doit empêcher.
+_UNSPENT_GOLD_FIELDS = (("deaths", "unspent_gold"), ("recalls", "gold_before"))
+
+
 def perturb_unspent_gold_zero(payload: dict) -> dict:
     out = copy.deepcopy(payload)
-    for death in out["journal"]["deaths"]:
-        if "unspent_gold" in death:
-            death["unspent_gold"] = 0
-    for recall in out["journal"].get("recalls", []):
-        if "gold_before" in recall:
-            recall["gold_before"] = 0
+    for section, field in _UNSPENT_GOLD_FIELDS:
+        for row in out["journal"].get(section) or []:
+            if field in row:
+                row[field] = 0
     return out
 
 
@@ -120,14 +124,11 @@ def original_unspent_gold(payload: dict) -> set[float]:
     cité en `g` échoue donc à tort dès qu'une de ces valeurs apparaît."""
     journal = payload.get("journal") or {}
     values = set()
-    for death in journal.get("deaths") or []:
-        v = death.get("unspent_gold")
-        if isinstance(v, (int, float)) and v >= GOLD_FLOOR:
-            values.add(float(v))
-    for recall in journal.get("recalls") or []:
-        v = recall.get("gold_before")
-        if isinstance(v, (int, float)) and v >= GOLD_FLOOR:
-            values.add(float(v))
+    for section, field in _UNSPENT_GOLD_FIELDS:
+        for row in journal.get(section) or []:
+            value = row.get(field)
+            if isinstance(value, (int, float)) and value >= GOLD_FLOOR:
+                values.add(float(value))
     return values
 
 
@@ -138,13 +139,13 @@ def confidence(review: dict) -> float:
 
 # --- attentes -----------------------------------------------------------------
 
-def check_no_deaths(base: dict, new: dict, payload: dict | None = None) -> dict:
+def check_no_deaths(base: dict, new: dict, _payload: dict) -> dict:
     return {"expected": "confidence en baisse (journal pauvre)",
             "observed": f"{confidence(base):.2f} -> {confidence(new):.2f}",
             "passed": confidence(new) < confidence(base)}
 
 
-def check_zone_to_top(base: dict, new: dict, payload: dict | None = None) -> dict:
+def check_zone_to_top(base: dict, new: dict, _payload: dict) -> dict:
     before, after = zones_mentioned(base), zones_mentioned(new)
     return {"expected": "les zones citées suivent le journal (morts en TOP)",
             "observed": f"{sorted(before) or '∅'} -> {sorted(after) or '∅'}",

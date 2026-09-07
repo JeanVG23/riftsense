@@ -70,21 +70,21 @@ def test_unspent_gold_zero_covers_deaths_and_recalls():
 # --- attentes ------------------------------------------------------------------
 
 def test_no_deaths_expects_lower_confidence():
-    assert CF.check_no_deaths(_review(0.8), _review(0.4))["passed"] is True
-    assert CF.check_no_deaths(_review(0.8), _review(0.8))["passed"] is False
+    assert CF.check_no_deaths(_review(0.8), _review(0.4), {})["passed"] is True
+    assert CF.check_no_deaths(_review(0.8), _review(0.8), {})["passed"] is False
 
 
 def test_zone_expectation_detects_a_coach_that_ignores_the_journal():
     """Le cas qui justifie le test : la sortie perturbee reste identique, donc
     le modele recite un pattern plausible au lieu de lire le journal."""
-    assert CF.check_zone_to_top(_review(zone="BOT"), _review(zone="TOP"))["passed"]
-    assert not CF.check_zone_to_top(_review(zone="BOT"), _review(zone="BOT"))["passed"]
+    assert CF.check_zone_to_top(_review(zone="BOT"), _review(zone="TOP"), {})["passed"]
+    assert not CF.check_zone_to_top(_review(zone="BOT"), _review(zone="BOT"), {})["passed"]
     # Regression du 2026-09-04 : l'attente portait sur la disparition de « BOT »,
     # que le payload d'un ADC cite legitimement ailleurs (role, benchmarks de lane,
     # « tour BOT perdue »). Le test echouait sur un modele qui avait pourtant
     # deplace toutes ses morts. Seule la presence de la zone cible compte.
     assert CF.check_zone_to_top(_review(zone="BOT"),
-                                _review(zone="TOP et tour BOT perdue"))["passed"]
+                                _review(zone="TOP et tour BOT perdue"), {})["passed"]
 
 
 def test_gold_expectation_passes_when_original_unspent_gold_is_gone():

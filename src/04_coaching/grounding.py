@@ -52,9 +52,16 @@ CLOCK_NEAR_S = 30         # horodatage voisin d'un événement réel
 def cited_numbers(text: str) -> list[tuple[str, float, str]]:
     """[(brut, valeur, unité)] du texte, horloges exclues."""
     stripped = _CLOCK_RE.sub(" ", text)
-    states = _unit_states(stripped)
+    matches = list(_NUM_RE.finditer(stripped))
+    if not matches:
+        return []
+    # Les états d'unité ne servent qu'aux nombres SANS mot d'unité collé, soit
+    # une minorité des textes : ils sont construits à la première demande, et
+    # parcourus par un curseur unique (les nombres arrivent par position
+    # croissante, un re-balayage depuis le début serait quadratique).
+    states, cursor, current = None, 0, None
     out = []
-    for m in _NUM_RE.finditer(stripped):
+    for m in matches:
         raw = m.group(0)
         try:
             value = float(raw.translate(_SPACES).replace(",", "."))
@@ -66,16 +73,21 @@ def cited_numbers(text: str) -> list[tuple[str, float, str]]:
             # `consequences` sont souvent cités bruts, le mot-clé désignant
             # dégâts/gold arrivant AVANT le nombre plutôt qu'après (« dégâts
             # Baron 1043, Ahri 591 », « team_gold_swing_90s -7737 »), parfois
-            # à des dizaines de caractères (une énumération). `_unit_at`
-            # retrouve le dernier mot-clé rencontré DANS LA MÊME PHRASE, sans
-            # limite de distance arbitraire mais borné à la phrase en cours
-            # (`_SENTENCE_BREAK_RE`) : le nombre devient spécifiquement `dmg`
+            # à des dizaines de caractères (une énumération). Le curseur sur
+            # `_unit_states` retient le dernier mot-clé rencontré DANS LA MÊME
+            # PHRASE, sans limite de distance arbitraire mais borné à la clause
+            # en cours (`_BREAK_RE`) : le nombre devient spécifiquement `dmg`
             # ou `g`, jamais les deux à la fois, et jamais au-delà d'un point/
             # point-virgule. C'est ce qui évite la collision qu'un simple
             # ajout de `dmg`+`g` au repli générique ANY recréait (un dégât
             # inventé tombant par coïncidence près d'un gold sans rapport) :
             # sans mot-clé dans la phrase, le nombre reste ANY.
-            unit = _unit_at(states, m.start()) or ANY
+            if states is None:
+                states = _unit_states(stripped, [mm.span() for mm in matches])
+            while cursor < len(states) and states[cursor][0] <= m.start():
+                current = states[cursor][1]
+                cursor += 1
+            unit = current or ANY
         out.append((raw, value, unit))
     return out
 
@@ -92,8 +104,13 @@ _UNIT_TRIGGERS = (
     (("dégât", "degat", "damage", "dmg", "inflige", "subis"), "dmg"),
     (("gold_swing",), "g"),
 )
+_TRIGGER_UNIT = {kw: unit for keywords, unit in _UNIT_TRIGGERS for kw in keywords}
+# Alternation la plus longue d'abord : un mot-clé préfixe d'un autre ne doit pas
+# gagner à sa place.
+_TRIGGER_RE = re.compile(
+    "|".join(re.escape(kw) for kw in sorted(_TRIGGER_UNIT, key=len, reverse=True)),
+    re.I)
 # Point/point-virgule : fin de phrase, remise à zéro INCONDITIONNELLE.
-_HARD_BREAK_RE = re.compile(r"[.;]")
 # Virgule : remise à zéro par défaut (une clause introduit un sujet différent,
 # cf. relecture tour 3 : « Tu subis 1230 de dégâts..., ta CS tombe à 45 » ne
 # doit PAS laisser « dégâts » gouverner la CS ni l'XP d'une clause suivante).
@@ -104,50 +121,34 @@ _HARD_BREAK_RE = re.compile(r"[.;]")
 # à travers la virgule. Un nom propre (« Ahri ») est optionnel : un chiffre nu
 # juste après la virgule (sans verbe ni nouveau sujet) reste une énumération.
 _ENUM_CONTINUATION_RE = re.compile(r"^(?:[A-ZÀ-Ý][\wÀ-ÿ']*\s+)?\d")
-_COMMA_RE = re.compile(r",")
+_BREAK_RE = re.compile(r"[.;,]")
 
 
-def _unit_states(stripped: str) -> list[tuple[int, str | None]]:
+def _unit_states(stripped: str,
+                 number_spans: list[tuple[int, int]]) -> list[tuple[int, str | None]]:
     """[(position, unité en vigueur À PARTIR de cette position)], triée. L'unité
     change à chaque mot-clé `_UNIT_TRIGGERS` et se réinitialise à `None` à
     chaque limite de phrase ou de clause, pour qu'un mot-clé ne « fuie » jamais
-    vers une clause suivante sans rapport."""
-    low = stripped.lower()
-    events: list[tuple[int, str | None]] = []
-    for keywords, unit in _UNIT_TRIGGERS:
-        for kw in keywords:
-            start = 0
-            while True:
-                i = low.find(kw, start)
-                if i == -1:
-                    break
-                events.append((i, unit))
-                start = i + 1
-    for m in _HARD_BREAK_RE.finditer(stripped):
-        events.append((m.start(), None))
-    # Une virgule DÉCIMALE (« 46,7 ») n'est pas une limite de clause : ignorer
-    # les virgules qui tombent À L'INTÉRIEUR d'un nombre déjà reconnu par
-    # `_NUM_RE`, sous peine de couper l'énumération en plein milieu d'un
-    # pourcentage entre deux valeurs de la même liste.
-    number_spans = [m.span() for m in _NUM_RE.finditer(stripped)]
-    for m in _COMMA_RE.finditer(stripped):
+    vers une clause suivante sans rapport.
+
+    `number_spans` sont les bornes déjà repérées par `_NUM_RE` chez l'appelant :
+    une virgule DÉCIMALE (« 46,7 ») tombe À L'INTÉRIEUR de l'une d'elles et
+    n'est pas une limite de clause, sous peine de couper une énumération en
+    plein milieu d'un pourcentage."""
+    events: list[tuple[int, str | None]] = [
+        (m.start(), _TRIGGER_UNIT[m.group(0).lower()])
+        for m in _TRIGGER_RE.finditer(stripped)
+    ]
+    for m in _BREAK_RE.finditer(stripped):
         pos = m.start()
-        if any(start <= pos < end for start, end in number_spans):
+        if m.group(0) == "," and (
+            any(start <= pos < end for start, end in number_spans)
+            or _ENUM_CONTINUATION_RE.match(stripped[m.end():m.end() + 24].lstrip())
+        ):
             continue
-        tail = stripped[m.end():m.end() + 24].lstrip()
-        if not _ENUM_CONTINUATION_RE.match(tail):
-            events.append((pos, None))
+        events.append((pos, None))
     events.sort(key=lambda e: e[0])
     return [(0, None)] + events
-
-
-def _unit_at(states: list[tuple[int, str | None]], pos: int) -> str | None:
-    unit = None
-    for start, u in states:
-        if start > pos:
-            break
-        unit = u
-    return unit
 
 
 def cited_clocks(text: str) -> list[str]:
@@ -280,24 +281,16 @@ def _add_derived(payload: dict, out: dict[str, set[float]]) -> None:
 # sa fenêtre dans le NOM de la clé (« _90s »), pas dans une valeur citable : un
 # coach qui écrit « swing mesuré sur 90 secondes » décrit la DÉFINITION de la
 # feature, pas un chiffre du journal. Chacune n'est ajoutée QUE si le bloc
-# qu'elle définit est réellement présent dans CE payload (cf. `_has_key`) :
+# qu'elle définit est réellement présent dans CE payload :
 # sinon un payload sans `consequences` citerait légitiment « 90 s » sans
 # qu'aucune feature de ce nom n'y existe. PAS de règle générique qui ancrerait
 # tout nombre trouvé dans un nom de clé (la porte ouverte que le cloisonnement
 # par unité interdit) : seules ces deux constantes précises, nommément listées.
 _FEATURE_WINDOWS = (
-    ("team_gold_swing_90s", game_journal.GOLD_SWING_WINDOW_S),
+    (game_journal.GOLD_SWING_KEY, game_journal.GOLD_SWING_WINDOW_S),
     ("objectives_lost", game_journal.CONSEQUENCE_WINDOW_S),
     ("buildings_lost", game_journal.CONSEQUENCE_WINDOW_S),
 )
-
-
-def _has_key(node, target: str) -> bool:
-    if isinstance(node, dict):
-        return target in node or any(_has_key(child, target) for child in node.values())
-    if isinstance(node, list):
-        return any(_has_key(child, target) for child in node)
-    return False
 
 
 def payload_index(payload: dict) -> dict[str, set[float]]:
@@ -306,12 +299,18 @@ def payload_index(payload: dict) -> dict[str, set[float]]:
     out: dict[str, set[float]] = {unit: set() for unit in UNITS}
     _walk(payload, "", out)
     _add_derived(payload, out)
+    # Une seule collecte des textes/noms de clés : elle sert à la fois aux
+    # nombres portés par les noms de métriques et à la présence des marqueurs
+    # de `_FEATURE_WINDOWS` (un parcours récursif par marqueur en plus était du
+    # travail pur perdu).
+    texts = _strings_and_keys(payload)
     names: set[float] = set()
-    for text in _strings_and_keys(payload):
+    for text in texts:
         names.update(abs(value) for _, value, _ in cited_numbers(text))
     out[ANY] = names
+    present = set(texts)
     for marker, seconds in _FEATURE_WINDOWS:
-        if _has_key(payload, marker):
+        if marker in present:
             out["s"].add(float(seconds))
     return out
 
@@ -383,7 +382,7 @@ def classify_number(value: float, index: dict[str, set[float]],
         # porté par un nom de métrique (« gd14 », « @20 »). Une fraction brute
         # (« 0,29 des morts ») reste rapprochable du bloc de pourcentages.
         # `dmg`/`g` n'y figurent PAS : un nombre réellement sans mot-clé à
-        # proximité (`cited_numbers`/`_nearby_unit`) reste ici, et ne doit PAS
+        # proximité (`cited_numbers`/`_unit_states`) reste ici, et ne doit PAS
         # chercher dans les blocs de dégâts/gold, sous peine de recréer la
         # collision qu'un ajout précédent avait introduite (un dégât inventé
         # rapproché par coïncidence d'un gold sans rapport). Les citations de
@@ -510,11 +509,10 @@ def report(player: str, root=None, kind: str | None = None,
         records = [r for r in records
                    if (r.get("kind") or "aggregate") == kind]
     if prompt_version:
-        # "none" cible les reviews d'avant le bloc `run` (pas de version tracée) :
-        # sans ce sentinelle, la cohorte historique serait inatteignable.
-        wanted = None if prompt_version == "none" else prompt_version
+        # Cohorte résolue par `feedback.prompt_cohort` : le sentinelle "none"
+        # (reviews d'avant le bloc `run`) n'est défini qu'à cet endroit-là.
         records = [r for r in records
-                   if (r.get("run") or {}).get("prompt_version") == wanted]
+                   if feedback_mod.prompt_cohort(r) == prompt_version]
     checks = [check_review(r) for r in records]
     numbers = [n for c in checks for n in c["numbers"]]
     clocks = [c for check in checks for c in check["clocks"]]
