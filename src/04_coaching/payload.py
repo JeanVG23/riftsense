@@ -465,7 +465,10 @@ def build_game(player: str, match_id: str | None = None, scope: str = "adc",
     match, timeline = load_raw(f"{mid}_match"), load_raw(f"{mid}_timeline")
     if match is None or timeline is None:
         raise RawMissing(f"raw manquant pour {mid}")
-    journal = gj.game_journal(match, timeline, record["puuid"])
+    # Le catalogue est resolu une fois : il sert au journal (notion d'objet
+    # fini, donc les blocs de spike) ET a la resolution des noms d'items.
+    catalog = cprof.load_items() if item_catalog is None else item_catalog
+    journal = gj.game_journal(match, timeline, record["puuid"], items=catalog)
     if journal is None:
         raise GameNotEligible(f"game {mid} hors Faille de l'invocateur")
 
@@ -485,7 +488,6 @@ def build_game(player: str, match_id: str | None = None, scope: str = "adc",
         "death_zone_phase": rf.get("by_zone_phase", {}),
         "death_gold_state": rf.get("death_gold_state", {}),
     }
-    catalog = cprof.load_items() if item_catalog is None else item_catalog
     recalls = [_resolve_recall_items(r, catalog) for r in journal["recalls"]]
     deaths = _attach_next_purchases(journal["deaths"], recalls)
     out = {"meta": meta,

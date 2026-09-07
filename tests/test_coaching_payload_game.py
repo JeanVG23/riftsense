@@ -97,7 +97,10 @@ def test_filter_scope_by_role_champion_and_all():
 
 # --- Items résolus et contexte de matchup ----------------------------------------
 
-FAKE_CATALOG = {1055: {"name": "Doran's Blade", "cost": 450}}
+# `finished` ajoute a la constante existante : c'est ce que `load_items` rend
+# desormais, et le journal en a besoin pour la notion de spike.
+FAKE_CATALOG = {1055: {"name": "Doran's Blade", "cost": 450, "finished": False},
+                3094: {"name": "Rapid Firecannon", "cost": 2650, "finished": True}}
 
 
 def test_build_game_resolves_recall_items(tmp_path, monkeypatch):
@@ -106,7 +109,7 @@ def test_build_game_resolves_recall_items(tmp_path, monkeypatch):
     pl = PL.build_game("spadzze", scope="adc", target="challenger",
                        gold_dir=gold, silver_dir=silver, load_raw=_load_raw)
     (r1,) = pl["journal"]["recalls"]
-    assert r1["items"] == [{"name": "Doran's Blade", "cost": 450}]
+    assert r1["items"] == [{"name": "Doran's Blade", "cost": 450, "finished": False}]
     assert "item_ids" not in r1                      # ids bruts non exposés au LLM
 
 
@@ -219,6 +222,46 @@ def test_build_game_bundle_is_bounded_hashed_and_records_unavailable(tmp_path, m
     assert bundle["unavailable"] == [
         {"match_id": "EUW1_43", "reason": "benchmark_missing"}
     ]
+
+
+def test_build_game_injects_the_item_catalog_into_the_journal(tmp_path, monkeypatch):
+    """`build_game` resolvait le catalogue APRES le journal, donc le journal
+    n'avait pas la notion d'objet fini et les blocs de spike manquaient."""
+    silver, gold = _dirs(tmp_path)
+    seen = {}
+    real = PL.gj.game_journal
+
+    def spy(match, timeline, puuid, items=None):
+        seen["items"] = items
+        return real(match, timeline, puuid, items=items)
+
+    monkeypatch.setattr(PL.cprof, "load_items", lambda: FAKE_CATALOG)
+    monkeypatch.setattr(PL.gj, "game_journal", spy)
+    pl = PL.build_game("spadzze", scope="adc", target="challenger",
+                       gold_dir=gold, silver_dir=silver, load_raw=_load_raw)
+    assert seen["items"] is FAKE_CATALOG
+    (recall,) = pl["journal"]["recalls"]
+    assert "item_ids" not in recall              # ids bruts non exposes au LLM
+    assert recall["outcome"] == {"gold_spent": 450, "finished_items": [],
+                                 "is_spike": False}
+
+
+def test_build_game_carries_the_new_journal_blocks(tmp_path, monkeypatch):
+    """Les blocs neufs remontent bien au payload servi au modele."""
+    silver, gold = _dirs(tmp_path)
+    monkeypatch.setattr(PL.cprof, "load_items", lambda: FAKE_CATALOG)
+    pl = PL.build_game("spadzze", scope="adc", target="challenger",
+                       gold_dir=gold, silver_dir=silver, load_raw=_load_raw)
+    (recall,) = pl["journal"]["recalls"]
+    # La timeline de fixture n'a pas de champ de CS : la fenetre est mesurable,
+    # la ligne de base vaut 0, et le bloc dit honnetement 0 plutot que rien.
+    assert recall["cs_cost"]["window"] == {"from": "5:00", "to": "7:00"}
+    (death,) = pl["journal"]["deaths"]
+    assert isinstance(death["ally_context"]["map_depth"], int)
+    # Le jungler ennemi est resolu (LeeSin) mais n'a laisse aucun indice
+    # public : le bloc existe, `last` est nul, et l'age compte depuis 0:00.
+    assert death["jungle_signals"] == {"champion": "LeeSin", "age_s": 270,
+                                       "last": None}
 
 
 def test_game_benchmark_falls_back_from_missing_role_to_all(tmp_path):
