@@ -7,6 +7,8 @@ preuve chiffrée — pas de conseil sans stat.
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -175,3 +177,18 @@ class Feedback(BaseModel):
     model: str                        # copié de la review (récap par modèle)
     overall_useful: bool | None = None   # non collecté par le flow interactif
     items: list[FeedbackItem]         # items annotés (≤9 ; skips omis)
+
+
+# --- versionnage du schéma ---------------------------------------------------
+# Même logique que prompt.version_of : dérivée du contenu, donc impossible à oublier
+# de bump. Le générateur inline CES chaînes dans le module TypeScript plutôt que de
+# les recalculer côté Worker : recalculer rouvrirait la question de la
+# canonicalisation JSON, donc la possibilité de deux versions pour un schéma unique.
+
+def schema_version_of(sch: dict) -> str:
+    blob = json.dumps(sch, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(blob.encode()).hexdigest()[:12]
+
+
+REVIEW_SCHEMA_VERSION = schema_version_of(review_json_schema())
+GAME_REVIEW_SCHEMA_VERSION = schema_version_of(game_review_json_schema())
