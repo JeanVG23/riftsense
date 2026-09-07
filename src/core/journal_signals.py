@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import statistics
 
-from riotlib import approx_zone, clock_of, cs_of
+from riotlib import clock_of, cs_of
 
 PRECISION_CS = 2          # plancher impose par des frames a 60 s
 CS_WINDOW_MIN = 2         # fenetre de mesure d'un recall : 120 s
