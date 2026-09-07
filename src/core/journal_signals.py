@@ -80,3 +80,67 @@ def recall_cs_cost(my_frames: dict[int, dict], opp_frames: dict[int, dict],
         # le prompt fait porter le jugement, pas sur l'estimation absolue.
         "cs_diff_swing": mine - opponent,
     }
+
+
+SPIKE_WINDOW_S = 120        # visite adverse consideree comme concomitante
+RECALL_DEATH_WINDOW_S = 90  # mort attribuee au retour en lane
+
+
+def classify_visit(item_ids: list[int], items: dict | None) -> dict | None:
+    """Bénéfice d'une visite de shop : gold dépensé, objets FINIS, spike ou non.
+
+    Sans catalogue (ou sans aucun item connu), le bloc est omis : les
+    consommateurs existants du journal ne voient alors aucune différence.
+
+    `finished_items` ne porte QUE le nom et le coût. Les ids bruts sont
+    délibérément absents : `payload._resolve_recall_items` les retire de la vue
+    du LLM, les réintroduire ici annulerait la règle.
+    """
+    if not items or not item_ids:
+        return None
+    rows = [items[iid] for iid in item_ids if iid in items]
+    if not rows:
+        return None
+    finished = [{"name": row["name"], "cost": row["cost"]}
+                for row in rows if row.get("finished")]
+    return {"gold_spent": sum(int(row.get("cost") or 0) for row in rows),
+            "finished_items": finished,
+            "is_spike": bool(finished)}
+
+
+def opponent_spike(opp_visits: list[dict], t0: int,
+                   items: dict | None) -> dict | None:
+    """Visite de l'adversaire de lane terminant un objet dans ±120 s de la mienne.
+
+    `delta_s` est SIGNÉ : négatif, l'adversaire a spiké avant ma visite.
+    ASYMÉTRIE : les objets d'un adversaire de lane sont lisibles au scoreboard,
+    c'est une information que le joueur avait.
+    """
+    best = None
+    for visit in opp_visits or []:
+        t = visit.get("t_ms")
+        if not isinstance(t, int) or abs(t - t0) > SPIKE_WINDOW_S * 1000:
+            continue
+        outcome = classify_visit(visit.get("item_ids") or [], items)
+        if not outcome or not outcome["finished_items"]:
+            continue
+        if best is None or abs(t - t0) < abs(best[0] - t0):
+            best = (t, outcome)
+    if best is None:
+        return None
+    t, outcome = best
+    return {"clock": clock_of(t), "delta_s": round((t - t0) / 1000),
+            "items": [item["name"] for item in outcome["finished_items"]]}
+
+
+def death_after_visit(death_times: list[int], t0: int) -> dict | None:
+    """Première mort dans les 90 s SUIVANT la visite, sinon None.
+
+    La timeline n'horodate pas le retour en lane : la fenêtre couvre le trajet
+    plus les premières secondes de lane. Bornes strictes à gauche (une mort
+    simultanée à l'achat est le reset qui suit cette mort, pas sa conséquence).
+    """
+    for t in sorted(death_times or []):
+        if t0 < t <= t0 + RECALL_DEATH_WINDOW_S * 1000:
+            return {"clock": clock_of(t), "delta_s": round((t - t0) / 1000)}
+    return None
