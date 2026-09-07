@@ -38,3 +38,9 @@ web/cf/node_modules/
 web/cf/.dev.vars
 web/cf/.wrangler/
 .demo/
+
+# Documentation de conception (specs, plans) : hors git, hors CI.
+# `docs/*` et non `docs/` : ignorer le dossier lui-meme rendrait la
+# negation ci-dessous inoperante (git n'ouvre pas un repertoire exclu).
+docs/*
+!docs/MODEL_CARD.md

@@ -492,6 +492,10 @@ Features clés : **facettes win/loss** (neutralise le biais d'issue), **benchmar
 COACHING_SAFE uniquement).
 Scopes : `all` · `adc` (BOTTOM) · `zeri` (champion). Filtre patch courant, SR (mapId 11),
 ranked solo (queue 420). Spec : `docs/superpowers/specs/`.
+⚠️ **`docs/superpowers/` (specs et plans) n'est plus versionné** (2026-09-07) : ces documents
+vivent en local, seul `docs/MODEL_CARD.md` reste suivi. Toute référence à une spec dans ce
+fichier pointe donc vers un document absent d'un clone frais ; l'historique git garde les
+versions antérieures à cette date.
 
 ## État d'avancement
 
