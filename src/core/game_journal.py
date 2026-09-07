@@ -15,6 +15,8 @@ from __future__ import annotations
 import bisect
 from collections import defaultdict
 
+import journal_signals as signals
+import turrets as turret_map
 from riotlib import (SR_MAP_ID, approx_zone, clock_of, enemy_team_of, find_pid,
                      frames_by_minute, iter_events, participant_id, patch_of,
                      phase_of, _gold_state)
@@ -295,18 +297,37 @@ def _deaths(ctx: "_GameContext") -> list[dict]:
         damage = _damage_summary(ev)
         if damage:
             entry["damage"] = damage
+        clues = signals.jungle_signals(tl, ctx.enemy_jungle_pid,
+                                       pid_champ.get(ctx.enemy_jungle_pid),
+                                       t, entry["zone"])
+        if clues:
+            entry["jungle_signals"] = clues
+        ally = signals.ally_context(
+            ctx.support_frames, ctx.my_team, ctx.my_role, t,
+            (pos.get("x", 0), pos.get("y", 0)), entry["zone"],
+            turret_map.destroyed_at(ctx.all_events, t), table=ctx.turret_table)
+        if "support" in ally and ctx.support_pid:
+            # Le champion vient des tables de participants, que `ally_context`
+            # (module pur, sans match) ne connait pas.
+            ally["support"] = {"champion": pid_champ.get(ctx.support_pid),
+                               **ally["support"]}
+        entry["ally_context"] = ally
         out.append(entry)
     out.sort(key=lambda d: d["t_ms"])
     return out
 
 
-def _recalls(tl: "_Timeline", pid: int, obj_kills: dict, end_ms: int) -> list[dict]:
+def _recalls(tl: "_Timeline", pid: int, obj_kills: dict, end_ms: int,
+             ctx: "_GameContext | None" = None) -> list[dict]:
     """Visites de shop (clusters d'achats), hors shopping de départ.
 
     Approximation v1 : un achat implique la présence au shop (recall ou reset
     après mort — les deux sont des « resets » à coacher). gold_before = currentGold
     de la dernière frame avant la visite (léger plancher, frames espacées de 60 s).
     ITEM_UNDO honoré (retire le dernier achat correspondant) ; ITEM_SOLD ignoré.
+
+    `ctx` optionnel : `recalls_for` (point d'entrée public, consommé par
+    `build_sequence_dataset`) l'appelle sans, et sa sortie reste inchangée.
     """
     # Un seul balayage des events triés au lieu de deux (achats + undos).
     buys, undos = [], []
@@ -333,14 +354,29 @@ def _recalls(tl: "_Timeline", pid: int, obj_kills: dict, end_ms: int) -> list[di
     for visit in visits:
         t0 = visit[0][0]
         pf = tl.my_frame_before(t0)
-        out.append({
+        entry = {
             "t_ms": t0, "clock": _clock(t0),
             "minute": t0 // 60000, "phase": phase_of(t0 // 60000),
             "items_bought": len(visit),
             "item_ids": [item for _, item in visit if item is not None],
             "gold_before": pf.get("currentGold") if pf else None,
             "objective": _objective_at(obj_kills, t0),
-        })
+        }
+        if ctx is not None:
+            cost = signals.recall_cs_cost(ctx.my_frames, ctx.opp_frames, t0,
+                                          ctx.cs_baseline)
+            if cost:
+                entry["cs_cost"] = cost
+            outcome = signals.classify_visit(entry["item_ids"], ctx.items)
+            if outcome:
+                entry["outcome"] = outcome
+            spike = signals.opponent_spike(ctx.opp_visits, t0, ctx.items)
+            if spike:
+                entry["opponent_spike"] = spike
+            after = signals.death_after_visit(ctx.death_times, t0)
+            if after:
+                entry["death_after_visit"] = after
+        out.append(entry)
     return out
 
 
@@ -366,7 +402,8 @@ class _GameContext:
     différent sur la définition de « adversaire de lane ».
     """
 
-    def __init__(self, match: dict, timeline: dict, pid: int):
+    def __init__(self, match: dict, timeline: dict, pid: int,
+                 items: dict | None = None):
         info, parts = match["info"], match["info"]["participants"]
         self.pid = pid
         self.me = parts[pid - 1]
@@ -384,27 +421,58 @@ class _GameContext:
         # Borne supérieure des fenêtres d'events : durée de game + une marge de frame.
         self.end_ms = max(info.get("gameDuration", 0) * 1000,
                           timeline["info"]["frames"][-1]["timestamp"]) + 60000
-        self._my_fr = frames_by_minute(timeline, pid)
-        self._opp_fr = frames_by_minute(timeline, self.opp_pid) if self.opp_pid else {}
+        self.my_frames = frames_by_minute(timeline, pid)
+        self.opp_frames = (frames_by_minute(timeline, self.opp_pid)
+                           if self.opp_pid else {})
+        # --- ajouts de cette tache ---
+        self.items = items
+        self.support_pid = find_pid(match, team=self.my_team, role="UTILITY")
+        self.support_frames = (frames_by_minute(timeline, self.support_pid)
+                               if self.support_pid else {})
+        self.all_events = list(iter_events(timeline))
+        self.turret_table = turret_map.load()
+        # Visites de shop de l'ADVERSAIRE de lane : ses objets termines sont
+        # lisibles au scoreboard, donc asymetrie-safe. `recalls_for` est deja
+        # generique, on ne duplique pas la logique de cluster d'achats.
+        self.opp_visits = (recalls_for(timeline, self.opp_pid, self.obj_kills)
+                           if self.opp_pid else [])
+        self.death_times = sorted(
+            ev["timestamp"] for ev in self.all_events
+            if ev.get("type") == "CHAMPION_KILL" and ev.get("victimId") == pid)
+        # Minutes contaminees : la ligne de base de CS les exclut, sinon elle
+        # integre les evenements memes qu'on mesure.
+        visits = [t // 60000 for t in (
+            ev["timestamp"] for ev in self.all_events
+            if ev.get("type") == "ITEM_PURCHASED"
+            and ev.get("participantId") == pid
+            and ev["timestamp"] >= OPENING_BUY_MS)]
+        self.cs_baseline = signals.cs_baseline(
+            self.my_frames,
+            skip=set(visits) | {t // 60000 for t in self.death_times})
 
     def gold_state_at(self, minute: int) -> str | None:
         """Avance/retard vs adversaire de lane à la frame la plus récente <= minute."""
         for m in range(minute, -1, -1):
-            if m in self._my_fr and m in self._opp_fr:
-                return _gold_state(self._my_fr[m].get("totalGold", 0)
-                                   - self._opp_fr[m].get("totalGold", 0))
+            if m in self.my_frames and m in self.opp_frames:
+                return _gold_state(self.my_frames[m].get("totalGold", 0)
+                                   - self.opp_frames[m].get("totalGold", 0))
         return None
 
 
-def game_journal(match: dict, timeline: dict, puuid: str) -> dict | None:
-    """Une game -> journal d'événements ancrés du joueur. None si hors Faille."""
+def game_journal(match: dict, timeline: dict, puuid: str,
+                 items: dict | None = None) -> dict | None:
+    """Une game -> journal d'événements ancrés du joueur. None si hors Faille.
+
+    `items` = catalogue Data Dragon (`champion_profiles.load_items()`), injecté
+    plutôt qu'importé : sans lui les champs de spike sont simplement absents.
+    """
     info = match["info"]
     if info.get("mapId") != SR_MAP_ID:
         return None
     pid = participant_id(match, puuid)
     if pid is None:
         return None
-    ctx = _GameContext(match, timeline, pid)
+    ctx = _GameContext(match, timeline, pid, items=items)
     me = ctx.me
     return {
         "match_id": match["metadata"]["matchId"],
@@ -417,5 +485,5 @@ def game_journal(match: dict, timeline: dict, puuid: str) -> dict | None:
                 "assists": me.get("assists", 0)},
         "opponent": ctx.pid_champ.get(ctx.opp_pid),
         "deaths": _deaths(ctx),
-        "recalls": _recalls(ctx.tl, ctx.pid, ctx.obj_kills, ctx.end_ms),
+        "recalls": _recalls(ctx.tl, ctx.pid, ctx.obj_kills, ctx.end_ms, ctx=ctx),
     }
