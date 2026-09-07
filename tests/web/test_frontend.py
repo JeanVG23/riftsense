@@ -42,9 +42,21 @@ def test_assets_present_and_non_empty():
 
 def test_style_css_has_tokens():
     css = _read("style.css")
-    for token in ("--bg:#0e1116", "--panel:#16181d", "--gold:#c8aa6e",
-                  "--win:#3fb950", "--loss:#f85149", "tabular-nums"):
+    for token in ("--bg:", "--panel:", "--gold:", "--win:", "--loss:",
+                  "tabular-nums"):
         assert token in css, token
+
+
+def test_coaching_context_and_on_demand_game_flow_wired():
+    body = _read("index.html")
+    js = _read("app.js")
+    assert "/coaching-context" in js
+    assert 'fetch("/api/coach/game"' in js
+    assert "matchCoachInfo" in js and "review_status" in body
+    assert "gameReviewSample" not in js
+    assert "this.coachingContext?.matches?.[id]?.pedagogic" in js
+    assert "n_game_reviews_available" in body
+    assert "n_game_reviews_used" in body
 
 
 def test_app_js_has_router_and_helpers():

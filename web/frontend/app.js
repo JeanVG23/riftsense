@@ -11,16 +11,29 @@ const CHAMP_SLUGS = {
   "K'Sante": "KSante",
 };
 
+const LATEST_DDRAGON = "16.17.1";
+
+const CHAMP_CD_IDS = {"Annie": 1, "Olaf": 2, "Galio": 3, "Twisted Fate": 4, "Xin Zhao": 5, "Urgot": 6, "LeBlanc": 7, "Vladimir": 8, "Fiddlesticks": 9, "Kayle": 10, "Master Yi": 11, "Alistar": 12, "Ryze": 13, "Sion": 14, "Sivir": 15, "Soraka": 16, "Teemo": 17, "Tristana": 18, "Warwick": 19, "Nunu & Willump": 20, "Miss Fortune": 21, "Ashe": 22, "Tryndamere": 23, "Jax": 24, "Morgana": 25, "Zilean": 26, "Singed": 27, "Evelynn": 28, "Twitch": 29, "Karthus": 30, "Cho'Gath": 31, "Amumu": 32, "Rammus": 33, "Anivia": 34, "Shaco": 35, "Dr. Mundo": 36, "Sona": 37, "Kassadin": 38, "Irelia": 39, "Janna": 40, "Gangplank": 41, "Corki": 42, "Karma": 43, "Taric": 44, "Veigar": 45, "Trundle": 48, "Swain": 50, "Caitlyn": 51, "Blitzcrank": 53, "Malphite": 54, "Katarina": 55, "Nocturne": 56, "Maokai": 57, "Renekton": 58, "Jarvan IV": 59, "Elise": 60, "Orianna": 61, "Wukong": 62, "Brand": 63, "Lee Sin": 64, "Vayne": 67, "Rumble": 68, "Cassiopeia": 69, "Skarner": 72, "Heimerdinger": 74, "Nasus": 75, "Nidalee": 76, "Udyr": 77, "Poppy": 78, "Gragas": 79, "Pantheon": 80, "Ezreal": 81, "Mordekaiser": 82, "Yorick": 83, "Akali": 84, "Kennen": 85, "Garen": 86, "Leona": 89, "Malzahar": 90, "Talon": 91, "Riven": 92, "Kog'Maw": 96, "Shen": 98, "Lux": 99, "Xerath": 101, "Shyvana": 102, "Ahri": 103, "Graves": 104, "Fizz": 105, "Volibear": 106, "Rengar": 107, "Varus": 110, "Nautilus": 111, "Viktor": 112, "Sejuani": 113, "Fiora": 114, "Ziggs": 115, "Lulu": 117, "Draven": 119, "Hecarim": 120, "Kha'Zix": 121, "Darius": 122, "Jayce": 126, "Lissandra": 127, "Diana": 131, "Quinn": 133, "Syndra": 134, "Aurelion Sol": 136, "Kayn": 141, "Zoe": 142, "Zyra": 143, "Kai'Sa": 145, "Seraphine": 147, "Gnar": 150, "Zac": 154, "Yasuo": 157, "Vel'Koz": 161, "Taliyah": 163, "Camille": 164, "Akshan": 166, "Bel'Veth": 200, "Braum": 201, "Jhin": 202, "Kindred": 203, "Zeri": 221, "Jinx": 222, "Tahm Kench": 223, "Briar": 233, "Viego": 234, "Senna": 235, "Lucian": 236, "Zed": 238, "Kled": 240, "Ekko": 245, "Qiyana": 246, "Vi": 254, "Aatrox": 266, "Nami": 267, "Azir": 268, "Yuumi": 350, "Samira": 360, "Thresh": 412, "Illaoi": 420, "Rek'Sai": 421, "Ivern": 427, "Kalista": 429, "Bard": 432, "Rakan": 497, "Xayah": 498, "Ornn": 516, "Sylas": 517, "Neeko": 518, "Aphelios": 523, "Rell": 526, "Pyke": 555, "Vex": 711, "Yone": 777, "Ambessa": 799, "Mel": 800, "Yunara": 804, "Locke": 805, "Sett": 875, "Lillia": 876, "Gwen": 887, "Renata Glasc": 888, "Aurora": 893, "Nilah": 895, "K'Sante": 897, "Smolder": 901, "Milio": 902, "Zaahen": 904, "Hwei": 910, "Naafiri": 950, "TwistedFate": 4, "XinZhao": 5, "Leblanc": 7, "FiddleSticks": 9, "MasterYi": 11, "Nunu": 20, "MissFortune": 21, "Chogath": 31, "DrMundo": 36, "JarvanIV": 59, "MonkeyKing": 62, "LeeSin": 64, "KogMaw": 96, "Khazix": 121, "AurelionSol": 136, "Kaisa": 145, "Velkoz": 161, "Belveth": 200, "TahmKench": 223, "RekSai": 421, "Renata": 888, "KSante": 897};
+
+const cdIconUrl = (id) => `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${id}.png`;
+
 const CHAMP_CUSTOM_ICONS = {
-  "Locke": "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/805.png",
+  "Locke": cdIconUrl(805),
+  "Yunara": cdIconUrl(804),
+  "Mel": cdIconUrl(800),
+  "Ambessa": cdIconUrl(799),
+  "Zaahen": cdIconUrl(904),
 };
 
 const DDRAGON = (patch, champ) => {
   if (!champ) return "";
   if (CHAMP_CUSTOM_ICONS[champ]) return CHAMP_CUSTOM_ICONS[champ];
   const key = CHAMP_SLUGS[champ] || String(champ).replace(/['\s.]/g, "");
-  const p = String(patch || "14.17");
-  const version = p.includes(".") && p.split(".").length === 2 ? `${p}.1` : (p || "14.17.1");
+  let version = LATEST_DDRAGON;
+  if (patch) {
+    const p = String(patch);
+    version = p.includes(".") && p.split(".").length === 2 ? `${p}.1` : (p || LATEST_DDRAGON);
+  }
   return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${key}.png`;
 };
 
@@ -62,10 +75,10 @@ function summonerProfile(slug) {
 
 function summonerIcon(slugOrIcon) {
   if (typeof slugOrIcon === "number") {
-    return `https://ddragon.leagueoflegends.com/cdn/14.17.1/img/profileicon/${slugOrIcon}.png`;
+    return `https://ddragon.leagueoflegends.com/cdn/${LATEST_DDRAGON}/img/profileicon/${slugOrIcon}.png`;
   }
   const prof = summonerProfile(slugOrIcon);
-  return `https://ddragon.leagueoflegends.com/cdn/14.17.1/img/profileicon/${prof.icon}.png`;
+  return `https://ddragon.leagueoflegends.com/cdn/${LATEST_DDRAGON}/img/profileicon/${prof.icon}.png`;
 }
 
 function summonerLevel(slug) {
@@ -97,8 +110,30 @@ function titleCase(value) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 }
 
-async function api(path, opts) {
-  const r = await fetch(path, opts);
+const AUTH_TOKEN_KEY = "coach_auth_token";
+let authToken = null;
+try {
+  authToken = localStorage.getItem(AUTH_TOKEN_KEY);
+} catch (e) {}
+
+function setStoredAuthToken(token) {
+  authToken = token || null;
+  try {
+    if (token) localStorage.setItem(AUTH_TOKEN_KEY, token);
+    else localStorage.removeItem(AUTH_TOKEN_KEY);
+  } catch (e) {}
+}
+
+function openCoachAuth(action = null) {
+  window.dispatchEvent(new CustomEvent("coach-open-auth", { detail: { action } }));
+}
+
+async function api(path, opts = {}) {
+  const headers = new Headers(opts.headers || {});
+  if (authToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${authToken}`);
+  }
+  const r = await fetch(path, { ...opts, headers });
   if (!r.ok) throw new Error(`${r.status} ${r.statusText} on ${path}`);
   return r.json();
 }
@@ -170,7 +205,10 @@ function deepLinkOf(search) {
 // la forme du payload alors que chaque record porte déjà son `kind`.
 
 function coachErrorMessage(error) {
-  const raw = typeof error === "string" ? error : String(error || "");
+  const raw = typeof error === "string" ? error : String(error?.message || error || "");
+  if (/\b401\b/.test(raw) || /authentification/i.test(raw) || /non autoris/i.test(raw)) {
+    return "Connexion requise : mot de passe coach nécessaire pour les générations IA.";
+  }
   if (/\b429\b/.test(raw)) {
     return "Le modèle est temporairement limité. Attends quelques minutes avant de relancer le coaching.";
   }
@@ -185,10 +223,96 @@ function app() {
     accountsLoading: true,
     get route() { return routeOf(this.path); },
 
+    // Authentification Coach (protection des fonctionnalités LLM)
+    isAuthenticated: Boolean(authToken),
+    authConfigured: true,
+    authModalOpen: false,
+    authPassword: "",
+    authError: null,
+    authLoading: false,
+    postAuthAction: null,
+
+    async checkAuthStatus() {
+      try {
+        const res = await api("/api/auth/status");
+        this.authConfigured = res.configured !== false;
+        this.isAuthenticated = Boolean(res.authenticated);
+        if (!res.authenticated && authToken) {
+          setStoredAuthToken(null);
+          this.isAuthenticated = false;
+        }
+      } catch (e) {}
+    },
+
+    openAuthModal(action = null) {
+      this.postAuthAction = typeof action === "function" ? action : null;
+      this.authPassword = "";
+      this.authError = null;
+      this.authModalOpen = true;
+      setTimeout(() => {
+        const el = document.getElementById("coach-auth-password-input");
+        if (el) el.focus();
+      }, 50);
+    },
+
+    closeAuthModal() {
+      this.authModalOpen = false;
+      this.authPassword = "";
+      this.authError = null;
+      this.postAuthAction = null;
+    },
+
+    async login() {
+      const pwd = this.authPassword.trim();
+      if (!pwd) {
+        this.authError = "Veuillez saisir le mot de passe coach.";
+        return;
+      }
+      this.authLoading = true;
+      this.authError = null;
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: pwd }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(data.detail || "Mot de passe incorrect.");
+        }
+        setStoredAuthToken(data.token);
+        this.isAuthenticated = true;
+        const pendingAction = this.postAuthAction;
+        this.closeAuthModal();
+        if (pendingAction) {
+          setTimeout(() => { pendingAction(); }, 100);
+        }
+      } catch (e) {
+        this.authError = e.message || "Erreur de connexion.";
+      } finally {
+        this.authLoading = false;
+      }
+    },
+
+    async logout() {
+      try {
+        await fetch("/api/auth/logout", { method: "POST" });
+      } catch (e) {}
+      setStoredAuthToken(null);
+      this.isAuthenticated = false;
+    },
+
     init() {
       window.addEventListener("popstate", () => { this.path = location.pathname; });
+      window.addEventListener("coach-open-auth", (e) => {
+        this.openAuthModal(e.detail?.action);
+      });
+      window.addEventListener("coach-auth-change", (e) => {
+        this.isAuthenticated = Boolean(e.detail?.authenticated);
+      });
       api("/api/accounts").then(a => { this.accounts = a; this.accountsLoading = false; })
         .catch(() => { this.accountsLoading = false; });
+      this.checkAuthStatus();
     },
 
     go(p) {
@@ -222,6 +346,8 @@ function accountPage(slug, search) {
   const deep = deepLinkOf(search === undefined ? location.search : search);
   return {
     slug,
+    get isAuthenticated() { return Boolean(authToken); },
+    openAuthModal(action = null) { openCoachAuth(action); },
     ownerView: ownerViewFrom(search === undefined ? location.search : search),
     tab: deep.tab || "history",
     pendingReviewId: deep.review,
@@ -236,17 +362,21 @@ function accountPage(slug, search) {
     reviews: [], review: null, aggregateReviewsTotal: 0,
     gameReviews: [], selectedGameReview: null, gameReviewsPage: 1, gameReviewsLoading: false,
     gameReviewLoading: false, gameReviewError: null,
+    coachingContext: null, coachingContextLoading: true, scopeTouched: false,
+    gameFilterResult: "all", // "all" | "win" | "loss"
+    gameFilterChampion: "all",
     chatMessages: [], chatDraft: "", chatBusy: false, chatError: null,
     coachingView: deep.view || "overall", gameReviewsCount: 0, reviewsLoading: true,
     reviewsInFlight: false,
     evalReport: null, evalLoading: false,
     fbMap: {}, fbBusy: {}, noteDraft: {}, feedbackError: null,
-    coachOpen: false,
+    coachOpen: false, noteOpen: {},
     // shap (F5)
     shap: null, shapLoading: false, shapSort: "abs", chart: null,
 
     init() {
       this.loadGames(); this.loadRank(); this.loadPredictedRank();
+      this.loadCoachingContext();
       this.loadReviews();
       // setTab porte déjà le chargement paresseux de chaque onglet : on le rejoue
       // pour l'onglet ouvert par le lien profond plutôt que de dupliquer la logique.
@@ -271,6 +401,21 @@ function accountPage(slug, search) {
         this.games = d.items; this.total = d.total;
       } catch (e) { this.gamesError = "Impossible de charger les parties. Réessaie dans un instant."; }
       finally { this.gamesLoading = false; }
+    },
+
+    async loadCoachingContext() {
+      this.coachingContextLoading = true;
+      try {
+        this.coachingContext = await api(`/api/c/${this.slug}/coaching-context`);
+        if (!this.scopeTouched && this.coachingContext?.default_scope) {
+          this.scope = this.coachingContext.default_scope;
+          await this.syncGlobalReview();
+        }
+      } catch (e) {
+        this.coachingContext = null;
+      } finally {
+        this.coachingContextLoading = false;
+      }
     },
 
     loadRank() {
@@ -404,17 +549,179 @@ function accountPage(slug, search) {
         ]);
         this.reviews = aggregatePage.items || [];
         this.aggregateReviewsTotal = aggregatePage.total || 0;
-        this.review = this.reviews.length ? this.reviews[0] : null;
+        this.review = this.findMatchingReview(this.scope, this.outcome);
         this.gameReviews = gamePage.items || [];
         this.gameReviewsPage = gamePage.page || 1;
         this.gameReviewsCount = gamePage.total || 0;
         const target = await this.resolvePendingReview();
-        const selected = target || this.gameReviews[0];
+        const selected = target || (this.filteredGameReviews().length ? this.filteredGameReviews()[0] : this.gameReviews[0]);
         if (selected) await this.selectGameReview(selected, false);
         const active = this.activeFeedbackReview();
         if (active) await this.loadFeedback(active);
       } catch (e) { /* keep reviews empty */ }
       finally { this.reviewsLoading = false; this.reviewsInFlight = false; }
+    },
+
+    findMatchingReview(scope = this.scope, outcome = this.outcome) {
+      if (!this.reviews || this.reviews.length === 0) return null;
+      const s = (scope || "").toLowerCase();
+      const exact = this.reviews.find(r =>
+        (r.scope || r.payload?.meta?.scope || "").toLowerCase() === s &&
+        (outcome === "overall" || r.outcome_focus === outcome)
+      );
+      return exact || null;
+    },
+
+    async setScope(s) {
+      this.scopeTouched = true;
+      this.scope = s;
+      await this.syncGlobalReview();
+    },
+
+    async setOutcome(o) {
+      this.outcome = o;
+      await this.syncGlobalReview();
+    },
+
+    async syncGlobalReview() {
+      this.review = this.findMatchingReview(this.scope, this.outcome);
+      const active = this.activeFeedbackReview();
+      if (active) await this.loadFeedback(active);
+    },
+
+    get dynamicScopes() {
+      if (this.coachingContext?.scopes?.length) return this.coachingContext.scopes;
+      const list = [
+        { id: "all", label: "Toutes", rawLabel: "Toutes" },
+        { id: "adc", label: "ADC", rawLabel: "ADC" },
+      ];
+      const counts = {};
+      for (const g of (this.games || [])) {
+        const c = typeof g === "object" ? g.champion : g;
+        if (c) counts[c] = (counts[c] || 0) + 1;
+      }
+      for (const r of (this.gameReviews || [])) {
+        const c = this.gameChampion(r);
+        if (c && c !== "Partie analysée") counts[c] = (counts[c] || 0) + 1;
+      }
+      const sortedChamps = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+      sortedChamps.slice(0, 3).forEach((champ, idx) => {
+        const id = champ.toLowerCase();
+        if (!list.some(item => item.id === id)) {
+          const isTop = idx === 0 && counts[champ] >= 2;
+          const prefix = isTop ? "⭐ " : "";
+          list.push({ id, label: `${prefix}${champ} (${counts[champ]})`, rawLabel: champ, isTop });
+        }
+      });
+      if (this.scope && !list.some(s => s.id === this.scope.toLowerCase())) {
+        list.push({ id: this.scope.toLowerCase(), label: titleCase(this.scope), rawLabel: titleCase(this.scope) });
+      }
+      return list;
+    },
+
+    outcomeLabel(o) {
+      return o === "loss" ? "Défaites" : o === "win" ? "Victoires" : "Global";
+    },
+
+    scopeLabel(s) {
+      const found = this.dynamicScopes.find(sc => sc.id === (s || "").toLowerCase());
+      return found ? (found.rawLabel || found.label) : titleCase(s || "Parties");
+    },
+
+    pedagogicTarget(g) {
+      const id = typeof g === "string" ? g : g?.match_id;
+      const target = id ? this.coachingContext?.matches?.[id]?.pedagogic : null;
+      return target ? { ...target, badge: target.label } : null;
+    },
+
+    filteredGameReviews() {
+      return (this.gameReviews || []).filter(item => {
+        const win = this.gameMeta(item).win;
+        if (this.gameFilterResult === "win" && win !== true) return false;
+        if (this.gameFilterResult === "loss" && win !== false) return false;
+        if (this.gameFilterChampion !== "all") {
+          const champ = (this.gameChampion(item) || "").toLowerCase();
+          if (champ !== this.gameFilterChampion.toLowerCase()) return false;
+        }
+        return true;
+      });
+    },
+
+    get gameReviewsCountWin() {
+      return (this.gameReviews || []).filter(r => this.gameMeta(r).win === true).length;
+    },
+
+    get gameReviewsCountLoss() {
+      return (this.gameReviews || []).filter(r => this.gameMeta(r).win === false).length;
+    },
+
+    get gameReviewChampions() {
+      const champs = new Set();
+      for (const r of (this.gameReviews || [])) {
+        const c = this.gameChampion(r);
+        if (c && c !== "Partie analysée") champs.add(c);
+      }
+      return Array.from(champs).sort();
+    },
+
+    setGameFilterResult(res) {
+      this.gameFilterResult = res;
+      this.ensureSelectedGameVisible();
+    },
+
+    setGameFilterChampion(champ) {
+      this.gameFilterChampion = champ;
+      this.ensureSelectedGameVisible();
+    },
+
+    ensureSelectedGameVisible() {
+      const filtered = this.filteredGameReviews();
+      if (filtered.length === 0) return;
+      const currentTs = this.selectedGameReview?.ts;
+      const exists = filtered.some(r => r.ts === currentTs);
+      if (!exists) {
+        this.selectGameReview(filtered[0]);
+      }
+    },
+
+    insightTitle(text) {
+      if (!text) return "";
+      const raw = String(text).trim();
+      const cleaned = raw.replace(/^Erreur\s*\d+\s*:\s*/i, "").replace(/^Force\s*\d+\s*:\s*/i, "");
+      const sepIdx = cleaned.search(/[:—–-]/);
+      if (sepIdx > 5 && sepIdx < 80) {
+        return cleaned.slice(0, sepIdx).trim();
+      }
+      const dotIdx = cleaned.indexOf(". ");
+      if (dotIdx > 5 && dotIdx < 85) {
+        return cleaned.slice(0, dotIdx).trim();
+      }
+      if (cleaned.length > 80) {
+        const spaceIdx = cleaned.lastIndexOf(" ", 75);
+        return (spaceIdx > 25 ? cleaned.slice(0, spaceIdx) : cleaned.slice(0, 70)) + "…";
+      }
+      return cleaned;
+    },
+
+    insightBody(text) {
+      if (!text) return "";
+      const raw = String(text).trim();
+      const cleaned = raw.replace(/^Erreur\s*\d+\s*:\s*/i, "").replace(/^Force\s*\d+\s*:\s*/i, "");
+      const sepIdx = cleaned.search(/[:—–-]/);
+      if (sepIdx > 5 && sepIdx < 80) {
+        return cleaned.slice(sepIdx + 1).trim();
+      }
+      const dotIdx = cleaned.indexOf(". ");
+      if (dotIdx > 5 && dotIdx < 85) {
+        return cleaned.slice(dotIdx + 2).trim();
+      }
+      return "";
+    },
+
+    toggleNote(kind, index) {
+      const key = this.fbKey(kind, index);
+      this.coachOpen = false;
+      this.noteOpen[key] = !this.noteOpen[key];
     },
 
     // Le lien profond porte un `match_id`, alors que l'API identifie une review par son
@@ -446,11 +753,17 @@ function accountPage(slug, search) {
 
     async genCoach() {
       if (!this.slug) return;
+      if (!authToken) {
+        openCoachAuth(() => this.genCoach());
+        return;
+      }
       this.job = { type: "coach", status: "running" };
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
         const response = await fetch("/api/coach", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             slug: this.slug,
             scope: this.scope,
@@ -458,6 +771,13 @@ function accountPage(slug, search) {
             target: this.target,
           }),
         });
+        if (response.status === 401) {
+          setStoredAuthToken(null);
+          window.dispatchEvent(new CustomEvent("coach-auth-change", { detail: { authenticated: false } }));
+          openCoachAuth(() => this.genCoach());
+          throw new Error("HTTP 401 sur /api/coach");
+        }
+        if (response.status === 409) throw new Error("Une analyse est déjà en cours.");
         if (!response.ok || !response.body) {
           throw new Error(`HTTP ${response.status} sur /api/coach`);
         }
@@ -480,7 +800,7 @@ function accountPage(slug, search) {
               this.job = { type: "coach", status: "running", progress: SSE_PROGRESS[event] };
             } else if (event === "review") {
               this.job = { type: "coach", status: "done" };
-              this.loadReviews();
+              await Promise.all([this.loadReviews(), this.loadCoachingContext()]);
             } else if (event === "error") {
               this.job = {
                 type: "coach",
@@ -493,6 +813,98 @@ function accountPage(slug, search) {
       } catch (e) {
         this.job = { type: "coach", status: "error", error: coachErrorMessage(e) };
       }
+    },
+
+    coachBusy() { return Boolean(this.job && this.job.status === "running"); },
+
+    matchCoachInfo(matchId) {
+      return this.coachingContext?.matches?.[matchId] || null;
+    },
+
+    isGameCoachRunning(matchId) {
+      return this.job?.type === "game-coach" && this.job.status === "running"
+        && this.job.matchId === matchId;
+    },
+
+    async genGameCoach(game, force = false) {
+      if (!game?.match_id || this.coachBusy()) {
+        if (this.coachBusy()) this.job = { ...this.job, notice: "Une analyse est déjà en cours." };
+        return;
+      }
+      if (!authToken) {
+        openCoachAuth(() => this.genGameCoach(game, force));
+        return;
+      }
+      const matchId = game.match_id;
+      this.job = { type: "game-coach", matchId, status: "running", progress: "lecture du journal…" };
+      try {
+        const headers = { "Content-Type": "application/json" };
+        if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+        const response = await fetch("/api/coach/game", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ slug: this.slug, match_id: matchId, force }),
+        });
+        if (response.status === 401) {
+          setStoredAuthToken(null);
+          window.dispatchEvent(new CustomEvent("coach-auth-change", { detail: { authenticated: false } }));
+          openCoachAuth(() => this.genGameCoach(game, force));
+          throw new Error("HTTP 401 sur /api/coach/game");
+        }
+        if (response.status === 409) throw new Error("Une analyse est déjà en cours.");
+        if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let completed = null;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let boundary;
+          while ((boundary = buffer.indexOf("\n\n")) >= 0) {
+            const frame = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+            const event = /^event: (.+)$/m.exec(frame)?.[1];
+            const raw = /^data: (.+)$/m.exec(frame)?.[1];
+            if (!event || !raw) continue;
+            const data = JSON.parse(raw);
+            if (event === "payload") {
+              this.job = { type: "game-coach", matchId, status: "running", progress: "journal prêt" };
+            } else if (event === "llm") {
+              this.job = { type: "game-coach", matchId, status: "running", progress: "génération LLM…" };
+            } else if (event === "review") {
+              completed = data;
+            } else if (event === "error") {
+              throw new Error(data.error);
+            }
+          }
+        }
+        if (!completed) throw new Error("Flux interrompu avant la réception de l'analyse.");
+        this.job = { type: "game-coach", matchId, status: "done" };
+        this.pendingReviewId = matchId;
+        await Promise.all([this.loadReviews(), this.loadCoachingContext()]);
+        await this.goToGameReview(matchId);
+      } catch (e) {
+        this.job = { type: "game-coach", matchId, status: "error", error: coachErrorMessage(e) };
+      }
+    },
+
+    async gameCoachAction(game) {
+      if (this.hasReview(game?.match_id)) return this.goToGameReview(game.match_id);
+      if (!authToken) {
+        openCoachAuth(() => this.genGameCoach(game, false));
+        return;
+      }
+      return this.genGameCoach(game, false);
+    },
+
+    globalNeedsRefresh() {
+      if (!this.review?.ts) return false;
+      const status = this.coachingContext?.aggregate_status?.[this.scope]?.[this.outcome];
+      if (status) return Boolean(status.needs_refresh || status.stale_prompt);
+      const latest = this.coachingContext?.review_samples?.[this.scope]?.latest_ts;
+      return Boolean(latest && String(latest) > String(this.review.ts));
     },
 
     activeFeedbackReview() {
@@ -597,16 +1009,28 @@ function accountPage(slug, search) {
     async sendGameChat() {
       const content = this.chatDraft.trim();
       if (!content || !this.selectedGameReview?.ts || this.chatBusy) return;
+      if (!authToken) {
+        openCoachAuth(() => this.sendGameChat());
+        return;
+      }
       const pending = [...this.chatMessages, { role: "user", content }];
       this.chatMessages = pending; this.chatDraft = ""; this.chatBusy = true; this.chatError = null;
       try {
+        const headers = { "Content-Type": "application/json" };
+        if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
         const response = await fetch("/api/chat", {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST", headers,
           body: JSON.stringify({
             slug: this.slug, review_ts: this.selectedGameReview.ts,
             messages: pending.slice(-12),
           }),
         });
+        if (response.status === 401) {
+          setStoredAuthToken(null);
+          window.dispatchEvent(new CustomEvent("coach-auth-change", { detail: { authenticated: false } }));
+          openCoachAuth(() => this.sendGameChat());
+          throw new Error("HTTP 401 sur /api/chat");
+        }
         if (!response.ok || !response.body) throw new Error(`HTTP ${response.status}`);
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -653,24 +1077,38 @@ function accountPage(slug, search) {
     gameMatchId(review) { return review?.match_id || this.gameMeta(review).match_id || "—"; },
     gameIcon(review) {
       const meta = this.gameMeta(review);
-      return meta.patch && meta.champion ? DDRAGON(meta.patch, meta.champion) : "";
+      if (!meta.champion) return "";
+      return DDRAGON(meta.patch, meta.champion);
     },
 
     kda(g) { return fmtKDA(g.kills, g.deaths, g.assists); },
-    champIcon(g) {
+    champIcon(g, maybePatch) {
       if (!g) return "";
       const champ = typeof g === "string" ? g : g.champion;
-      const patch = typeof g === "object" ? g.patch : null;
+      const patch = (typeof g === "object" && g.patch) ? g.patch : maybePatch;
       return DDRAGON(patch, champ);
     },
     iconFallback(e, champ) {
-      if (champ === "Locke" && !e.target.dataset.triedCd) {
+      if (!champ) {
+        e.target.style.display = "none";
+        return;
+      }
+      const id = CHAMP_CD_IDS[champ] || CHAMP_CD_IDS[CHAMP_SLUGS[champ]];
+      if (id && !e.target.dataset.triedCd) {
         e.target.dataset.triedCd = "1";
-        e.target.src = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/805.png";
+        e.target.src = cdIconUrl(id);
+        return;
+      }
+      if (!e.target.dataset.triedLatest) {
+        e.target.dataset.triedLatest = "1";
+        const key = CHAMP_SLUGS[champ] || String(champ).replace(/['\s.]/g, "");
+        e.target.src = `https://ddragon.leagueoflegends.com/cdn/${LATEST_DDRAGON}/img/champion/${key}.png`;
         return;
       }
       e.target.style.display = "none";
-      if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = "";
+      if (e.target.nextElementSibling && e.target.nextElementSibling.classList.contains("champ-fallback")) {
+        e.target.nextElementSibling.style.display = "";
+      }
     },
     roleLabel(r) {
       return ({ MIDDLE: "Mid", JUNGLE: "Jungle", BOTTOM: "Bot", TOP: "Top", UTILITY: "Support" })[r] || r;
@@ -689,8 +1127,10 @@ function accountPage(slug, search) {
       this.expandedGameId = this.expandedGameId === matchId ? null : matchId;
     },
     hasReview(matchId) {
-      if (!matchId || !this.gameReviews) return false;
-      return this.gameReviews.some(r => this.gameMatchId(r) === matchId);
+      if (!matchId) return false;
+      const status = this.matchCoachInfo(matchId)?.review_status;
+      if (status) return status === "ready" || status === "stale";
+      return (this.gameReviews || []).some(r => this.gameMatchId(r) === matchId);
     },
     async goToGameReview(matchId) {
       this.pendingReviewId = matchId;

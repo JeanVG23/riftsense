@@ -26,33 +26,149 @@
   <script defer src="/vendor/alpine.min.js"></script>
 </head>
 <body x-data="app()" x-cloak>
-  <nav class="topbar">
+  <nav class="topbar" aria-label="Navigation principale">
     <div class="topbar-inner">
-      <a class="brand" href="/" @click.prevent="go('/')" aria-label="Retour aux comptes">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
-            <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="var(--primary)" stroke-width="2" fill="rgba(14, 187, 212, 0.15)"/>
-            <polygon points="12,6 17,9.5 17,14.5 12,18 7,14.5 7,9.5" fill="var(--primary)"/>
-          </svg>
-        </span>
-        <span>Coach LoL</span>
-      </a>
-      <div class="switcher" @click.outside="closeSwitcher()">
-        <button class="switcher-btn" type="button" @click="toggleSwitcher()"
-                :aria-expanded="switcherOpen.toString()" aria-label="Choisir un compte">
-          <span x-text="route.name === 'account' ? route.slug : 'comptes'"></span>
-          <span class="faint">▾</span>
-        </button>
-        <div class="switcher-menu" x-show="switcherOpen" x-transition>
-          <template x-for="a in accounts" :key="a.slug">
-            <a :href="'/c/' + a.slug" @click.prevent="go('/c/' + a.slug); closeSwitcher()"
-               x-text="a.slug"></a>
-          </template>
-          <a href="/" @click.prevent="go('/'); closeSwitcher()" class="faint">— accueil</a>
+      <div class="topbar-left">
+        <a class="brand" href="/" @click.prevent="go('/')" aria-label="Coach LoL - Accueil">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+              <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="var(--primary)" stroke-width="2" fill="rgba(14, 187, 212, 0.15)"/>
+              <polygon points="12,6 17,9.5 17,14.5 12,18 7,14.5 7,9.5" fill="var(--primary)"/>
+            </svg>
+          </span>
+          <span class="brand-text">Coach LoL</span>
+          <span class="brand-badge">AI</span>
+        </a>
+
+        <!-- Liens de navigation principale -->
+        <div class="topbar-nav" role="navigation">
+          <a class="nav-link" :class="{ 'active': route.name === 'home' }" href="/" @click.prevent="go('/')">
+            <svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h3a1 1 0 001-1v-4h2v4a1 1 0 001 1h3a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+            </svg>
+            <span>Accueil</span>
+          </a>
+
+          <!-- Sélecteur de compte / joueur intuitif -->
+          <div class="switcher" @click.outside="closeSwitcher()">
+            <button class="switcher-btn" :class="{ 'is-selected': route.name === 'account', 'open': switcherOpen }"
+                    type="button" @click="toggleSwitcher()"
+                    :aria-expanded="switcherOpen.toString()" aria-label="Sélectionner ou changer de compte joueur">
+              <!-- Mode compte actif -->
+              <template x-if="route.name === 'account'">
+                <div class="switcher-user-preview">
+                  <img class="switcher-avatar" :src="summonerIcon(route.slug)" alt="" loading="lazy">
+                  <div class="switcher-meta">
+                    <span class="switcher-label">Joueur actif</span>
+                    <span class="switcher-name" x-text="route.slug"></span>
+                  </div>
+                </div>
+              </template>
+              <!-- Mode général / accueil -->
+              <template x-if="route.name !== 'account'">
+                <div class="switcher-user-preview">
+                  <span class="switcher-icon-wrap" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                    </svg>
+                  </span>
+                  <div class="switcher-meta">
+                    <span class="switcher-label">Sélection</span>
+                    <span class="switcher-name">Joueurs</span>
+                  </div>
+                  <span class="switcher-pill" x-show="accounts.length" x-text="accounts.length + (accounts.length > 1 ? ' comptes' : ' compte')"></span>
+                </div>
+              </template>
+              <svg class="switcher-arrow" :class="{ 'rotated': switcherOpen }" viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+            </button>
+
+            <!-- Menu déroulant des comptes enrichi -->
+            <div class="switcher-dropdown" x-show="switcherOpen" x-transition>
+              <div class="switcher-header">
+                <span class="switcher-title">Comptes suivis</span>
+                <span class="switcher-header-count" x-text="accounts.length + ' disponible' + (accounts.length > 1 ? 's' : '')"></span>
+              </div>
+
+              <div class="switcher-list">
+                <template x-for="a in accounts" :key="a.slug">
+                  <a class="switcher-card" :class="{ 'active': route.name === 'account' && route.slug === a.slug }"
+                     :href="'/c/' + a.slug" @click.prevent="go('/c/' + a.slug); closeSwitcher()">
+                    <div class="switcher-card-avatar">
+                      <img :src="summonerIcon(a.slug)" alt="" loading="lazy">
+                      <span class="switcher-card-active-dot" x-show="route.name === 'account' && route.slug === a.slug"></span>
+                    </div>
+                    <div class="switcher-card-content">
+                      <div class="switcher-card-header">
+                        <span class="switcher-card-slug" x-text="a.slug"></span>
+                        <span class="badge badge-region-mini" x-text="(a.region || 'euw1').slice(0, 3).toUpperCase()"></span>
+                      </div>
+                      <div class="switcher-card-sub">
+                        <span class="switcher-card-riot" x-text="a.riot_id"></span>
+                        <span class="switcher-card-sep">·</span>
+                        <span class="switcher-card-games" x-text="a.games_count + ' parties'"></span>
+                      </div>
+                    </div>
+                    <template x-if="route.name === 'account' && route.slug === a.slug">
+                      <span class="switcher-card-check" title="Compte actuellement affiché" aria-label="Compte actif">
+                        <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                          <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                      </span>
+                    </template>
+                  </a>
+                </template>
+              </div>
+
+              <div class="switcher-footer">
+                <a class="switcher-home-btn" href="/" @click.prevent="go('/'); closeSwitcher()">
+                  <div class="row" style="gap: 8px; align-items: center">
+                    <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                      <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h3a1 1 0 001-1v-4h2v4a1 1 0 001 1h3a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                    </svg>
+                    <span>Tous les comptes</span>
+                  </div>
+                  <span class="switcher-home-arrow" aria-hidden="true">→</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <a class="nav-link" :class="{ 'active': route.name === 'readme' }" href="/readme" @click.prevent="go('/readme')">
+            <svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <span>À propos & Méthode</span>
+          </a>
         </div>
       </div>
-      <div class="spacer"></div>
-      <a class="nav" href="/readme" @click.prevent="go('/readme')">À propos</a>
+
+      <div class="topbar-right">
+        <div class="topbar-status-badge" title="Région EUW · File Classée Solo/Duo synchronisée">
+          <span class="status-pulse-dot"></span>
+          <span class="status-badge-text">EUW · SoloQ</span>
+        </div>
+
+        <!-- Statut d'authentification coach -->
+        <template x-if="!isAuthenticated">
+          <button type="button" class="topbar-auth-btn" @click="openAuthModal()" title="Connexion pour débloquer les fonctionnalités LLM">
+            <span class="auth-lock-icon">🔒</span>
+            <span>Connexion coach</span>
+          </button>
+        </template>
+        <template x-if="isAuthenticated">
+          <div class="topbar-auth-logged">
+            <span class="topbar-auth-pill" title="Mode Coach déverrouillé">
+              <span class="auth-unlock-icon">🔓</span>
+              <span>Coach actif</span>
+            </span>
+            <button type="button" class="topbar-logout-btn" @click="logout()" title="Se déconnecter">
+              <span>Déconnexion</span>
+            </button>
+          </div>
+        </template>
+      </div>
     </div>
   </nav>
 
@@ -166,6 +282,9 @@
       <template x-if="job.type === 'coach'">
         <span><span x-text="job.status === 'running' ? 'Coaching en cours… ' + (job.progress || '') : (job.status === 'done' ? '✅ Coaching prêt' : '⛔ Erreur')"></span></span>
       </template>
+      <template x-if="job.type === 'game-coach'">
+        <span aria-live="polite" x-text="job.status === 'running' ? 'Analyse de partie en cours… ' + (job.progress || '') : (job.status === 'done' ? '✅ Analyse de partie prête' : '⛔ Erreur')"></span>
+      </template>
       <template x-if="job.status === 'error'">
         <span class="faint" x-text="job.error || ''"></span>
       </template>
@@ -228,7 +347,8 @@
                     <template x-if="g.lane && g.lane.opponent">
                       <div class="gr-matchup" title="Adversaire de lane direct">
                         <span class="gr-vs">VS</span>
-                        <img class="gr-opp-icon" :src="champIcon(g.lane.opponent)" :alt="g.lane.opponent" loading="lazy">
+                        <img class="gr-opp-icon" :src="champIcon(g.lane.opponent, g.patch)" :alt="g.lane.opponent"
+                             @error="iconFallback($event, g.lane.opponent)" loading="lazy">
                         <span class="gr-opp-name" x-text="g.lane.opponent"></span>
                       </div>
                     </template>
@@ -237,7 +357,11 @@
                     <span class="gr-queue-badge" x-text="queueLabel(g.queue)"></span>
                     <span x-show="g.lane && g.lane.gd14 != null" class="gr-diff" :class="g.lane.gd14 >= 0 ? 'diff-pos' : 'diff-neg'"
                           x-text="(g.lane.gd14 >= 0 ? '+' : '') + g.lane.gd14 + 'g à 14m'"></span>
-                    <span class="gr-badge-coach" x-show="hasReview(g.match_id)">✦ Coaching LLM prêt</span>
+                    <span class="gr-badge-coach" x-show="hasReview(g.match_id)"
+                          x-text="matchCoachInfo(g.match_id)?.review_status === 'stale' ? '✦ Coaching LLM à régénérer' : '✦ Coaching LLM prêt'"></span>
+                    <span class="gr-badge-pedagogic" x-show="!hasReview(g.match_id) && pedagogicTarget(g)"
+                          :class="'badge-' + pedagogicTarget(g)?.kind"
+                          :title="pedagogicTarget(g)?.hint" x-text="pedagogicTarget(g)?.badge"></span>
                   </div>
                 </div>
                 <div class="gr-kda num"><span class="gr-label">KDA</span><span x-text="kda(g)"></span></div>
@@ -257,18 +381,29 @@
                     <span class="gd-meta-tag" x-text="queueLabel(g.queue)"></span>
                     <template x-if="hasReview(g.match_id)">
                       <span class="gd-coach-status ready">
-                        <span class="pulse-dot"></span> Analyse LLM disponible pour ce match
+                        <span class="pulse-dot"></span>
+                        <span x-text="matchCoachInfo(g.match_id)?.review_status === 'stale' ? 'Analyse LLM existante (ancienne version)' : 'Analyse LLM disponible pour ce match'"></span>
                       </span>
                     </template>
                     <template x-if="!hasReview(g.match_id)">
-                      <span class="gd-coach-status empty">
-                        ◌ Non analysée individuellement
-                      </span>
+                      <div class="gd-coach-unreviewed-group">
+                        <span class="gd-coach-status empty">◌ Non analysée individuellement</span>
+                        <template x-if="pedagogicTarget(g)">
+                          <span class="pedagogic-target-pill" :class="'pill-' + pedagogicTarget(g).kind"
+                                :title="pedagogicTarget(g).hint" x-text="pedagogicTarget(g).badge"></span>
+                        </template>
+                      </div>
                     </template>
                   </div>
-                  <button type="button" class="btn-coach-shortcut" @click.stop="goToGameReview(g.match_id)">
-                    <span class="coach-icon">🎯</span>
-                    <span class="coach-txt" x-text="hasReview(g.match_id) ? 'Voir l\'analyse coaching LLM →' : 'Accéder au coaching IA →'"></span>
+                  <button type="button" class="btn-coach-shortcut" @click.stop="gameCoachAction(g)"
+                          :disabled="coachBusy() || (!hasReview(g.match_id) && matchCoachInfo(g.match_id) && !matchCoachInfo(g.match_id).analyzable)">
+                    <span class="coach-icon" x-text="hasReview(g.match_id) ? '🎯' : (isAuthenticated ? '🎯' : '🔒')"></span>
+                    <span class="coach-txt" x-text="isGameCoachRunning(g.match_id) ? 'Analyse Ollama en cours… ' + (job.progress || '') : (hasReview(g.match_id) ? 'Voir l\'analyse coaching LLM →' : (matchCoachInfo(g.match_id) && !matchCoachInfo(g.match_id).analyzable ? 'Journal indisponible, relance le sync' : (pedagogicTarget(g) ? (isAuthenticated ? 'Analyser cette partie recommandée →' : '🔒 Connexion requise pour analyser') : (isAuthenticated ? 'Analyser cette partie avec l\'IA →' : '🔒 Connexion requise pour analyser'))))"></span>
+                  </button>
+                  <button type="button" class="btn btn-small" x-show="matchCoachInfo(g.match_id)?.review_status === 'stale'"
+                          @click.stop="genGameCoach(g, true)" :disabled="coachBusy()"
+                          title="Cette action effectue un nouvel appel Ollama">
+                    <span x-text="isAuthenticated ? 'Régénérer' : '🔒 Régénérer'"></span>
                   </button>
                 </div>
 
@@ -284,7 +419,8 @@
                       <!-- Matchup confrontation -->
                       <div class="gd-matchup-box" x-show="g.lane && g.lane.opponent">
                         <div class="gd-matchup-side self">
-                          <img class="gd-mini-icon" :src="champIcon(g)" :alt="g.champion">
+                          <img class="gd-mini-icon" :src="champIcon(g)" :alt="g.champion"
+                               @error="iconFallback($event, g.champion)">
                           <div>
                             <strong x-text="g.champion"></strong>
                             <span class="faint">Toi</span>
@@ -292,7 +428,8 @@
                         </div>
                         <span class="gd-matchup-vs">VS</span>
                         <div class="gd-matchup-side opp">
-                          <img class="gd-mini-icon" :src="champIcon(g.lane?.opponent)" :alt="g.lane?.opponent">
+                          <img class="gd-mini-icon" :src="champIcon(g.lane?.opponent, g.patch)" :alt="g.lane?.opponent"
+                               @error="iconFallback($event, g.lane?.opponent)">
                           <div>
                             <strong x-text="g.lane?.opponent"></strong>
                             <span class="faint">Adversaire direct</span>
@@ -442,7 +579,8 @@
                           <div class="gd-team-players">
                             <template x-for="p in teamCompAllies(g)" :key="p.role + p.champ">
                               <div class="gd-player-row" :class="p.isSelf ? 'is-self' : ''">
-                                <img class="gd-mini-icon" :src="champIcon(p.champ)" :alt="p.champ" loading="lazy">
+                                <img class="gd-mini-icon" :src="champIcon(p.champ, g.patch)" :alt="p.champ"
+                                     @error="iconFallback($event, p.champ)" loading="lazy">
                                 <span class="gd-role-badge" x-text="p.roleName"></span>
                                 <span class="gd-pname" x-text="p.champ"></span>
                                 <span class="gd-self-badge" x-show="p.isSelf">Toi</span>
@@ -458,7 +596,8 @@
                           <div class="gd-team-players">
                             <template x-for="p in teamCompEnemies(g)" :key="p.role + p.champ">
                               <div class="gd-player-row">
-                                <img class="gd-mini-icon" :src="champIcon(p.champ)" :alt="p.champ" loading="lazy">
+                                <img class="gd-mini-icon" :src="champIcon(p.champ, g.patch)" :alt="p.champ"
+                                     @error="iconFallback($event, p.champ)" loading="lazy">
                                 <span class="gd-role-badge" x-text="p.roleName"></span>
                                 <span class="gd-pname" x-text="p.champ"></span>
                               </div>
@@ -535,7 +674,8 @@
                               <span class="gd-combat-type-badge" :class="'badge-' + ev.type"
                                     x-text="ev.type === 'kill' ? 'KILL' : (ev.type === 'death' ? 'MORT' : 'ASSIST')"></span>
                               <div class="gd-combat-target">
-                                <img class="gd-mini-icon" :src="champIcon(ev.champ)" :alt="ev.champ || 'Inconnu'" loading="lazy">
+                                <img class="gd-mini-icon" :src="champIcon(ev.champ, g.patch)" :alt="ev.champ || 'Inconnu'"
+                                     @error="iconFallback($event, ev.champ)" loading="lazy">
                                 <div class="gd-combat-names">
                                   <span class="gd-combat-champ" x-text="ev.champ"></span>
                                   <span class="gd-combat-sub faint" x-show="ev.type === 'assist' && ev.killer_champ" x-text="'par ' + ev.killer_champ"></span>
@@ -575,6 +715,7 @@
   <!-- onglet coaching (tâche F4) -->
   <template x-if="tab === 'coaching'">
     <div>
+      <!-- Navigation interne du coaching -->
       <div class="coach-view-tabs" role="tablist" aria-label="Type de coaching">
         <button type="button" :class="coachingView === 'overall' ? 'active' : ''"
                 :aria-selected="(coachingView === 'overall').toString()"
@@ -584,55 +725,38 @@
                 @click="setCoachingView('games')">Analyses de parties <span class="coach-tab-count" x-show="gameReviewsCount" x-text="gameReviewsCount"></span></button>
       </div>
 
-      <!-- Boucle d'evaluation : le taux est affiche meme mauvais, avec son n et
-           sa cible. Un conseil de LLM non evalue n'est qu'une opinion plausible. -->
-      <section class="eval-strip" x-show="evalReport && evalReport.objective">
-        <div class="eval-head">
-          <span class="eval-kicker">BOUCLE D’ÉVALUATION</span>
-          <strong>
-            <span x-text="pct(evalReport?.objective?.mistake_useful_rate)"></span>
-            des erreurs jugées utiles
-          </strong>
-          <span class="eval-meta"
-                x-text="`sur ${evalReport?.objective?.n_game_reviews_annotated ?? 0} analyses de parties annotées (cible : ≥${Math.round((evalReport?.objective?.target_rate ?? 0.7) * 100)} % sur ≥${evalReport?.objective?.target_n ?? 10})`"></span>
-          <span class="eval-badge" :class="evalReport?.target_met ? 'met' : 'pending'"
-                x-text="evalReport?.target_met ? 'objectif atteint' : 'objectif non atteint'"></span>
-        </div>
-        <p class="eval-note">
-          Chaque insight ci-dessous est notable utile/faux : le taux se recalcule à
-          chaque vote. Il est mesuré sur les erreurs des analyses de parties, la
-          seule section dont l’utilité est vérifiable partie par partie.
-          <span x-show="evalReport?.top_tags?.length">
-            Motifs de rejet les plus fréquents :
-            <template x-for="t in (evalReport?.top_tags || []).slice(0, 3)" :key="t.tag">
-              <span class="eval-tag" x-text="`${t.tag} ×${t.n}`"></span>
-            </template>
-          </span>
-        </p>
-      </section>
-
       <div x-show="coachingView === 'overall'">
+      <div class="eval-strip" x-show="!evalLoading && evalReport">
+        <div class="eval-head">
+          <span class="eval-kicker">QUALITÉ MESURÉE</span>
+          <strong x-text="evalReport?.objective?.mistake_useful_rate == null ? 'Pas encore de note' : pct(evalReport.objective.mistake_useful_rate) + ' d\'erreurs jugées utiles'"></strong>
+          <span class="eval-meta" x-text="(evalReport?.objective?.n_game_reviews_annotated || 0) + ' / ' + (evalReport?.objective?.target_n || 10) + ' analyses annotées'"></span>
+          <span class="eval-badge" :class="evalReport?.target_met ? 'met' : 'pending'"
+                x-text="evalReport?.target_met ? 'objectif atteint' : 'objectif ≥70 %'"></span>
+        </div>
+        <p class="eval-note">Ce taux vient de tes votes sur les erreurs des analyses par partie ; il est recalculé sans nouvel appel LLM.</p>
+      </div>
       <section class="coach-builder" aria-labelledby="coach-builder-title">
         <div class="coaching-intro">
-          <span class="coaching-kicker">NOUVELLE ANALYSE</span>
-          <h2 id="coach-builder-title">Sur quoi veux-tu progresser ?</h2>
-          <p>Choisis un ensemble de parties et un résultat. L’analyse est comparée aux joueurs Challenger.</p>
+          <span class="coaching-kicker">ANALYSE GLOBALE &amp; HABITUDES</span>
+          <h2 id="coach-builder-title">Prends du recul sur ton jeu</h2>
+          <p>Explore tes habitudes comparées aux joueurs Challenger selon le périmètre et le résultat souhaités.</p>
         </div>
         <div class="coach-options">
           <div class="choice-group" role="group" aria-label="Parties à analyser">
-            <span class="choice-label">Parties</span>
+            <span class="choice-label">Périmètre</span>
             <div class="segmented-choice">
-              <button type="button" :class="scope === 'adc' ? 'selected' : ''" :aria-pressed="(scope === 'adc').toString()" @click="scope = 'adc'">ADC</button>
-              <button type="button" :class="scope === 'all' ? 'selected' : ''" :aria-pressed="(scope === 'all').toString()" @click="scope = 'all'">Toutes</button>
-              <button type="button" :class="scope === 'zeri' ? 'selected' : ''" :aria-pressed="(scope === 'zeri').toString()" @click="scope = 'zeri'">Zeri</button>
+              <template x-for="sc in dynamicScopes" :key="sc.id">
+                <button type="button" :class="scope === sc.id ? 'selected' : ''" :aria-pressed="(scope === sc.id).toString()" @click="setScope(sc.id)" x-text="sc.label"></button>
+              </template>
             </div>
           </div>
           <div class="choice-group" role="group" aria-label="Résultat à analyser">
             <span class="choice-label">Résultat</span>
             <div class="segmented-choice">
-              <button type="button" :class="outcome === 'loss' ? 'selected loss-choice' : ''" :aria-pressed="(outcome === 'loss').toString()" @click="outcome = 'loss'">Défaites</button>
-              <button type="button" :class="outcome === 'win' ? 'selected win-choice' : ''" :aria-pressed="(outcome === 'win').toString()" @click="outcome = 'win'">Victoires</button>
-              <button type="button" :class="outcome === 'overall' ? 'selected' : ''" :aria-pressed="(outcome === 'overall').toString()" @click="outcome = 'overall'">Global</button>
+              <button type="button" :class="outcome === 'loss' ? 'selected loss-choice' : ''" :aria-pressed="(outcome === 'loss').toString()" @click="setOutcome('loss')">Défaites</button>
+              <button type="button" :class="outcome === 'win' ? 'selected win-choice' : ''" :aria-pressed="(outcome === 'win').toString()" @click="setOutcome('win')">Victoires</button>
+              <button type="button" :class="outcome === 'overall' ? 'selected' : ''" :aria-pressed="(outcome === 'overall').toString()" @click="setOutcome('overall')">Global</button>
             </div>
           </div>
           <div class="coach-reference" aria-label="Référence : joueurs Challenger">
@@ -640,15 +764,22 @@
             <div><span>Référence</span><strong>Joueurs Challenger</strong></div>
           </div>
           <button class="btn btn-primary coach-generate" @click="genCoach()"
-                  :disabled="job && job.status === 'running'">Générer le coaching <span aria-hidden="true">→</span></button>
+                  :disabled="coachBusy()">
+            <span x-text="coachBusy() ? 'Analyse en cours…' : (isAuthenticated ? 'Générer ce coaching' : '🔒 Déverrouiller le coaching')"></span>
+            <span aria-hidden="true" x-show="!coachBusy()">→</span>
+          </button>
         </div>
       </section>
 
-      <template x-if="reviewsLoading"><div class="state">Chargement des reviews…</div></template>
+      <template x-if="reviewsLoading"><div class="state">Chargement des analyses…</div></template>
       <template x-if="!reviewsLoading && !review">
-        <div class="state empty-state">
-          <strong x-text="gameReviewsCount ? 'Aucun coaching global disponible.' : 'Ton analyse apparaîtra ici.'"></strong>
-          <span x-text="gameReviewsCount ? 'Les analyses d’une seule partie sont conservées séparément : elles ne permettent pas de déduire des habitudes.' : 'Choisis les parties à comparer puis génère le coaching.'"></span>
+        <div class="state empty-state coach-empty-card">
+          <div class="coach-empty-icon" style="font-size:32px;margin-bottom:8px">🎯</div>
+          <strong x-text="'Aucun coaching global enregistré pour ' + outcomeLabel(outcome) + ' (' + scopeLabel(scope) + ')'"></strong>
+          <p style="margin:6px 0 14px;color:var(--text-dim)">Génère une analyse comparative complète pour identifier tes forces, erreurs et habitudes face aux joueurs Challenger.</p>
+          <button class="btn btn-primary" @click="genCoach()" :disabled="coachBusy()">
+            <span x-text="coachBusy() ? 'Génération en cours…' : (isAuthenticated ? 'Générer l’analyse ' + outcomeLabel(outcome) + ' →' : '🔒 Connexion requise pour générer →')"></span>
+          </button>
         </div>
       </template>
 
@@ -657,8 +788,10 @@
           <!-- bandeau meta -->
           <div class="meta-strip row wrap">
             <span class="num" x-text="meta()?.n_games_me + ' parties analysées'"></span>
-            <span class="faint" x-text="'comparées à ' + (meta()?.n_games_ref || 0) + ' références'"></span>
+            <span class="faint" x-text="'comparées à ' + (meta()?.n_games_ref || 0) + ' références Challenger'"></span>
             <span class="num" x-text="'Taux de victoire : ' + ((meta()?.winrate_me || 0) * 100).toFixed(0) + '%'"></span>
+            <span class="badge" :class="outcome === 'win' ? 'badge-win' : (outcome === 'loss' ? 'badge-loss' : 'badge-neutral')" x-text="outcomeLabel(outcome)"></span>
+            <span class="badge badge-scope" x-text="scopeLabel(scope)"></span>
             <template x-if="meta()?.low_sample">
               <span class="badge badge-loss">échantillon limité</span>
             </template>
@@ -666,128 +799,168 @@
             <span class="faint" x-text="formatDate(review.ts)"></span>
           </div>
 
-          <!-- 4 cartes -->
-          <div class="insight-grid">
-            <div class="card insight-col">
-              <h3>Forces</h3>
-              <template x-for="(it, i) in review.review.strengths" :key="'s'+i">
-                <div class="insight-card">
-                  <p x-text="it.point"></p>
-                  <p class="cause-line" x-show="it.cause" x-text="'Pourquoi : ' + (it.cause || '')"></p>
-                  <span class="evidence-chip kind-strength" x-text="it.evidence"></span>
-                  <div class="fb-row" x-data="{ k: 'strength', i }">
-                    <span class="feedback-question">Utile ?</span>
-                    <button type="button" class="fb-btn" title="Cette recommandation est utile" aria-label="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'on-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">✓</button>
-                    <button type="button" class="fb-btn" title="Cette recommandation n'est pas utile" aria-label="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'on-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">✗</button>
-                    <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
-                      <template x-for="t in NEG_TAGS" :key="t">
-                        <button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button>
-                      </template>
-                    </div>
-                    <template x-if="fbState(k,i)">
-                      <div class="fb-note">
-                        <textarea class="fb-note-input" rows="2" placeholder="Note (optionnel)…"
-                          :value="noteValue(k,i)"
-                          @input="noteDraft[k+','+i] = $event.target.value"></textarea>
-                        <button class="fb-note-save" @click="saveNote(k,i)" :disabled="fbBusy[k+','+i]">Enregistrer</button>
-                      </div>
-                    </template>
-                  </div>
+          <!-- Carte de transparence de l'échantillon -->
+          <div class="sample-transparency-card">
+            <div class="sample-transparency-main">
+              <span class="sample-stat-icon">📊</span>
+              <div class="sample-stat-text">
+                <div class="sample-stat-header">
+                  <strong>Socle statistique : <span x-text="meta()?.n_games_me || 0"></span> parties réelles de <span x-text="scopeLabel(scope)"></span></strong>
+                  <span class="faint" x-text="'· Winrate réel : ' + ((meta()?.winrate_me || 0) * 100).toFixed(0) + '%'"></span>
                 </div>
-              </template>
-            </div>
-
-            <div class="card insight-col">
-              <h3>Erreurs</h3>
-              <template x-for="(it, i) in review.review.mistakes" :key="'m'+i">
-                <div class="insight-card">
-                  <p x-text="it.point"></p>
-                  <p class="cause-line" x-show="it.cause" x-text="'Pourquoi : ' + (it.cause || '')"></p>
-                  <span class="evidence-chip kind-mistake" x-text="it.evidence"></span>
-                  <div class="fb-row" x-data="{ k: 'mistake', i }">
-                    <span class="feedback-question">Utile ?</span>
-                    <button type="button" class="fb-btn" title="Cette recommandation est utile" aria-label="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'on-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">✓</button>
-                    <button type="button" class="fb-btn" title="Cette recommandation n'est pas utile" aria-label="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'on-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">✗</button>
-                    <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
-                      <template x-for="t in NEG_TAGS" :key="t">
-                        <button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button>
-                      </template>
-                    </div>
-                    <template x-if="fbState(k,i)">
-                      <div class="fb-note">
-                        <textarea class="fb-note-input" rows="2" placeholder="Note (optionnel)…"
-                          :value="noteValue(k,i)"
-                          @input="noteDraft[k+','+i] = $event.target.value"></textarea>
-                        <button class="fb-note-save" @click="saveNote(k,i)" :disabled="fbBusy[k+','+i]">Enregistrer</button>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </template>
-            </div>
-
-            <div class="card insight-col">
-              <h3>Habitudes</h3>
-              <template x-for="(h, i) in review.review.habits" :key="'h'+i">
-                <div class="insight-card">
-                  <p x-text="h"></p>
-                  <div class="fb-row" x-data="{ k: 'habit', i }">
-                    <span class="feedback-question">Utile ?</span>
-                    <button type="button" class="fb-btn" title="Cette recommandation est utile" aria-label="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'on-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">✓</button>
-                    <button type="button" class="fb-btn" title="Cette recommandation n'est pas utile" aria-label="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'on-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">✗</button>
-                    <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
-                      <template x-for="t in NEG_TAGS" :key="t">
-                        <button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button>
-                      </template>
-                    </div>
-                    <template x-if="fbState(k,i)">
-                      <div class="fb-note">
-                        <textarea class="fb-note-input" rows="2" placeholder="Note (optionnel)…"
-                          :value="noteValue(k,i)"
-                          @input="noteDraft[k+','+i] = $event.target.value"></textarea>
-                        <button class="fb-note-save" @click="saveNote(k,i)" :disabled="fbBusy[k+','+i]">Enregistrer</button>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </template>
-            </div>
-
-            <div class="card insight-col">
-              <h3>Focus prochain</h3>
-              <div class="insight-card">
-                <p x-text="review.review.next_focus"></p>
-                <div class="fb-row" x-data="{ k: 'focus', i: 0 }">
-                  <span class="feedback-question">Utile ?</span>
-                  <button type="button" class="fb-btn" title="Cette recommandation est utile" aria-label="Cette recommandation est utile" :class="fbState('focus',0)?.useful === true ? 'on-win' : ''" @click="setFb('focus',0,true)" :disabled="fbBusy['focus,0']">✓</button>
-                  <button type="button" class="fb-btn" title="Cette recommandation n'est pas utile" aria-label="Cette recommandation n'est pas utile" :class="fbState('focus',0)?.useful === false ? 'on-loss' : ''" @click="setFb('focus',0,false)" :disabled="fbBusy['focus,0']">✗</button>
-                  <div class="tag-menu" x-show="coachOpen === 'focus,0'" x-transition>
-                    <template x-for="t in NEG_TAGS" :key="t">
-                      <button type="button" class="tag-opt" @click="pickTag('focus',0,t)" x-text="t"></button>
-                    </template>
-                  </div>
-                  <template x-if="fbState('focus',0)">
-                    <div class="fb-note">
-                      <textarea class="fb-note-input" rows="2" placeholder="Note (optionnel)…"
-                        :value="noteValue('focus',0)"
-                        @input="noteDraft['focus,0'] = $event.target.value"></textarea>
-                      <button class="fb-note-save" @click="saveNote('focus',0)" :disabled="fbBusy['focus,0']">Enregistrer</button>
-                    </div>
+                <div class="sample-stat-sub faint">
+                  <span x-show="meta()?.n_game_reviews_available != null">
+                    <strong x-text="meta()?.n_game_reviews_available || 0"></strong> analyses unitaires disponibles
+                    <span x-text="'(' + (meta()?.n_game_reviews_available_wins || 0) + 'V · ' + (meta()?.n_game_reviews_available_losses || 0) + 'D)'"></span>
+                    ·
+                  </span>
+                  <template x-if="meta()?.n_game_reviews_used">
+                    <span>
+                      ✦ <strong x-text="meta()?.n_game_reviews_used"></strong> analyses unitaires intégrées
+                      <span x-text="'(' + (meta()?.n_game_reviews_used_wins ?? meta()?.n_game_reviews_wins ?? 0) + 'V · ' + (meta()?.n_game_reviews_used_losses ?? meta()?.n_game_reviews_losses ?? 0) + 'D)'"></span>
+                    </span>
+                  </template>
+                  <template x-if="!meta()?.n_game_reviews_used">
+                    <span>✦ Aucune analyse unitaire requise : le coach global s'appuie directement sur tes données de jeu réelles.</span>
                   </template>
                 </div>
               </div>
-              <div class="confidence faint" x-text="'Niveau de confiance : ' + (review.review.confidence * 100).toFixed(0) + '%'"></div>
+            </div>
+            <template x-if="meta()?.qualitative_mode === 'unbalanced' || meta()?.unbalanced_causes">
+              <div class="sample-warning-banner">
+                <span>⚠️ <strong>Échantillon unitaire asymétrique :</strong> tu n’as analysé que des <span x-text="(meta()?.n_game_reviews_available_losses ?? meta()?.n_game_reviews_losses ?? 0) > 0 ? 'défaites' : 'victoires'"></span>. Une seule est intégrée pour ne pas déformer le bilan, qui reste fondé sur tes <span x-text="meta()?.n_games_me"></span> parties réelles. Analyse aussi une partie de l’autre issue pour équilibrer le contexte.</span>
+              </div>
+            </template>
+            <template x-if="globalNeedsRefresh()">
+              <div class="sample-warning-banner refresh">
+                <span>↻ Une nouvelle analyse de partie peut enrichir ce bilan.</span>
+                <button type="button" class="btn btn-small" @click="genCoach()" :disabled="coachBusy()">
+                  <span x-text="isAuthenticated ? 'Actualiser le coaching' : '🔒 Actualiser le coaching'">Actualiser le coaching</span>
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <!-- Hero card Focus prioritaire -->
+          <template x-if="review.review.next_focus">
+            <div class="global-focus-hero">
+              <div class="global-focus-content">
+                <span class="global-focus-eyebrow">PRIORITÉ N°1 POUR PROGRESSER</span>
+                <h3 x-text="review.review.next_focus"></h3>
+                <p class="global-focus-hint">Ton levier majeur à appliquer dès ta prochaine partie pour débloquer ton rank-up.</p>
+              </div>
+              <div class="global-focus-actions" x-data="{ k: 'focus', i: 0 }">
+                <span class="fb-compact-prompt">Utile ?</span>
+                <button type="button" class="fb-btn-compact" title="Recommandation utile" :class="fbState(k,i)?.useful === true ? 'active-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">👍</button>
+                <button type="button" class="fb-btn-compact" title="Recommandation pas utile" :class="fbState(k,i)?.useful === false ? 'active-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">👎</button>
+                <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
+                  <span class="tag-menu-title">Motif :</span>
+                  <template x-for="t in NEG_TAGS" :key="t"><button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button></template>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 4 cartes -->
+          <div class="insight-grid">
+            <div class="card insight-col">
+              <div class="col-head">
+                <span class="col-icon">🛡️</span>
+                <h3>Forces</h3>
+              </div>
+              <template x-for="(it, i) in review.review.strengths" :key="'s'+i">
+                <div class="insight-card">
+                  <h4 class="insight-title" x-text="insightTitle(it.point)"></h4>
+                  <p class="insight-body" x-show="insightBody(it.point)" x-text="insightBody(it.point)"></p>
+                  <p class="cause-line" x-show="it.cause" x-text="'Pourquoi : ' + (it.cause || '')"></p>
+                  <div class="insight-card-footer">
+                    <span class="evidence-chip kind-strength" x-text="it.evidence"></span>
+                    <div class="fb-compact-row" x-data="{ k: 'strength', i }">
+                      <button type="button" class="fb-btn-compact" title="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'active-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">👍</button>
+                      <button type="button" class="fb-btn-compact" title="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'active-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">👎</button>
+                      <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
+                        <span class="tag-menu-title">Motif de rejet :</span>
+                        <template x-for="t in NEG_TAGS" :key="t"><button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button></template>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="card insight-col">
+              <div class="col-head">
+                <span class="col-icon">⚠️</span>
+                <h3>Erreurs récurrentes</h3>
+              </div>
+              <template x-for="(it, i) in review.review.mistakes" :key="'m'+i">
+                <div class="insight-card">
+                  <h4 class="insight-title" x-text="insightTitle(it.point)"></h4>
+                  <p class="insight-body" x-show="insightBody(it.point)" x-text="insightBody(it.point)"></p>
+                  <p class="cause-line" x-show="it.cause" x-text="'Pourquoi : ' + (it.cause || '')"></p>
+                  <div class="insight-card-footer">
+                    <span class="evidence-chip kind-mistake" x-text="it.evidence"></span>
+                    <div class="fb-compact-row" x-data="{ k: 'mistake', i }">
+                      <button type="button" class="fb-btn-compact" title="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'active-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">👍</button>
+                      <button type="button" class="fb-btn-compact" title="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'active-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">👎</button>
+                      <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
+                        <span class="tag-menu-title">Motif de rejet :</span>
+                        <template x-for="t in NEG_TAGS" :key="t"><button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button></template>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="card insight-col">
+              <div class="col-head">
+                <span class="col-icon">🔄</span>
+                <h3>Habitudes</h3>
+              </div>
+              <template x-for="(h, i) in review.review.habits" :key="'h'+i">
+                <div class="insight-card">
+                  <h4 class="insight-title" x-text="insightTitle(h)"></h4>
+                  <p class="insight-body" x-show="insightBody(h)" x-text="insightBody(h)"></p>
+                  <div class="insight-card-footer" style="justify-content:flex-end">
+                    <div class="fb-compact-row" x-data="{ k: 'habit', i }">
+                      <button type="button" class="fb-btn-compact" title="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'active-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">👍</button>
+                      <button type="button" class="fb-btn-compact" title="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'active-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">👎</button>
+                      <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
+                        <span class="tag-menu-title">Motif de rejet :</span>
+                        <template x-for="t in NEG_TAGS" :key="t"><button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button></template>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <div class="card insight-col">
+              <div class="col-head">
+                <span class="col-icon">🎯</span>
+                <h3>Focus &amp; Confiance</h3>
+              </div>
+              <div class="insight-card">
+                <span class="choice-label">Plan de jeu conseillé</span>
+                <p class="insight-body" x-text="review.review.next_focus"></p>
+                <div class="confidence-meter" style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border-soft)">
+                  <span class="faint" style="font-size:11px">Niveau de confiance : </span>
+                  <strong style="color:var(--text);font-size:13px" x-text="(review.review.confidence * 100).toFixed(0) + '%'"></strong>
+                </div>
+              </div>
             </div>
           </div>
 
           <!-- historique des reviews précédentes (replié) -->
           <template x-if="reviews.length > 1">
             <details class="reviews-history">
-              <summary class="muted">Reviews précédentes (<span x-text="reviews.length - 1"></span>)</summary>
+              <summary class="muted">Historique des analyses précédentes (<span x-text="reviews.length - 1"></span>)</summary>
               <template x-for="(rv, idx) in reviews.slice(1)" :key="rv.ts">
-                <div class="hist-row faint">
+                <div class="hist-row faint" style="cursor:pointer" @click="review = rv; if (rv.scope) scope = rv.scope.toLowerCase(); if (rv.outcome_focus) outcome = rv.outcome_focus">
                   <span x-text="formatDate(rv.ts)"></span> · <span x-text="rv.model"></span> ·
-                  <span x-text="rv.scope + '/' + rv.outcome_focus"></span>
+                  <span x-text="rv.scope + ' (' + (rv.outcome_focus || 'global') + ')'"></span>
+                  <span class="badge badge-scope">Voir →</span>
                 </div>
               </template>
             </details>
@@ -802,15 +975,20 @@
           <div class="game-reviews-heading">
             <div>
               <p class="eyebrow">ANALYSES DÉTAILLÉES</p>
-              <h2 id="game-reviews-title">Revoir une partie, moment par moment.</h2>
-              <p>Chaque analyse est liée à une partie précise. Elle met l’accent sur les erreurs observables et le focus de ta prochaine game.</p>
+              <h2 id="game-reviews-title">Revoir une partie, moment par moment</h2>
+              <p>Chaque analyse dissèque une partie précise : morts, retours en base, timing d'objectifs et focus pour ta prochaine game.</p>
             </div>
           </div>
 
-          <aside class="review-primer">
-            <p><strong>D’où sort cette analyse.</strong> La partie est récupérée via l’API Riot (match et timeline), puis convertie en journal structuré : morts, retours en base, or non dépensé et timers d’objectifs, tous horodatés. Un modèle de langage à sortie contrainte par schéma en tire des forces et des erreurs, chacune avec sa cause et sa preuve chiffrée.</p>
-            <p><strong>Ce qu’il ne dira jamais.</strong> Aucun reproche fondé sur une information que le joueur n’avait pas à l’instant de sa décision. Les variables reconstruites après coup sont marquées comme réservées au modèle : une vérification au chargement fait échouer le programme si l’une d’elles atteint le coaching.</p>
-          </aside>
+          <div class="review-primer">
+            <strong>Comment cette analyse est construite</strong>
+            <span>La timeline de l’API Riot est transformée localement en journal vérifiable ; l’IA ne reçoit que ce journal nettoyé et ne relit jamais le brouillard de guerre.</span>
+          </div>
+
+          <div class="game-privacy-banner">
+            <span class="privacy-icon">🛡️</span>
+            <span><strong>Analyse intègre :</strong> reconstruite depuis la timeline Riot avec respect strict de l'asymétrie d'information (aucun reproche sur ce qui était dans le brouillard de guerre).</span>
+          </div>
 
           <template x-if="reviewsLoading"><div class="state">Chargement des analyses de parties…</div></template>
           <template x-if="!reviewsLoading && gameReviews.length === 0">
@@ -819,26 +997,60 @@
 
           <template x-if="!reviewsLoading && gameReviews.length > 0">
             <div class="game-review-layout">
-              <nav class="game-review-list" aria-label="Analyses de parties disponibles">
-                <template x-for="item in gameReviews" :key="item.ts">
-                  <button type="button" class="game-review-option"
-                          :class="selectedGameReview?.ts === item.ts ? 'selected' : ''"
-                          :aria-current="selectedGameReview?.ts === item.ts ? 'true' : 'false'"
-                          @click="selectGameReview(item)">
-                    <img class="game-option-icon" :src="gameIcon(item)" :alt="gameChampion(item)"
-                         @error="$event.target.style.display = 'none'" loading="lazy">
-                    <span class="game-option-copy">
-                      <strong x-text="gameChampion(item)"></strong>
-                      <span x-text="gameResult(item) + ' · ' + formatDate(item.ts)"></span>
-                    </span>
-                    <span class="game-option-arrow" aria-hidden="true">→</span>
-                  </button>
-                </template>
-                <button type="button" class="game-load-more" @click="loadMoreGameReviews()"
-                        x-show="gameReviews.length < gameReviewsCount"
-                        :disabled="gameReviewsLoading"
-                        x-text="gameReviewsLoading ? 'Chargement…' : 'Afficher plus de parties'"></button>
-              </nav>
+              <div class="game-review-sidebar">
+                <div class="game-filter-bar">
+                  <div class="segmented-choice filter-segmented" role="group" aria-label="Filtrer par résultat">
+                    <button type="button" :class="gameFilterResult === 'all' ? 'selected' : ''" @click="setGameFilterResult('all')">
+                      Toutes (<span x-text="gameReviews.length"></span>)
+                    </button>
+                    <button type="button" :class="gameFilterResult === 'win' ? 'selected win-choice' : ''" @click="setGameFilterResult('win')">
+                      Victoires (<span x-text="gameReviewsCountWin"></span>)
+                    </button>
+                    <button type="button" :class="gameFilterResult === 'loss' ? 'selected loss-choice' : ''" @click="setGameFilterResult('loss')">
+                      Défaites (<span x-text="gameReviewsCountLoss"></span>)
+                    </button>
+                  </div>
+                  <div class="champ-filter-wrap" x-show="gameReviewChampions.length > 1">
+                    <select class="champ-filter-select" x-model="gameFilterChampion" @change="setGameFilterChampion($event.target.value)">
+                      <option value="all">Tous les champions</option>
+                      <template x-for="c in gameReviewChampions" :key="c">
+                        <option :value="c" x-text="c"></option>
+                      </template>
+                    </select>
+                  </div>
+                </div>
+
+                <nav class="game-review-list" aria-label="Analyses de parties disponibles">
+                  <template x-for="item in filteredGameReviews()" :key="item.ts">
+                    <button type="button" class="game-review-option"
+                            :class="[selectedGameReview?.ts === item.ts ? 'selected' : '', gameResult(item) === 'Victoire' ? 'is-win' : 'is-loss']"
+                            :aria-current="selectedGameReview?.ts === item.ts ? 'true' : 'false'"
+                            @click="selectGameReview(item)">
+                      <img class="game-option-icon" :src="gameIcon(item)" :alt="gameChampion(item)"
+                           @error="iconFallback($event, gameChampion(item))" loading="lazy">
+                      <span class="game-option-copy">
+                        <div class="game-option-top">
+                          <strong x-text="gameChampion(item)"></strong>
+                          <span class="game-mini-badge" :class="gameResult(item) === 'Victoire' ? 'win' : 'loss'" x-text="gameResult(item)"></span>
+                        </div>
+                        <span class="game-option-sub">
+                          <span x-show="gameKda(item)" x-text="gameKda(item) + ' · '"></span>
+                          <span x-show="gameOpponent(item)" x-text="'vs ' + gameOpponent(item) + ' · '"></span>
+                          <span x-text="formatDate(item.ts)"></span>
+                        </span>
+                      </span>
+                      <span class="game-option-arrow" aria-hidden="true">→</span>
+                    </button>
+                  </template>
+                  <div class="state empty-state-compact" x-show="filteredGameReviews().length === 0">
+                    <span>Aucune partie pour ce filtre.</span>
+                  </div>
+                  <button type="button" class="game-load-more" @click="loadMoreGameReviews()"
+                          x-show="gameReviews.length < gameReviewsCount"
+                          :disabled="gameReviewsLoading"
+                          x-text="gameReviewsLoading ? 'Chargement…' : 'Afficher plus de parties'"></button>
+                </nav>
+              </div>
 
               <div class="state game-detail-state" x-show="gameReviewLoading">Chargement de l’analyse…</div>
               <div class="state err game-detail-state" x-show="gameReviewError" x-text="gameReviewError"></div>
@@ -848,7 +1060,7 @@
                 <header class="game-detail-header">
                   <div class="game-detail-title">
                     <img class="game-detail-icon" :src="gameIcon(selectedGameReview)" :alt="gameChampion(selectedGameReview)"
-                         @error="$event.target.style.display = 'none'">
+                         @error="iconFallback($event, gameChampion(selectedGameReview))">
                     <div>
                       <p class="eyebrow">ANALYSE DE PARTIE</p>
                       <h3><span x-text="gameChampion(selectedGameReview)"></span><span x-show="gameOpponent(selectedGameReview)" x-text="' · contre ' + gameOpponent(selectedGameReview)"></span></h3>
@@ -896,78 +1108,83 @@
 
                 <section class="game-focus-card">
                   <span class="game-focus-label">Focus pour ta prochaine partie</span>
-                  <p x-text="selectedGameReview.review.next_focus"></p>
-                  <div class="fb-row" x-data="{ k: 'focus', i: 0 }">
-                    <span class="feedback-question">Utile ?</span>
-                    <button type="button" class="fb-btn" title="Cette recommandation est utile" aria-label="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'on-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">✓</button>
-                    <button type="button" class="fb-btn" title="Cette recommandation n'est pas utile" aria-label="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'on-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">✗</button>
+                  <p class="game-focus-text" x-text="selectedGameReview.review.next_focus"></p>
+                  <div class="fb-compact-row" style="margin-top:12px" x-data="{ k: 'focus', i: 0 }">
+                    <span class="fb-compact-prompt">Utile ?</span>
+                    <button type="button" class="fb-btn-compact" title="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'active-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">👍</button>
+                    <button type="button" class="fb-btn-compact" title="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'active-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">👎</button>
                     <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
+                      <span class="tag-menu-title">Motif :</span>
                       <template x-for="t in NEG_TAGS" :key="t"><button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button></template>
                     </div>
-                    <template x-if="fbState(k,i)">
-                      <div class="fb-note">
-                        <textarea class="fb-note-input" rows="2" placeholder="Note (optionnel)…" :value="noteValue(k,i)" @input="noteDraft[k+','+i] = $event.target.value"></textarea>
-                        <button class="fb-note-save" @click="saveNote(k,i)" :disabled="fbBusy[k+','+i]">Enregistrer</button>
-                      </div>
-                    </template>
                   </div>
                 </section>
 
                 <div class="game-insight-grid">
                   <section class="game-insight-section strengths">
-                    <h3>Ce qui a bien fonctionné</h3>
+                    <div class="col-head">
+                      <span class="col-icon">🛡️</span>
+                      <h3>Ce qui a bien fonctionné</h3>
+                    </div>
                     <template x-if="selectedGameReview.review.strengths.length === 0">
                       <p class="game-empty-copy">Aucune force suffisamment nette n’a été retenue pour cette partie.</p>
                     </template>
                     <template x-for="(item, index) in selectedGameReview.review.strengths" :key="'game-strength-' + index">
                       <article class="game-insight-item">
-                        <p x-text="item.point"></p>
-                        <details x-show="item.cause">
+                        <h4 class="insight-title" x-text="insightTitle(item.point)"></h4>
+                        <p class="insight-body" x-show="insightBody(item.point)" x-text="insightBody(item.point)"></p>
+                        <details x-show="item.cause" class="cause-details">
                           <summary>Pourquoi ?</summary>
                           <span x-text="item.cause"></span>
                         </details>
-                        <span class="evidence-chip kind-strength" x-text="item.evidence"></span>
-                        <div class="fb-row" x-data="{ k: 'strength', i: index }">
-                          <span class="feedback-question">Utile ?</span>
-                          <button type="button" class="fb-btn" title="Cette recommandation est utile" aria-label="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'on-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">✓</button>
-                          <button type="button" class="fb-btn" title="Cette recommandation n'est pas utile" aria-label="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'on-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">✗</button>
-                          <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
-                            <template x-for="t in NEG_TAGS" :key="t"><button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button></template>
-                          </div>
-                          <template x-if="fbState(k,i)">
-                            <div class="fb-note">
-                              <textarea class="fb-note-input" rows="2" placeholder="Note (optionnel)…" :value="noteValue(k,i)" @input="noteDraft[k+','+i] = $event.target.value"></textarea>
-                              <button class="fb-note-save" @click="saveNote(k,i)" :disabled="fbBusy[k+','+i]">Enregistrer</button>
+                        <div class="insight-card-footer">
+                          <span class="evidence-chip kind-strength" x-text="item.evidence"></span>
+                          <div class="fb-compact-row" x-data="{ k: 'strength', i: index }">
+                            <button type="button" class="fb-btn-compact" title="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'active-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">👍</button>
+                            <button type="button" class="fb-btn-compact" title="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'active-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">👎</button>
+                            <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
+                              <span class="tag-menu-title">Motif :</span>
+                              <template x-for="t in NEG_TAGS" :key="t"><button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button></template>
                             </div>
-                          </template>
+                          </div>
                         </div>
                       </article>
                     </template>
                   </section>
 
                   <section class="game-insight-section mistakes">
-                    <h3>Erreurs à retenir</h3>
+                    <div class="col-head">
+                      <span class="col-icon">⚠️</span>
+                      <h3>Erreurs à retenir</h3>
+                    </div>
                     <template x-for="(item, index) in selectedGameReview.review.mistakes" :key="'game-mistake-' + index">
                       <article class="game-insight-item">
-                        <p x-text="item.point"></p>
-                        <details x-show="item.cause" open>
+                        <h4 class="insight-title" x-text="insightTitle(item.point)"></h4>
+                        <p class="insight-body" x-show="insightBody(item.point)" x-text="insightBody(item.point)"></p>
+                        <details x-show="item.cause" class="cause-details" open>
                           <summary>Pourquoi ?</summary>
                           <span x-text="item.cause"></span>
                         </details>
-                        <span class="evidence-chip kind-mistake" x-text="item.evidence"></span>
-                        <div class="fb-row" x-data="{ k: 'mistake', i: index }">
-                          <span class="feedback-question">Utile ?</span>
-                          <button type="button" class="fb-btn" title="Cette recommandation est utile" aria-label="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'on-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">✓</button>
-                          <button type="button" class="fb-btn" title="Cette recommandation n'est pas utile" aria-label="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'on-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">✗</button>
-                          <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
-                            <template x-for="t in NEG_TAGS" :key="t"><button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button></template>
-                          </div>
-                          <template x-if="fbState(k,i)">
-                            <div class="fb-note">
-                              <textarea class="fb-note-input" rows="2" placeholder="Note (optionnel)…" :value="noteValue(k,i)" @input="noteDraft[k+','+i] = $event.target.value"></textarea>
-                              <button class="fb-note-save" @click="saveNote(k,i)" :disabled="fbBusy[k+','+i]">Enregistrer</button>
+                        <div class="insight-card-footer">
+                          <span class="evidence-chip kind-mistake" x-text="item.evidence"></span>
+                          <div class="fb-compact-row" x-data="{ k: 'mistake', i: index }">
+                            <button type="button" class="fb-btn-compact" title="Cette recommandation est utile" :class="fbState(k,i)?.useful === true ? 'active-win' : ''" @click="setFb(k,i,true)" :disabled="fbBusy[k+','+i]">👍</button>
+                            <button type="button" class="fb-btn-compact" title="Cette recommandation n'est pas utile" :class="fbState(k,i)?.useful === false ? 'active-loss' : ''" @click="setFb(k,i,false)" :disabled="fbBusy[k+','+i]">👎</button>
+                            <div class="tag-menu" x-show="coachOpen === k+','+i" x-transition>
+                              <span class="tag-menu-title">Motif :</span>
+                              <template x-for="t in NEG_TAGS" :key="t"><button type="button" class="tag-opt" @click="pickTag(k,i,t)" x-text="t"></button></template>
                             </div>
-                          </template>
+                            <button type="button" class="fb-btn-compact" x-show="fbState(k,i)"
+                                    @click="toggleNote(k,i)" title="Ajouter une note">✎</button>
+                            <div class="fb-note-editor" x-show="noteOpen[fbKey(k,i)]" x-transition>
+                              <textarea class="fb-note-input" rows="3" maxlength="500"
+                                        :value="noteValue(k,i)"
+                                        @input="noteDraft[fbKey(k,i)] = $event.target.value"
+                                        placeholder="Précise ce qui t’aide ou ce qui manque…"></textarea>
+                              <button type="button" class="btn btn-small" @click="saveNote(k,i)"
+                                      :disabled="fbBusy[k+','+i]">Enregistrer la note</button>
+                            </div>
+                          </div>
                         </div>
                       </article>
                     </template>
@@ -991,9 +1208,9 @@
                     <label class="sr-only" for="game-chat-input">Question au coach</label>
                     <textarea id="game-chat-input" rows="2" maxlength="2000"
                               x-model="chatDraft"
-                              placeholder="Ex. : j’ai gardé cet or pour ma B.F. Sword, est-ce que ce choix était vraiment mauvais ?"></textarea>
-                    <button type="submit" :disabled="chatBusy || !chatDraft.trim()"
-                            x-text="chatBusy ? 'Le coach réfléchit…' : 'Envoyer'"></button>
+                              :placeholder="isAuthenticated ? 'Ex. : j’ai gardé cet or pour ma B.F. Sword, est-ce que ce choix était vraiment mauvais ?' : '🔒 Connexion requise pour discuter avec le coach IA…'"></textarea>
+                    <button type="submit" :disabled="chatBusy || (isAuthenticated && !chatDraft.trim())"
+                            x-text="chatBusy ? 'Le coach réfléchit…' : (isAuthenticated ? 'Envoyer' : '🔒 Se connecter')"></button>
                   </form>
                   <p class="feedback-error" x-show="chatError" x-text="chatError"></p>
                 </section>
@@ -1313,6 +1530,165 @@
 </div>
     </template>
   </main>
+
+  <!-- Pied de page global du site -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <div class="footer-grid">
+        <!-- Colonne 1: Marque & Mission & Disclaimer Riot -->
+        <div class="footer-col footer-col-brand">
+          <div class="footer-brand">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+                <path d="M12 2L20 7V17L12 22L4 17V7L12 2Z" stroke="var(--primary)" stroke-width="2" fill="rgba(14, 187, 212, 0.15)"/>
+                <polygon points="12,6 17,9.5 17,14.5 12,18 7,14.5 7,9.5" fill="var(--primary)"/>
+              </svg>
+            </span>
+            <span class="footer-brand-title">Coach LoL</span>
+            <span class="brand-badge">AI</span>
+          </div>
+          <p class="footer-mission">
+            Coaching personnalisé et analyse avancée des parties de League of Legends, alimentés par apprentissage automatique et modèles de langage.
+          </p>
+          <div class="footer-disclaimer">
+            <svg class="disclaimer-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <span>Coach LoL n'est pas affilié à Riot Games et ne reflète pas les opinions de Riot Games ou des équipes officielles de League of Legends.</span>
+          </div>
+        </div>
+
+        <!-- Colonne 2: Navigation -->
+        <div class="footer-col">
+          <h4 class="footer-heading">Navigation</h4>
+          <ul class="footer-nav-list">
+            <li>
+              <a href="/" @click.prevent="go('/')">
+                <span class="bullet">›</span>
+                <span>Accueil</span>
+              </a>
+            </li>
+            <li>
+              <a href="/readme" @click.prevent="go('/readme')">
+                <span class="bullet">›</span>
+                <span>Méthodologie & Données</span>
+              </a>
+            </li>
+            <li>
+              <a href="/" @click.prevent="go('/')">
+                <span class="bullet">›</span>
+                <span>Vue d'ensemble des comptes</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Colonne 3: Comptes analysés -->
+        <div class="footer-col">
+          <h4 class="footer-heading">Comptes suivis</h4>
+          <ul class="footer-accounts-list">
+            <template x-for="a in accounts" :key="a.slug">
+              <li>
+                <a :href="'/c/' + a.slug" @click.prevent="go('/c/' + a.slug)" class="footer-account-link">
+                  <img class="footer-account-avatar" :src="summonerIcon(a.slug)" alt="" loading="lazy">
+                  <div class="footer-account-info">
+                    <div class="row" style="gap: 6px; align-items: center">
+                      <span class="footer-account-slug" x-text="a.slug"></span>
+                      <span class="badge badge-region-xs" x-text="(a.region || 'euw1').slice(0, 3).toUpperCase()"></span>
+                    </div>
+                    <span class="footer-account-games" x-text="a.games_count + ' parties'"></span>
+                  </div>
+                </a>
+              </li>
+            </template>
+          </ul>
+        </div>
+
+        <!-- Colonne 4: Stack technique -->
+        <div class="footer-col">
+          <h4 class="footer-heading">Stack & Architecture</h4>
+          <ul class="footer-tech-list">
+            <li>
+              <span class="tech-pill">Cloudflare Workers</span>
+              <span class="tech-desc">Serving edge & API KV</span>
+            </li>
+            <li>
+              <span class="tech-pill">LightGBM & SHAP</span>
+              <span class="tech-desc">Modèle prédictif du rang</span>
+            </li>
+            <li>
+              <span class="tech-pill">Ollama LLM</span>
+              <span class="tech-desc">Génération des revues de match</span>
+            </li>
+            <li>
+              <span class="tech-pill">Riot Games API</span>
+              <span class="tech-desc">Collecte de parties et métriques</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Pied inférieur -->
+      <div class="footer-bottom">
+        <div class="footer-copyright">
+          <span>© 2026 Coach LoL</span>
+          <span class="footer-sep">·</span>
+          <span>Données actualisées pour la Saison 2026</span>
+          <span class="footer-sep">·</span>
+          <span>Conçu pour progresser sur la Faille de l'Invocateur</span>
+        </div>
+        <button class="footer-scroll-top" type="button" @click="window.scrollTo({ top: 0, behavior: 'smooth' })" aria-label="Remonter en haut de page">
+          <span>Haut de page</span>
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+            <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modale d'authentification Coach -->
+  <div class="auth-modal-backdrop" x-show="authModalOpen" x-transition.opacity.duration.200ms style="display: none;" @keydown.escape.window="closeAuthModal()">
+    <div class="auth-modal-card" @click.outside="closeAuthModal()" x-transition.scale.origin.top.duration.200ms role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <div class="auth-modal-header">
+        <div class="auth-modal-header-left">
+          <div class="auth-modal-icon-wrap">
+            <span class="auth-modal-icon">🔐</span>
+          </div>
+          <div>
+            <h3 id="auth-modal-title" class="auth-modal-title">Accès Coach IA</h3>
+            <p class="auth-modal-sub">Mot de passe requis pour générer de nouvelles analyses et utiliser le LLM.</p>
+          </div>
+        </div>
+        <button type="button" class="auth-modal-close" @click="closeAuthModal()" aria-label="Fermer la fenêtre">✕</button>
+      </div>
+
+      <form class="auth-modal-form" @submit.prevent="login()">
+        <div class="auth-field-group">
+          <label for="coach-auth-password-input" class="auth-label">Mot de passe coach</label>
+          <div class="auth-input-wrapper">
+            <input id="coach-auth-password-input" type="password" class="auth-input"
+                   x-model="authPassword" placeholder="Saisis le mot de passe…" autocomplete="current-password" required>
+          </div>
+        </div>
+
+        <template x-if="authError">
+          <div class="auth-error-banner" role="alert">
+            <span class="auth-error-icon">⚠️</span>
+            <span x-text="authError"></span>
+          </div>
+        </template>
+
+        <div class="auth-modal-actions">
+          <button type="button" class="btn btn-secondary auth-cancel-btn" @click="closeAuthModal()">Annuler</button>
+          <button type="submit" class="btn btn-primary auth-submit-btn" :disabled="authLoading || !authPassword.trim()">
+            <span x-text="authLoading ? 'Vérification…' : 'Déverrouiller'"></span>
+            <span aria-hidden="true" x-show="!authLoading">🔓</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
   <script src="/vendor/chart.umd.min.js"></script>
