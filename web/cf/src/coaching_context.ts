@@ -90,8 +90,13 @@ export async function buildCoachingContext(kv: KVLike, slug: string): Promise<Js
     const latest = latestByMatch.get(matchId);
     let reviewStatus: "none" | "ready" | "stale" = "none";
     if (latest) {
+      // `payload_hash` n'est ecrit que par le Worker : une review produite par
+      // `coach.py` n'en a pas. L'exiger classait perimee toute review locale, et
+      // l'UI invitait a repayer une generation deja validee. Absent, le prompt
+      // tranche seul ; present, il doit correspondre au payload servi.
+      const hash = latest.run?.payload_hash;
       reviewStatus = entry
-        && latest.run?.payload_hash === entry.payload_hash
+        && (hash === undefined || hash === null || hash === entry.payload_hash)
         && latest.run?.prompt_version === promptVersion ? "ready" : "stale";
     }
     matches[matchId] = {
