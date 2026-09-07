@@ -31,6 +31,17 @@ def test_generate_review_validates(monkeypatch):
     assert run["total_tokens"] == 1200 and run["schema_retries"] == 0
 
 
+def test_run_block_carries_schema_version(monkeypatch):
+    """Sans schema_version, une variation du taux d'utilite due a un durcissement
+    du schema serait indiscernable d'une variation de prompt ou de modele."""
+    monkeypatch.setattr(C.llm_client, "generate", lambda *a, **k: _gen(_review_dict()))
+    _, run = C.generate_review({"meta": {"player": "x", "scope": "adc",
+                                         "target": "challenger",
+                                         "outcome_focus": "loss", "n_games_me": 1}}, "m")
+    assert run["schema_version"] == S.REVIEW_SCHEMA_VERSION
+    assert run["prompt_version"] == C.prompt_mod.PROMPT_VERSION
+
+
 def test_generate_review_retries_then_raises(monkeypatch):
     calls = {"n": 0}
 

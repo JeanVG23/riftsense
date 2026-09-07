@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apiCoach, coachFlow, type CoachParams } from "../src/coach";
 import { KEYS, readJsonl, type KVLike } from "../src/readers";
 import type { Env } from "../src/index";
+import { REVIEW_SCHEMA_VERSION } from "../src/generated/shared";
 
 class MemoryKV implements KVLike {
   store = new Map<string, string>();
@@ -70,6 +71,8 @@ describe("coachFlow", () => {
     });
     expect(record.review).toEqual(REVIEW);
     expect(record.payload.meta).toBeDefined();
+    expect(record.run.prompt_version).toMatch(/^[a-f0-9]{12}$/);
+    expect(record.run.schema_version).toBe(REVIEW_SCHEMA_VERSION);
     expect(await readJsonl(kv, KEYS.reviews("spadzze"))).toEqual([record]);
   });
 

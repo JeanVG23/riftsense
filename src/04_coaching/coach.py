@@ -42,7 +42,7 @@ class CoachValidationError(RuntimeError):
 
 
 def _generate(system: str, user: str, sch: dict, cls, model: str,
-              prompt_version: str, timeout: int = 180):
+              prompt_version: str, schema_version: str, timeout: int = 180):
     """Retourne (review validée, run). `run` = trace d'exécution persistée avec
     la review : sans elle on ne peut ni rejouer une génération, ni attribuer une
     variation du taux d'utilité à un changement de prompt ou de modèle.
@@ -68,21 +68,23 @@ def _generate(system: str, user: str, sch: dict, cls, model: str,
         usage["schema_retries"] = attempt
         usage["cost_usd"] = llm_client.estimate_cost(
             model, total["prompt_tokens"], total["completion_tokens"])
-        return review, {"prompt_version": prompt_version, **usage}
+        return review, {"prompt_version": prompt_version,
+                        "schema_version": schema_version, **usage}
     raise CoachValidationError(last_raw)
 
 
 def generate_review(pl: dict, model: str, timeout: int = 180):
     system, user = prompt_mod.render(pl)
     return _generate(system, user, schema_mod.review_json_schema(),
-                     schema_mod.Review, model, prompt_mod.PROMPT_VERSION, timeout)
+                     schema_mod.Review, model, prompt_mod.PROMPT_VERSION,
+                     schema_mod.REVIEW_SCHEMA_VERSION, timeout)
 
 
 def generate_game_review(pl: dict, model: str, timeout: int = 180):
     system, user = prompt_mod.render_game(pl)
     return _generate(system, user, schema_mod.game_review_json_schema(),
                      schema_mod.GameReview, model, prompt_mod.GAME_PROMPT_VERSION,
-                     timeout)
+                     schema_mod.GAME_REVIEW_SCHEMA_VERSION, timeout)
 
 
 def _indexed_axis(axis: str, review: schema_mod.GameReview) -> tuple[dict, dict]:
@@ -115,6 +117,7 @@ def _combined_run(runs: list[dict]) -> dict:
     for key in ("prompt_tokens", "completion_tokens", "total_tokens", "schema_retries"):
         out[key] = int(out[key])
     out["prompt_version"] = prompt_mod.SPECIALIZED_PROMPT_VERSION
+    out["schema_version"] = schema_mod.GAME_REVIEW_SCHEMA_VERSION
     out["stages"] = runs
     return out
 
@@ -127,7 +130,8 @@ def generate_specialized_game_review(pl: dict, model: str, timeout: int = 180):
         system, user = prompt_mod.render_specialist(pl, axis)
         review, run = _generate(system, user, schema_mod.game_review_json_schema(),
                                 schema_mod.GameReview, model,
-                                prompt_mod.version_of(system), timeout)
+                                prompt_mod.version_of(system),
+                                schema_mod.GAME_REVIEW_SCHEMA_VERSION, timeout)
         return axis, review, run
 
     with ThreadPoolExecutor(max_workers=len(axes)) as pool:
@@ -145,9 +149,11 @@ def generate_specialized_game_review(pl: dict, model: str, timeout: int = 180):
     mistake_ids = [key for key, (kind, _) in lookup.items() if kind == "mistakes"]
     strength_ids = [key for key, (kind, _) in lookup.items() if kind == "strengths"]
     system, user = prompt_mod.render_chief(chief_axes)
+    chief_schema = schema_mod.chief_selection_json_schema(mistake_ids, strength_ids)
     chief, chief_run = _generate(
-        system, user, schema_mod.chief_selection_json_schema(mistake_ids, strength_ids),
-        schema_mod.ChiefSelection, model, prompt_mod.version_of(system), timeout)
+        system, user, chief_schema, schema_mod.ChiefSelection, model,
+        prompt_mod.version_of(system), schema_mod.schema_version_of(chief_schema),
+        timeout)
     runs.append({"stage": "chief", **chief_run})
 
     priority_ids = list(dict.fromkeys(chief.priority_mistake_ids))
