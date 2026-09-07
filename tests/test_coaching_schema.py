@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from pydantic import ValidationError
 
@@ -111,10 +113,36 @@ def test_game_review_json_schema_lengths():
 
 def test_game_review_json_schema_requires_cause():
     # Le champ `cause` doit apparaître dans le JSON-schema imposé au LLM.
-    sch = S.game_review_json_schema()
-    defs = sch["$defs"]
-    assert "cause" in defs["GameInsight"]["properties"]
-    assert "cause" in defs["GameInsight"]["required"]
+    item = S.game_review_json_schema()["properties"]["mistakes"]["items"]
+    assert "cause" in item["properties"]
+    assert "cause" in item["required"]
+
+
+def test_json_schema_is_inlined_and_strict():
+    """Le schéma envoyé à Ollama est celui du Worker : inliné et fermé.
+
+    Le brut Pydantic embarquait les docstrings comme `description` (la note
+    « Réponse au feedback (boucle d'éval, 2026-07-08)… » partait littéralement dans
+    le paramètre `format`) et n'interdisait pas les clés supplémentaires.
+    """
+    for sch in (S.review_json_schema(), S.game_review_json_schema()):
+        blob = json.dumps(sch)
+        assert "$defs" not in sch and "$ref" not in blob
+        assert "title" not in blob and "description" not in blob
+        assert sch["additionalProperties"] is False
+        assert sch["properties"]["mistakes"]["items"]["additionalProperties"] is False
+
+
+def test_game_schema_constrains_evidence_and_cause_at_generation():
+    """La contrainte d'horodatage agit à la génération, pas seulement au retry.
+
+    Portée par le field_validator seule, elle n'était rattrapée qu'après coup, au
+    prix d'un schema_retries.
+    """
+    item = S.game_review_json_schema()["properties"]["mistakes"]["items"]
+    assert item["properties"]["evidence"]["pattern"] == r"\d+:\d\d"
+    assert item["properties"]["cause"]["minLength"] == 1
+    assert S.game_review_json_schema()["properties"]["next_focus"]["minLength"] == 1
 
 
 def test_json_schema_has_fixed_lengths():

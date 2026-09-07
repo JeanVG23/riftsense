@@ -6,7 +6,7 @@ preuve chiffrée — pas de conseil sans stat.
 """
 from __future__ import annotations
 
-import re
+import copy
 from typing import Annotated, Literal, get_args
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -27,26 +27,49 @@ class Review(BaseModel):
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
 
 
+def _strict(schema: dict) -> dict:
+    """Schéma Pydantic -> schéma envoyé au LLM.
+
+    Trois transformations : inlining des `$defs`/`$ref` (les modèles ne sont pas
+    récursifs, l'inlining termine), suppression des `title`/`description` (sinon les
+    docstrings Pydantic partent dans le `format` d'Ollama), et fermeture des objets
+    par `additionalProperties: false`. Le résultat est le schéma que le Worker
+    écrivait à la main : une seule définition pour les deux runtimes.
+    """
+    defs = schema.pop("$defs", {})
+
+    def walk(node):
+        if isinstance(node, list):
+            return [walk(item) for item in node]
+        if not isinstance(node, dict):
+            return node
+        if "$ref" in node:
+            return walk(copy.deepcopy(defs[node["$ref"].rsplit("/", 1)[1]]))
+        out = {k: walk(v) for k, v in node.items() if k not in ("title", "description")}
+        if out.get("type") == "object":
+            out["additionalProperties"] = False
+        return out
+
+    return walk(schema)
+
+
 def review_json_schema() -> dict:
     """JSON-schema passé à Ollama `format`. minItems/maxItems contraignent la génération."""
-    return Review.model_json_schema()
+    return _strict(Review.model_json_schema())
 
 
 # --- Review par-game : chaque erreur ancrée sur un moment précis --------------
 
-_CLOCK_RE = re.compile(r"\d+:\d\d")
-
 
 class AnchoredInsight(Insight):
-    """Insight dont la preuve cite un horodatage mm:ss du journal (contrainte
-    de schéma : une erreur par-game sans moment cité est invalide par construction)."""
+    """Insight dont la preuve cite un horodatage mm:ss du journal.
 
-    @field_validator("evidence")
-    @classmethod
-    def _evidence_has_clock(cls, v: str) -> str:
-        if not _CLOCK_RE.search(v):
-            raise ValueError("evidence sans horodatage mm:ss")
-        return v
+    La contrainte est portée par le schéma (`pattern`), donc appliquée AU MOMENT de
+    la génération : portée par un validateur seul, elle n'était rattrapée qu'au
+    retry, ce qui coûtait un appel. Pydantic v2 applique `pattern` en sémantique
+    `re.search`, identique au validateur qu'elle remplace.
+    """
+    evidence: Annotated[str, Field(pattern=r"\d+:\d\d")]
 
 
 class GameInsight(AnchoredInsight):
@@ -59,10 +82,12 @@ class GameInsight(AnchoredInsight):
     le mécanisme (solo 1v1 vs gank, comportement à l'origine d'une force), et ancre les
     forces sur un moment au même titre que les erreurs."""
 
-    cause: str = Field(description=(
+    cause: Annotated[str, Field(min_length=1, description=(
         "Le POURQUOI de l'insight : mécanisme de mort (solo 1v1 sans flash, gank 3v1, "
-        "overextension) ou comportement à l'origine d'une force. Jamais l'issue."))
+        "overextension) ou comportement à l'origine d'une force. Jamais l'issue."))]
 
+    # min_length=1 contraint la génération mais accepterait "   " : le validateur
+    # attrape le blanc. Même couple que le Worker (minLength + .trim() !== "").
     @field_validator("cause")
     @classmethod
     def _cause_nonempty(cls, v: str) -> str:
@@ -79,12 +104,12 @@ class GameReview(BaseModel):
     remplissage vague, on l'exclut plutôt que de la produire."""
     strengths: Annotated[list[GameInsight], Field(max_length=2)]
     mistakes: Annotated[list[GameInsight], Field(min_length=1, max_length=3)]
-    next_focus: str
+    next_focus: Annotated[str, Field(min_length=1)]
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
 
 
 def game_review_json_schema() -> dict:
-    return GameReview.model_json_schema()
+    return _strict(GameReview.model_json_schema())
 
 
 # --- Review par agents spécialisés ------------------------------------------
