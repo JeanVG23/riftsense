@@ -220,6 +220,43 @@
             </template>
           </div>
         </template>
+
+        <section class="panel" x-data="registerPage()">
+          <h2>Analyser mon compte</h2>
+          <p class="muted">
+            Saisis ton Riot ID : on récupère tes vingt dernières parties classées et on les
+            compare aux référentiels par rang. Les analyses écrites par le modèle restent
+            réservées, mais toutes tes statistiques sont accessibles.
+          </p>
+          <form @submit.prevent="submit()">
+            <label for="riot-id">Riot ID</label>
+            <input id="riot-id" x-model="riotId" placeholder="Pseudo#TAG" required>
+            <label for="platform">Serveur</label>
+            <select id="platform" x-model="platform">
+              <option value="euw1">EUW</option>
+              <option value="eun1">EUNE</option>
+              <option value="na1">NA</option>
+              <option value="kr">KR</option>
+              <option value="br1">BR</option>
+              <option value="jp1">JP</option>
+              <option value="tr1">TR</option>
+              <option value="la1">LAN</option>
+              <option value="la2">LAS</option>
+              <option value="oc1">OCE</option>
+            </select>
+            <button type="submit" :disabled="submitting || !riotId">
+              <span x-text="submitting ? 'Envoi…' : 'Analyser'"></span>
+            </button>
+          </form>
+          <p x-show="state === 'queued'" class="muted">
+            En file d'attente<span x-show="position" x-text="` (position ${position})`"></span>.
+            La collecte démarre dès que le créneau se libère.
+          </p>
+          <p x-show="state === 'running'" class="muted">
+            Collecte en cours auprès de l'API Riot. Cela prend jusqu'à une minute.
+          </p>
+          <p x-show="error" class="error" x-text="error"></p>
+        </section>
       </div>
     </template>
     <template x-if="route.name === 'account'">

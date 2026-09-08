@@ -297,3 +297,36 @@ def test_robots_and_sitemap_are_real_files():
     assert sitemap.startswith("<?xml")
     assert "http://www.sitemaps.org/schemas/sitemap/0.9" in sitemap
     assert "<loc>https://coaching-lol.jeanvg.fr/</loc>" in sitemap
+
+
+def test_le_formulaire_d_inscription_est_cable():
+    body = _read("index.html")
+    assert 'x-data="registerPage()"' in body
+    assert 'x-model="riotId"' in body
+    assert 'x-model="platform"' in body
+    assert '@submit.prevent="submit()"' in body
+
+
+def test_le_composant_d_inscription_appelle_les_deux_routes():
+    js = _read("app.js")
+    assert "function registerPage()" in js
+    assert '"/api/register"' in js
+    assert "/api/register/${" in js or "'/api/register/' +" in js
+
+
+def test_les_codes_d_erreur_typees_ont_tous_un_libelle():
+    """Le service publie des codes, pas des phrases : sans table de libellés le
+    visiteur lirait `riot_id_not_found` en clair."""
+    js = _read("app.js")
+    for code in ("riot_id_not_found", "no_ranked_games", "riot_unavailable", "internal"):
+        assert code in js, code
+
+
+def test_l_inscription_ne_propose_aucune_fonction_llm():
+    """Garde-fou de périmètre : la page d'inscription ne doit pas exposer de
+    bouton de coaching, les routes Ollama restant derrière auth.ts."""
+    body = _read("index.html")
+    section = body[body.index('x-data="registerPage()"'):]
+    section = section[:section.index("</section>")]
+    for forbidden in ("/api/coach", "/api/chat"):
+        assert forbidden not in section, forbidden

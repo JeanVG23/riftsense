@@ -326,6 +326,9 @@ function app() {
       window.addEventListener("coach-auth-change", (e) => {
         this.isAuthenticated = Boolean(e.detail?.authenticated);
       });
+      window.addEventListener("coach-go", (e) => {
+        if (e.detail?.path) this.go(e.detail.path);
+      });
       api("/api/accounts").then(a => { this.accounts = a; this.accountsLoading = false; })
         .catch(() => { this.accountsLoading = false; });
       this.checkAuthStatus();
@@ -347,6 +350,87 @@ function app() {
     rankEmblem,
     rankGlow,
     roleIcon,
+  };
+}
+
+// Libellés des codes d'erreur typés du service d'ingestion. Le service publie un
+// code stable, jamais une phrase : la traduction est ici, une seule fois.
+const REGISTER_ERRORS = {
+  riot_id_not_found: "Ce Riot ID est introuvable. Vérifie le pseudo et le tag.",
+  no_ranked_games: "Aucune partie classée récente trouvée sur ce compte.",
+  riot_unavailable: "L'API Riot ne répond pas pour le moment. Réessaie dans quelques minutes.",
+  internal: "Une erreur interne est survenue. Réessaie plus tard.",
+};
+
+function registerPage() {
+  return {
+    riotId: "",
+    platform: "euw1",
+    state: null,
+    position: null,
+    nGames: null,
+    error: null,
+    submitting: false,
+    slug: null,
+    _timer: null,
+
+    async submit() {
+      this.error = null;
+      this.submitting = true;
+      try {
+        const response = await fetch("/api/register", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ riot_id: this.riotId, platform: this.platform }),
+        });
+        const body = await response.json();
+        if (!response.ok) {
+          this.error = body.detail || REGISTER_ERRORS.internal;
+          return;
+        }
+        this.slug = body.slug;
+        this.state = body.state || "queued";
+        this.position = body.position ?? null;
+        if (this.state === "done") this.goToProfile();
+        else this.poll();
+      } catch (e) {
+        this.error = REGISTER_ERRORS.internal;
+      } finally {
+        this.submitting = false;
+      }
+    },
+
+    poll() {
+      clearTimeout(this._timer);
+      // 3 secondes : une inscription dure de dix secondes à une minute selon le
+      // palier de la clé Riot. Inutile d'interroger plus vite.
+      this._timer = setTimeout(() => this.refresh(), 3000);
+    },
+
+    async refresh() {
+      if (!this.slug) return;
+      try {
+        const response = await fetch(`/api/register/${encodeURIComponent(this.slug)}/status`);
+        const body = await response.json();
+        this.state = body.state || null;
+        this.position = body.position ?? null;
+        this.nGames = body.n_games ?? null;
+        if (this.state === "error") {
+          this.error = REGISTER_ERRORS[body.error_code] || REGISTER_ERRORS.internal;
+          return;
+        }
+        if (this.state === "done") { this.goToProfile(); return; }
+        this.poll();
+      } catch (e) {
+        this.poll();
+      }
+    },
+
+    goToProfile() {
+      window.dispatchEvent(new CustomEvent("coach-go", { detail: { path: `/c/${this.slug}` } }));
+    },
+
+    destroy() { clearTimeout(this._timer); },
   };
 }
 
