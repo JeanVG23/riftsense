@@ -90,4 +90,37 @@ describe("IngestQueue", () => {
     const queue = new IngestQueue(fakeState(), ENV);
     expect((await status(queue, "jamais")).status).toBe(404);
   });
+
+  it("ne régresse pas un job en cours d'exécution vers queued", async () => {
+    // `callIngest` ne se résout jamais pendant ce test : la tête reste "running"
+    // le temps qu'une seconde requête d'enqueue arrive sur le même slug.
+    vi.stubGlobal("fetch", () => new Promise<Response>(() => {}));
+    const queue = new IngestQueue(fakeState(), ENV);
+    await enqueue(queue, "a");
+    void queue.alarm();
+    // Laisse le temps aux micro-tâches (jusqu'à l'écriture du statut "running")
+    // de se dérouler avant le `fetch` qui, lui, ne se résoudra jamais ici.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(await (await status(queue, "a")).json()).toMatchObject({ state: "running" });
+    await enqueue(queue, "a");
+    expect(await (await status(queue, "a")).json()).toMatchObject({ state: "running" });
+  });
+
+  it("retire la tête et publie une erreur typée si le traitement lève", async () => {
+    vi.stubGlobal("fetch", async () => { throw new Error("panne réseau"); });
+    const state = fakeState();
+    const queue = new IngestQueue(state, ENV);
+    await enqueue(queue, "a");
+    await enqueue(queue, "b");
+    await queue.alarm();
+    expect(await (await status(queue, "a")).json())
+      .toMatchObject({ state: "error", error_code: "internal" });
+    // La file n'est pas bloquée : le job suivant a bien été reprogrammé, même
+    // si le traitement de la tête a levé une exception imprévue.
+    expect(state.alarms.length).toBeGreaterThan(1);
+    vi.stubGlobal("fetch", async () =>
+      new Response(JSON.stringify({ status: "ok", n_games: 3 }), { status: 200 }));
+    await queue.alarm();
+    expect(await (await status(queue, "b")).json()).toMatchObject({ state: "done" });
+  });
 });

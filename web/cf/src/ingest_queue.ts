@@ -55,6 +55,14 @@ export class IngestQueue {
   }
 
   private async enqueue(entry: Omit<QueueEntry, "requested_at">): Promise<JobStatus> {
+    const current = await this.state.storage.get<JobStatus>(jobKey(entry.slug));
+    if (current?.state === "running") {
+      // La tête en cours de traitement n'est déjà plus dans la file (retirée au
+      // début de `alarm()`) : sans ce garde-fou, une seconde requête pendant le
+      // `callIngest` en cours la repousserait en file ET ferait régresser son
+      // statut de "running" à "queued", visible du visiteur qui recharge la page.
+      return current;
+    }
     const queue = await this.queue();
     let position = queue.findIndex((item) => item.slug === entry.slug) + 1;
     if (position === 0) {
@@ -88,17 +96,27 @@ export class IngestQueue {
       state: "running", updated_at: Date.now(),
     } satisfies JobStatus);
 
-    const result = await callIngest(this.env, {
-      slug: entry.slug, riot_id: entry.riot_id, platform: entry.platform,
-    });
-
-    const done: JobStatus = result.status === "ok"
-      ? { state: "done", n_games: result.n_games ?? 0, updated_at: Date.now() }
-      : { state: "error", error_code: result.error_code ?? "internal",
-          updated_at: Date.now() };
+    let done: JobStatus;
+    try {
+      const result = await callIngest(this.env, {
+        slug: entry.slug, riot_id: entry.riot_id, platform: entry.platform,
+      });
+      done = result.status === "ok"
+        ? { state: "done", n_games: result.n_games ?? 0, updated_at: Date.now() }
+        : { state: "error", error_code: result.error_code ?? "internal",
+            updated_at: Date.now() };
+    } catch {
+      // `callIngest` enveloppe déjà `fetch`/`json()` dans des `catch` et ne
+      // devrait jamais lever, mais si un échec imprévu survenait ici, la tête
+      // doit quand même être retirée : sinon elle reste "running" pour
+      // toujours et bloque toute la file globale, tous joueurs confondus.
+      done = { state: "error", error_code: "internal", updated_at: Date.now() };
+    }
     await this.state.storage.put(jobKey(entry.slug), done);
 
-    const rest = (await this.queue()).slice(1);
+    // Retrait par slug, pas par index : robuste si la file venait un jour à
+    // être réordonnée.
+    const rest = (await this.queue()).filter((item) => item.slug !== entry.slug);
     await this.state.storage.put(QUEUE_KEY, rest);
     if (rest.length) await this.state.storage.setAlarm(Date.now());
   }

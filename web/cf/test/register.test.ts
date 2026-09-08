@@ -33,6 +33,24 @@ describe("slugFor", () => {
   it("ne produit ni tiret en tête ni tiret en queue", () => {
     expect(slugFor(" _Zed_ ", "euw")).toBe("zed-euw");
   });
+
+  it("ne rend jamais un segment vide pour un pseudo sans caractère ASCII alphanumérique", () => {
+    for (const [name, tag] of [
+      ["김철수", "KR1"],
+      ["Игрок", "RU"],
+      ["...", "EUW"],
+    ] as const) {
+      const slug = slugFor(name, tag);
+      expect(slug.startsWith("-")).toBe(false);
+      expect(slug.endsWith("-")).toBe(false);
+      expect(slug).not.toContain("--");
+    }
+  });
+
+  it("rend des slugs différents pour deux pseudos non latins différents sur la même plateforme", () => {
+    expect(slugFor("김철수", "KR1")).not.toBe(slugFor("박영희", "KR1"));
+    expect(slugFor("Игрок", "RU")).not.toBe(slugFor("Чемпион", "RU"));
+  });
 });
 
 describe("PLATFORMS", () => {
@@ -47,8 +65,8 @@ import { apiRegister, apiRegisterStatus } from "../src/register";
 
 function envWithQueue(store = new Map<string, string>(), queueResponse: unknown = {
   state: "queued", position: 1, updated_at: 0,
-}) {
-  const seen: { body?: unknown } = {};
+}, statusHttpStatus = 200) {
+  const seen: { body?: unknown; idFromNameArg?: unknown } = {};
   return {
     seen,
     store,
@@ -58,11 +76,17 @@ function envWithQueue(store = new Map<string, string>(), queueResponse: unknown 
         put: async (key: string, value: string) => { store.set(key, value); },
       },
       INGEST_QUEUE: {
-        idFromName: () => "id",
+        idFromName: (name: string) => { seen.idFromNameArg = name; return "id"; },
         get: () => ({
           fetch: async (request: Request) => {
-            if (request.method === "POST") seen.body = await request.json();
-            return Response.json(queueResponse);
+            if (request.method === "POST") {
+              seen.body = await request.json();
+              return Response.json(queueResponse);
+            }
+            // /status
+            return statusHttpStatus === 404
+              ? Response.json({ detail: "inscription inconnue" }, { status: 404 })
+              : Response.json(queueResponse);
           },
         }),
       },
@@ -129,6 +153,23 @@ describe("apiRegister", () => {
     const response = await apiRegister(post({ riot_id: "Spadzze#euw", platform: "euw1" }), env);
     expect(response.status).toBe(409);
   });
+
+  it("accepte des espaces internes multiples comme équivalents au Riot ID stocké", async () => {
+    const store = new Map<string, string>([["account:le-petit-chat-euw", JSON.stringify({
+      slug: "le-petit-chat-euw", riot_id: "Le Petit Chat#euw", region: "euw1", source: "public",
+    })]]);
+    const { env } = envWithQueue(store);
+    const response = await apiRegister(
+      post({ riot_id: "Le  Petit  Chat#euw", platform: "euw1" }), env,
+    );
+    expect(response.status).not.toBe(409);
+  });
+
+  it("désigne toujours la même instance globale du Durable Object, quel que soit le slug", async () => {
+    const { env, seen } = envWithQueue();
+    await apiRegister(post({ riot_id: "Spadzze#euw", platform: "euw1" }), env);
+    expect(seen.idFromNameArg).toBe("global");
+  });
 });
 
 describe("apiRegisterStatus", () => {
@@ -136,5 +177,21 @@ describe("apiRegisterStatus", () => {
     const { env } = envWithQueue(new Map(), { state: "running", updated_at: 1 });
     const response = await apiRegisterStatus(env, "spadzze-euw");
     expect(await response.json()).toMatchObject({ state: "running" });
+  });
+
+  it("retombe sur le compte quand le job a expiré du Durable Object", async () => {
+    const store = new Map<string, string>([["account:spadzze-euw", JSON.stringify({
+      slug: "spadzze-euw", riot_id: "Spadzze#euw", region: "euw1", source: "public",
+    })]]);
+    const { env } = envWithQueue(store, undefined, 404);
+    const response = await apiRegisterStatus(env, "spadzze-euw");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ state: "done", slug: "spadzze-euw" });
+  });
+
+  it("rend 404 quand ni le job ni le compte n'existent", async () => {
+    const { env } = envWithQueue(new Map(), undefined, 404);
+    const response = await apiRegisterStatus(env, "jamais");
+    expect(response.status).toBe(404);
   });
 });

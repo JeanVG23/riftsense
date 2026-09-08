@@ -34,6 +34,20 @@ export function parseRiotId(value: string): { gameName: string; tagLine: string 
   return { gameName, tagLine };
 }
 
+/** Hash FNV-1a, synchrone et pur : le slug se calcule uniquement côté
+ * TypeScript, sans `crypto.subtle` ni `await`. Sert de repli quand un segment
+ * ne contient aucun caractère ASCII alphanumérique (pseudo coréen, cyrillique,
+ * purement ponctuation…) : sans ce repli, tous ces pseudos normaliseraient
+ * vers le même segment vide et se disputeraient le même slug. */
+function fnv1a(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 export function slugFor(gameName: string, tagLine: string): string {
   const normalize = (s: string) =>
     s.normalize("NFD")
@@ -41,7 +55,8 @@ export function slugFor(gameName: string, tagLine: string): string {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-  return `${normalize(gameName)}-${normalize(tagLine)}`;
+  const segment = (raw: string) => normalize(raw) || `p${fnv1a(raw)}`;
+  return `${segment(gameName)}-${segment(tagLine)}`;
 }
 
 function queueStub(env: Env) {
@@ -63,9 +78,12 @@ export async function apiRegister(request: Request, env: Env): Promise<Response>
   }
   const parsed = parseRiotId(body.riot_id);
   if (!parsed) return unprocessable("Riot ID attendu sous la forme Pseudo#TAG");
+  // Espaces internes réduits à un seul : "Le  Petit  Chat" et "Le Petit Chat"
+  // sont le même Riot ID, sans quoi le même joueur obtiendrait un faux 409.
+  const gameName = parsed.gameName.replace(/\s+/g, " ");
 
-  const riotId = `${parsed.gameName}#${parsed.tagLine}`;
-  const slug = slugFor(parsed.gameName, parsed.tagLine);
+  const riotId = `${gameName}#${parsed.tagLine}`;
+  const slug = slugFor(gameName, parsed.tagLine);
 
   const existing: Account | null = await readAccount(env.DATA, slug);
   if (existing && existing.riot_id.toLowerCase() !== riotId.toLowerCase()) {
