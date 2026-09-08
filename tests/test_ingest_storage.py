@@ -19,13 +19,23 @@ def test_la_cle_timeline_est_distincte():
         "raw/euw1/EUW1_7412345678.timeline.json.zst"
 
 
-def test_deux_joueurs_de_la_meme_partie_partagent_la_cle():
-    a = storage.R2Storage.raw_key("euw1", "EUW1_7412345678", "match")
-    b = storage.R2Storage.raw_key("euw1", "EUW1_7412345678", "match")
-    assert a == b
+def test_la_cle_ne_depend_d_aucun_identifiant_de_joueur():
+    """L'invariant reel (deux inscrits ayant joue la meme partie partagent la
+    cle) : `raw_key` ne prend meme pas de parametre joueur, donc deux appels
+    faits depuis deux contextes de joueur differents rendent la meme cle, et
+    aucun des deux slugs ne s'y glisse."""
+    def _cle_vue_par(slug: str) -> str:
+        del slug  # jamais transmis a raw_key : c'est le point
+        return storage.R2Storage.raw_key("euw1", "EUW1_7412345678", "match")
+
+    cle_alice = _cle_vue_par("alice")
+    cle_bob = _cle_vue_par("bob")
+    assert cle_alice == cle_bob
+    assert "alice" not in cle_alice
+    assert "bob" not in cle_bob
 
 
-def test_put_raw_envoie_la_cle_calculee(monkeypatch):
+def test_put_raw_envoie_la_cle_calculee():
     sent = {}
 
     class _FakeClient:

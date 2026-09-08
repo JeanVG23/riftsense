@@ -1,6 +1,13 @@
 .git/
 .venv/
-data/
+# data/ pese ~10 Go (raw/silver/gold/dataset) : exclu, sauf le catalogue statique
+# (00_static/), dont le service d'ingestion a besoin pour derive_context/write_gold.
+# Le motif "data/*" exclut chaque entree de premier niveau ; "!data/00_static" la
+# reinclut avec tout son contenu (ce n'est PAS le cas "parent exclu" ou Docker
+# refuse la reinclusion : ici l'exclusion et la reinclusion portent sur la meme
+# entree, pas sur un ancetre).
+data/*
+!data/00_static
 docs/
 node_modules/
 web/

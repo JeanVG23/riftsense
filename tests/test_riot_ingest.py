@@ -97,16 +97,24 @@ def _run(tmp_path, client, kv, r2, slug="demo-euw"):
     )
 
 
+def _pile_medaillon() -> tuple:
+    return rl.DATA, rl.RAW_DIR, rl.SILVER_DIR, rl.GOLD_DIR
+
+
 def test_riot_id_introuvable(tmp_path):
+    before = _pile_medaillon()
     client = FakeRiotClient(_demo_match_ids(), puuid=None)
     with pytest.raises(errors.RiotIdNotFound):
         _run(tmp_path, client, FakeKV(), FakeR2())
+    assert _pile_medaillon() == before
 
 
 def test_aucune_partie_classee(tmp_path, demo_puuid):
+    before = _pile_medaillon()
     client = FakeRiotClient([], puuid=demo_puuid)
     with pytest.raises(errors.NoRankedGames):
         _run(tmp_path, client, FakeKV(), FakeR2())
+    assert _pile_medaillon() == before
 
 
 def test_publie_les_cles_attendues(tmp_path, demo_data, demo_puuid):
@@ -140,11 +148,39 @@ def test_le_raw_est_pousse_indexe_par_match(tmp_path, demo_data, demo_puuid):
 
 
 def test_la_pile_medaillon_est_restauree(tmp_path, demo_data, demo_puuid):
-    """Une redirection de rl.DATA qui survivrait au job contaminerait le suivant :
-    le service tourne dans un processus de longue durée."""
-    before = rl.DATA
+    """Une redirection qui survivrait au job contaminerait le suivant : le
+    service tourne dans un processus de longue durée. Les QUATRE attributs
+    (DATA, RAW_DIR, SILVER_DIR, GOLD_DIR) sont redirigés par `run` : n'en
+    vérifier qu'un seul laisserait passer une restauration partielle."""
+    before = _pile_medaillon()
     _run(tmp_path, FakeRiotClient(_demo_match_ids(), puuid=demo_puuid), FakeKV(), FakeR2())
-    assert rl.DATA == before
+    assert _pile_medaillon() == before
+
+
+def test_deuxieme_ingestion_conserve_l_historique(tmp_path, demo_data):
+    """`merge_jsonl` fusionne contre le disque du répertoire temporaire du job,
+    toujours vide sans amorçage depuis KV : sans la fusion réelle, la deuxième
+    ingestion d'un même joueur remplacerait tout son historique par les
+    quelques parties fraîchement collectées."""
+    puuid = "DEMO-PUUID-0009"  # présent dans (quasi) toutes les parties de la fixture
+    kv = FakeKV()
+
+    premiere = _run(tmp_path / "job1", FakeRiotClient(["DEMO1_0000001"], puuid=puuid),
+                     kv, FakeR2())
+    assert premiere["n_games"] == 1
+    apres_premiere = {json.loads(line)["match_id"]
+                      for line in kv.store["silver:demo-euw:games"].splitlines()
+                      if line.strip()}
+    assert apres_premiere == {"DEMO1_0000001"}
+
+    seconde = _run(tmp_path / "job2", FakeRiotClient(["DEMO1_0000002"], puuid=puuid),
+                    kv, FakeR2())
+    assert seconde["n_games"] == 1
+    apres_seconde = {json.loads(line)["match_id"]
+                     for line in kv.store["silver:demo-euw:games"].splitlines()
+                     if line.strip()}
+    assert apres_seconde == {"DEMO1_0000001", "DEMO1_0000002"}, \
+        "la deuxieme ingestion a ecrase l'historique de la premiere"
 
 
 def test_scopes_for_suit_le_role_dominant():

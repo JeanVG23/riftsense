@@ -7,7 +7,10 @@ existe pour empêcher.
 
 Le disque du conteneur est éphémère : `data_dir` est un répertoire temporaire par
 job, utilisé comme couche médaillon locale (riotlib écrit là), puis vidé vers R2
-et KV. `COACHING_DATA_DIR` déplace toute la pile, y compris le catalogue statique.
+et KV. Le catalogue statique (`champion_traits.json`, Data Dragon) doit être
+présent dans l'image pour que `derive_context` fonctionne (voir Dockerfile) ;
+`run` ne déplace pas `champion_profiles.STATIC_DIR`, seulement la pile
+`rl.DATA`/`RAW_DIR`/`SILVER_DIR`/`GOLD_DIR`.
 """
 from __future__ import annotations
 
@@ -81,33 +84,48 @@ def run(payload: dict, *, client, kv, r2, data_dir: Path, max_games: int = 20) -
     rl.SILVER_DIR = rl.DATA / rl.LAYER_SILVER
     rl.GOLD_DIR = rl.DATA / rl.LAYER_GOLD
     try:
+        # Espace-clé Riot : tout appel réseau (résolution du puuid, rang, liste des
+        # matchs, ET la boucle de collecte ci-dessous qui fait 2 appels par partie,
+        # l'écrasante majorité du trafic) doit rendre le même code `riot_unavailable`.
+        # `RuntimeError` = épuisement des retries dans `riotlib._get`, même symptôme
+        # qu'une `requests.RequestException` non retryée.
         try:
             puuid = client.puuid_from_riot_id(game_name, tag_line)
             if not puuid:
                 raise RiotIdNotFound(riot_id)
             entries = client.entries_by_puuid(puuid)
             match_ids = client.match_ids(puuid, count=max_games, queue=rl.QUEUE_SOLO)
-        except requests.RequestException as exc:
-            raise RiotUnavailable(str(exc)) from exc
-        if not match_ids:
-            raise NoRankedGames(riot_id)
+            if not match_ids:
+                raise NoRankedGames(riot_id)
 
-        games, collected = [], []
-        for match_id in match_ids:
-            got = rl.get_match_timeline(client, match_id)
-            if not got:
-                continue
-            game = rl.extract_game(got[0], got[1], puuid)
-            if game:
-                games.append(game)
-                collected.append(match_id)
+            games, collected = [], []
+            for match_id in match_ids:
+                got = rl.get_match_timeline(client, match_id)
+                if not got:
+                    continue
+                game = rl.extract_game(got[0], got[1], puuid)
+                if game:
+                    games.append(game)
+                    collected.append(match_id)
+        except (requests.RequestException, RuntimeError) as exc:
+            raise RiotUnavailable(str(exc)) from exc
         if not games:
             raise NoRankedGames(riot_id)
 
-        scopes = scopes_for(games)
+        # Amorçage depuis l'historique KV existant : `merge_jsonl` fusionne contre
+        # le disque du répertoire temporaire du job, toujours vide sans cette étape,
+        # ce qui ferait de la fusion un no-op et écraserait l'historique du joueur
+        # à chaque ré-ingestion (`last_ingest_ts` existe précisément pour permettre
+        # cette ré-ingestion).
         silver_path = rl.silver_games(rl.KIND_PERSONAL, slug)
-        rl.merge_jsonl(silver_path, games)
-        rl.write_gold(rl.gold_base(rl.KIND_PERSONAL, slug), games, scopes, player=slug)
+        existing_games_raw = kv.get(kv_key("games", slug=slug))
+        if existing_games_raw:
+            silver_path.parent.mkdir(parents=True, exist_ok=True)
+            silver_path.write_text(existing_games_raw)
+
+        merged = rl.merge_jsonl(silver_path, games)
+        scopes = scopes_for(merged)
+        rl.write_gold(rl.gold_base(rl.KIND_PERSONAL, slug), merged, scopes, player=slug)
 
         kv.put(kv_key("games", slug=slug), silver_path.read_text())
         kv.put(kv_key("rank", slug=slug),
