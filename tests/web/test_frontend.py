@@ -272,3 +272,28 @@ def test_readme_states_the_real_schema_bounds():
         hi = int(re.search(r"max_length=(\d+)", line).group(1))
         expected = f"{field}[{lo}]" if lo == hi else f"{field}[{lo}..{hi}]"
         assert expected in body, f"la page n'annonce pas {expected}"
+
+
+def test_canonical_declared_and_resynced_by_the_router():
+    """Sans canonique, la SPA sert le meme HTML sur /, /c/<slug> et /readme : Google
+    choisit lui-meme l'URL a indexer. `syncCanonical` la rend auto-referente."""
+    body = _read("index.html")
+    js = _read("app.js")
+    assert '<link rel="canonical" href="https://coaching-lol.jeanvg.fr/">' in body
+    assert 'link[rel="canonical"]' in js
+    assert 'meta[property="og:url"]' in js
+    # Appelee au chargement, au retour arriere et a chaque navigation interne.
+    assert js.count("syncCanonical()") >= 4
+
+
+def test_robots_and_sitemap_are_real_files():
+    """Le repli SPA du Worker rend index.html pour tout chemin inconnu : /robots.txt
+    renvoyait donc du HTML. Deux fichiers statiques suffisent, l'asset gagne sur le repli."""
+    robots = _read("robots.txt")
+    assert "User-agent: *" in robots
+    assert "Disallow: /api/" in robots
+    assert "Sitemap: https://coaching-lol.jeanvg.fr/sitemap.xml" in robots
+    sitemap = _read("sitemap.xml")
+    assert sitemap.startswith("<?xml")
+    assert "http://www.sitemaps.org/schemas/sitemap/0.9" in sitemap
+    assert "<loc>https://coaching-lol.jeanvg.fr/</loc>" in sitemap

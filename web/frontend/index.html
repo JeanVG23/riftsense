@@ -7,6 +7,10 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="alternate icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/favicon-128.png">
+  <!-- Canonique auto-référente : la SPA sert le même HTML sur toutes ses routes,
+       sans elle Google doit deviner laquelle indexer. `app.js` la réécrit à chaque
+       navigation (pushState) pour qu'elle désigne toujours l'URL courante. -->
+  <link rel="canonical" href="https://coaching-lol.jeanvg.fr/">
   <meta name="description" content="Un coach League of Legends qui analyse une partie réelle : morts, retours en base et timers d'objectifs horodatés, comparés à un référentiel challenger.">
   <!-- Aperçu de lien : la page est une SPA sans rendu serveur, un partage sur LinkedIn
        ou par courriel n'affichait qu'une coquille vide sans ces balises statiques. -->

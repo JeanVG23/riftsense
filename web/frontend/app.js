@@ -155,6 +155,18 @@ function formatDate(value) {
   }).format(date);
 }
 
+// La canonique et og:url sont statiques dans le HTML (la SPA n'a pas de rendu
+// serveur) : sans cette resynchronisation, /c/<slug> se déclarerait duplicata de la
+// page d'accueil. Les paramètres de requête (?tab=, ?review=) ne sont que de l'état
+// d'affichage, la canonique s'arrête donc au chemin.
+function syncCanonical() {
+  const href = location.origin + location.pathname;
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) canonical.setAttribute("href", href);
+  const ogUrl = document.querySelector('meta[property="og:url"]');
+  if (ogUrl) ogUrl.setAttribute("content", href);
+}
+
 function routeOf(path) {
   if (path === "/" || path === "") return { name: "home" };
   const m = path.match(/^\/c\/([^/]+)$/);
@@ -303,7 +315,11 @@ function app() {
     },
 
     init() {
-      window.addEventListener("popstate", () => { this.path = location.pathname; });
+      syncCanonical();
+      window.addEventListener("popstate", () => {
+        this.path = location.pathname;
+        syncCanonical();
+      });
       window.addEventListener("coach-open-auth", (e) => {
         this.openAuthModal(e.detail?.action);
       });
@@ -319,6 +335,7 @@ function app() {
       if (p === this.path) return;
       history.pushState({}, "", p);
       this.path = p;
+      syncCanonical();
     },
 
     switcherOpen: false,
