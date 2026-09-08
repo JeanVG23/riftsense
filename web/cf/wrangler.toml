@@ -21,6 +21,14 @@ id = "a7ea0d5fcf0449f9a4fef23e9dda5496"
 name = "COACH_GATE"
 class_name = "CoachGate"
 
+[[durable_objects.bindings]]
+name = "INGEST_QUEUE"
+class_name = "IngestQueue"
+
 [[migrations]]
 tag = "v1-coach-gate"
 new_sqlite_classes = ["CoachGate"]
+
+[[migrations]]
+tag = "v2-ingest-queue"
+new_sqlite_classes = ["IngestQueue"]

@@ -7,6 +7,8 @@ import { buildCoachingContext } from "./coaching_context";
 import { readEval } from "./evaluation";
 import { apiFeedback } from "./feedback";
 import { apiAuthStatus, apiLogin, apiLogout, isAuthorized } from "./auth";
+import { apiRegister, apiRegisterStatus } from "./register";
+import { IngestQueue } from "./ingest_queue";
 import {
   methodNotAllowed,
   notFound,
@@ -30,6 +32,7 @@ export interface Env {
   DATA: KVLike;
   ASSETS: Fetcher;
   COACH_GATE?: DurableObjectNamespace;
+  INGEST_QUEUE?: DurableObjectNamespace;
   OLLAMA_API_KEY?: string;
   OLLAMA_MODEL?: string;
   COACH_AUTH_PASSWORD?: string;
@@ -37,7 +40,7 @@ export interface Env {
   INGEST_SECRET?: string;
 }
 
-export { CoachGate };
+export { CoachGate, IngestQueue };
 
 async function gatedCoach(
   request: Request,
@@ -226,6 +229,14 @@ export async function handle(request: Request, env: Env): Promise<Response> {
   }
   if (url.pathname === "/api/feedback" && request.method === "POST") {
     return apiFeedback(request, env);
+  }
+  if (url.pathname === "/api/register" && request.method === "POST") {
+    return apiRegister(request, env);
+  }
+  const registerStatus = url.pathname.match(/^\/api\/register\/([^/]+)\/status$/);
+  if (registerStatus) {
+    if (request.method !== "GET") return methodNotAllowed();
+    return apiRegisterStatus(env, decodeURIComponent(registerStatus[1]));
   }
   if (url.pathname.startsWith("/api/")) return notFound();
   return env.ASSETS.fetch(request);
