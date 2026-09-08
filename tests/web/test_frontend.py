@@ -330,3 +330,29 @@ def test_l_inscription_ne_propose_aucune_fonction_llm():
     section = section[:section.index("</section>")]
     for forbidden in ("/api/coach", "/api/chat"):
         assert forbidden not in section, forbidden
+
+
+def test_la_page_d_attente_a_sa_propre_route():
+    """`/register/{slug}` doit survivre à un rafraîchissement de page : sans route
+    dédiée, l'attente n'est qu'un état en mémoire perdu au moindre F5."""
+    js = _read("app.js")
+    assert "/register/" in js
+    assert "routeOf(location.pathname)" in js
+    body = _read("index.html")
+    assert "route.name === 'register'" in body
+    assert body.count('x-data="registerPage()"') >= 2
+
+
+def test_le_sondage_d_inscription_s_arrete_a_la_navigation():
+    """Alpine n'appelle aucune méthode `destroy` au démontage d'un x-data : seul
+    `Alpine.onElRemoved` est un hook réel. Sans lui, `poll()` continuerait de sonder
+    un compte que plus personne n'affiche après une navigation."""
+    js = _read("app.js")
+    assert "Alpine.onElRemoved" in js
+    assert "stopPolling" in js
+    # `destroy() { clearTimeout(...) }` sur registerPage n'était jamais appelé par
+    # Alpine : régression-gardée en s'assurant que registerPage ne redéfinit plus
+    # cette méthode morte (le seul `destroy()` restant est celui de Chart.js).
+    register_section = js[js.index("function registerPage()"):]
+    register_section = register_section[:register_section.index("\nfunction ")]
+    assert "destroy()" not in register_section

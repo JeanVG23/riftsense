@@ -171,6 +171,8 @@ function routeOf(path) {
   if (path === "/" || path === "") return { name: "home" };
   const m = path.match(/^\/c\/([^/]+)$/);
   if (m) return { name: "account", slug: decodeURIComponent(m[1]) };
+  const r = path.match(/^\/register\/([^/]+)$/);
+  if (r) return { name: "register", slug: decodeURIComponent(r[1]) };
   if (path === "/readme") return { name: "readme" };
   return { name: "home" };
 }
@@ -362,6 +364,12 @@ const REGISTER_ERRORS = {
   internal: "Une erreur interne est survenue. Réessaie plus tard.",
 };
 
+// Bornage des tentatives sur un échec réseau isolé (fetch qui rejette). Un échec
+// isolé peut être réessayé, mais la boucle doit finir par s'arrêter : sans cette
+// borne, une coupure réseau prolongée ferait sonder /api/register/.../status
+// indéfiniment, onglet ouvert, sans jamais rien afficher à la place.
+const REGISTER_MAX_NETWORK_RETRIES = 5;
+
 function registerPage() {
   return {
     riotId: "",
@@ -373,6 +381,28 @@ function registerPage() {
     submitting: false,
     slug: null,
     _timer: null,
+    _networkFailures: 0,
+    _stopped: false,
+
+    init() {
+      // Route dédiée `/register/{slug}` : la page d'attente est ouverte directement
+      // (rafraîchissement pendant l'attente, lien partagé), sans passer par le
+      // formulaire. On réutilise `routeOf()` plutôt que de dupliquer son regex ici.
+      const r = routeOf(location.pathname);
+      if (r.name === "register" && r.slug) {
+        this.slug = r.slug;
+        this.state = "queued";
+        this.refresh();
+      }
+      // Alpine ne rappelle aucune méthode "destroy" au démontage d'un x-data : le
+      // seul hook réel est `Alpine.onElRemoved`, déclenché quand ce noeud quitte le
+      // DOM (retour à l'accueil, navigation vers un autre compte, bouton précédent
+      // du navigateur pendant l'attente). Sans lui, `poll()` continuerait de sonder
+      // le statut d'un compte que plus personne n'affiche.
+      if (window.Alpine && this.$el) {
+        window.Alpine.onElRemoved(this.$el, () => this.stopPolling());
+      }
+    },
 
     async submit() {
       this.error = null;
@@ -383,16 +413,15 @@ function registerPage() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ riot_id: this.riotId, platform: this.platform }),
         });
-        const body = await response.json();
+        const body = await response.json().catch(() => ({}));
         if (!response.ok) {
           this.error = body.detail || REGISTER_ERRORS.internal;
           return;
         }
         this.slug = body.slug;
-        this.state = body.state || "queued";
-        this.position = body.position ?? null;
-        if (this.state === "done") this.goToProfile();
-        else this.poll();
+        // La page d'attente dédiée reprend le sondage pour ce slug depuis `init()` :
+        // inutile de dupliquer cette logique ici.
+        window.dispatchEvent(new CustomEvent("coach-go", { detail: { path: `/register/${this.slug}` } }));
       } catch (e) {
         this.error = REGISTER_ERRORS.internal;
       } finally {
@@ -401,36 +430,76 @@ function registerPage() {
     },
 
     poll() {
-      clearTimeout(this._timer);
+      if (this._stopped) return;
+      this.stopPolling({ keepStopped: false });
       // 3 secondes : une inscription dure de dix secondes à une minute selon le
       // palier de la clé Riot. Inutile d'interroger plus vite.
       this._timer = setTimeout(() => this.refresh(), 3000);
     },
 
+    // `keepStopped` distingue l'arrêt définitif (élément retiré du DOM) d'un simple
+    // réarmement du minuteur avant une nouvelle attente : sans cette distinction, un
+    // `refresh()` déjà en vol au moment du démontage relancerait `poll()` juste après
+    // que la navigation a coupé le sondage.
+    stopPolling({ keepStopped = true } = {}) {
+      clearTimeout(this._timer);
+      this._timer = null;
+      if (keepStopped) this._stopped = true;
+    },
+
     async refresh() {
-      if (!this.slug) return;
+      if (!this.slug || this._stopped) return;
+      let response;
       try {
-        const response = await fetch(`/api/register/${encodeURIComponent(this.slug)}/status`);
-        const body = await response.json();
-        this.state = body.state || null;
-        this.position = body.position ?? null;
-        this.nGames = body.n_games ?? null;
-        if (this.state === "error") {
-          this.error = REGISTER_ERRORS[body.error_code] || REGISTER_ERRORS.internal;
+        response = await fetch(`/api/register/${encodeURIComponent(this.slug)}/status`);
+      } catch (e) {
+        // Échec réseau isolé (coupure, DNS) : on retente un nombre borné de fois,
+        // jamais indéfiniment.
+        this._networkFailures += 1;
+        if (this._networkFailures >= REGISTER_MAX_NETWORK_RETRIES) {
+          this.state = "error";
+          this.error = REGISTER_ERRORS.internal;
           return;
         }
-        if (this.state === "done") { this.goToProfile(); return; }
         this.poll();
-      } catch (e) {
-        this.poll();
+        return;
       }
+      this._networkFailures = 0;
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        // 404 (inscription inconnue) ou 503 (service indisponible) : le corps ne
+        // porte pas de champ `state` reconnu. Sans ce cas, `this.state` resterait
+        // `null` et le panneau ne montrerait plus rien, tout en continuant de sonder.
+        this.state = "error";
+        this.error = body.detail || REGISTER_ERRORS.internal;
+        return;
+      }
+      if (body.state === "error") {
+        this.state = "error";
+        this.error = REGISTER_ERRORS[body.error_code] || REGISTER_ERRORS.internal;
+        return;
+      }
+      if (body.state === "done") {
+        this.state = "done";
+        this.goToProfile();
+        return;
+      }
+      if (body.state !== "queued" && body.state !== "running") {
+        // État non reconnu (schéma évolué côté service, réponse inattendue) :
+        // état terminal explicite plutôt qu'un sondage muet et sans fin.
+        this.state = "error";
+        this.error = REGISTER_ERRORS.internal;
+        return;
+      }
+      this.state = body.state;
+      this.position = body.position ?? null;
+      this.nGames = body.n_games ?? null;
+      this.poll();
     },
 
     goToProfile() {
       window.dispatchEvent(new CustomEvent("coach-go", { detail: { path: `/c/${this.slug}` } }));
     },
-
-    destroy() { clearTimeout(this._timer); },
   };
 }
 
