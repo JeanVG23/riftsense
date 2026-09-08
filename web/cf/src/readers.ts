@@ -17,6 +17,8 @@ export const KEYS = {
   feedback: (slug: string) => `coaching:${slug}:feedback`,
   chats: (slug: string) => `coaching:${slug}:chats`,
   game_payloads: (slug: string) => `coaching:${slug}:game-payloads`,
+  account: (slug: string) => `account:${slug}`,
+  accounts_index: () => `accounts:index`,
 };
 
 export interface GamePayloadBundle {

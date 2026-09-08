@@ -1,4 +1,4 @@
-import { accountFor } from "./accounts";
+import { readAccount } from "./accounts";
 import { jsonError, notFound, unprocessable } from "./http";
 import { generateJson } from "./llm_client";
 import { appendJsonl, KEYS, readJsonl, type KVLike } from "./readers";
@@ -116,7 +116,7 @@ export async function chatTurn(
 export async function apiChat(request: Request, env: Env): Promise<Response> {
   const body = await request.json().catch(() => null) as JsonRecord | null;
   const slug = typeof body?.slug === "string" ? body.slug : "";
-  if (!accountFor(slug)) return notFound("compte inconnu");
+  if (!await readAccount(env.DATA, slug)) return notFound("compte inconnu");
   const reviewTs = typeof body?.review_ts === "string" ? body.review_ts : "";
   const messages = validateMessages(body?.messages);
   if (!reviewTs || !messages) return unprocessable("review_ts ou messages invalides");

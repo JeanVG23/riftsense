@@ -1,4 +1,4 @@
-import { accountFor } from "./accounts";
+import { readAccount } from "./accounts";
 import { generateJson } from "./llm_client";
 import { renderGame, SYSTEM_GAME, versionOf } from "./prompt";
 import { appendJsonl, KEYS, readGamePayloadBundle, readJsonl, type KVLike } from "./readers";
@@ -102,7 +102,7 @@ export async function apiGameCoach(request: Request, env: Env): Promise<Response
   if (!body || typeof body.slug !== "string" || typeof body.match_id !== "string") {
     return unprocessable("slug ou match_id invalide");
   }
-  if (!accountFor(body.slug)) return notFound("compte inconnu");
+  if (!await readAccount(env.DATA, body.slug)) return notFound("compte inconnu");
   if (!env.OLLAMA_API_KEY) return jsonError(500, "OLLAMA_API_KEY non configuré");
   if (body.force !== undefined && typeof body.force !== "boolean") {
     return unprocessable("force doit être un booléen");

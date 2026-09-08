@@ -1,4 +1,4 @@
-import { ACCOUNTS } from "./accounts";
+import { listAccounts } from "./accounts";
 import { apiCoach } from "./coach";
 import { apiGameCoach } from "./game_coach";
 import { CoachGate } from "./coach_gate";
@@ -105,8 +105,9 @@ function gameReviewSummary(item: StoredReview): Record<string, unknown> {
 }
 
 async function apiAccounts(env: Env): Promise<Response> {
+  const registry = await listAccounts(env.DATA);
   // Les comptes sont indépendants : lectures KV en parallèle plutôt qu'en série.
-  const out = await Promise.all(ACCOUNTS.map(async (account) => {
+  const out = await Promise.all(registry.map(async (account) => {
     const [games, reviews] = await Promise.all([
       readGames(env.DATA, account.slug, 1, 1),
       readJsonl<{ ts?: string; kind?: string }>(env.DATA, KEYS.reviews(account.slug)),

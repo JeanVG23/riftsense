@@ -1,4 +1,4 @@
-import { accountFor } from "./accounts";
+import { readAccount } from "./accounts";
 import { generateJson } from "./llm_client";
 import { addGameReviewCauses, buildPayload, type Outcome } from "./payload";
 import { render, SYSTEM, versionOf } from "./prompt";
@@ -120,7 +120,7 @@ export async function apiCoach(request: Request, env: Env): Promise<Response> {
     model?: string;
   } | null;
   const slug = body?.slug ?? "";
-  if (!accountFor(slug)) return notFound("compte inconnu");
+  if (!await readAccount(env.DATA, slug)) return notFound("compte inconnu");
   if (!env.OLLAMA_API_KEY) return jsonError(500, "OLLAMA_API_KEY non configuré");
   const params: CoachParams = {
     slug,

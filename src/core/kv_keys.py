@@ -24,6 +24,8 @@ TEMPLATES = {
     "feedback": "coaching:{slug}:feedback",
     "chats": "coaching:{slug}:chats",
     "game_payloads": "coaching:{slug}:game-payloads",
+    "account": "account:{slug}",
+    "accounts_index": "accounts:index",
 }
 
 

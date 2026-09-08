@@ -22,6 +22,10 @@ function makeEnv(): { env: Env; kv: MemoryKV } {
 
 async function seed(): Promise<{ env: Env; kv: MemoryKV }> {
   const { env, kv } = makeEnv();
+  await kv.put(KEYS.account("spadzze"), JSON.stringify({
+    slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
+  }));
+  await kv.put(KEYS.accounts_index(), JSON.stringify(["spadzze"]));
   await kv.put(KEYS.games("spadzze"), [
     JSON.stringify({ match_id: "EUW1_10", champion: "Zeri", win: true }),
     JSON.stringify({ match_id: "EUW1_30", champion: "Jinx", win: false }),

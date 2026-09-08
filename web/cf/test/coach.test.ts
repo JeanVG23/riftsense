@@ -41,6 +41,9 @@ const PARAMS: CoachParams = {
 
 async function seed(): Promise<MemoryKV> {
   const kv = new MemoryKV();
+  await kv.put(KEYS.account("spadzze"), JSON.stringify({
+    slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
+  }));
   await kv.put(KEYS.gold("spadzze", "adc"), JSON.stringify(AGGREGATE(18)));
   await kv.put(KEYS.ref("challenger", "adc"), JSON.stringify(AGGREGATE(400)));
   return kv;
@@ -129,8 +132,12 @@ describe("coachFlow", () => {
 
 describe("apiCoach", () => {
   function env(apiKey?: string): Env {
+    const kv = new MemoryKV();
+    kv.store.set(KEYS.account("spadzze"), JSON.stringify({
+      slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
+    }));
     return {
-      DATA: new MemoryKV(),
+      DATA: kv,
       ASSETS: { fetch: async () => new Response("spa") },
       OLLAMA_API_KEY: apiKey,
     } as unknown as Env;

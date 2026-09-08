@@ -23,6 +23,9 @@ const REVIEW = {
 
 async function makeEnv(): Promise<Env> {
   const kv = new MemoryKV();
+  await kv.put(KEYS.account("spadzze"), JSON.stringify({
+    slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
+  }));
   await kv.put(KEYS.reviews("spadzze"), JSON.stringify({
     ts: "T1",
     model: "kimi-k2.6",

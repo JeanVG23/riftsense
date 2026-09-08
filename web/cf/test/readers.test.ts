@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { ACCOUNTS, accountFor } from "../src/accounts";
 import {
   appendJsonl,
   KEYS,
@@ -121,13 +120,5 @@ describe("readJsonl / appendJsonl / readJson", () => {
     expect(await readJson(kv, "x")).toBeNull();
     await kv.put("x", "{\"ok\":true}");
     expect(await readJson(kv, "x")).toEqual({ ok: true });
-  });
-});
-
-describe("accounts", () => {
-  it("compte préconfiguré + lookup", () => {
-    expect(ACCOUNTS).toContainEqual({ slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1" });
-    expect(accountFor("spadzze")?.riot_id).toBe("Spadzze#euw");
-    expect(accountFor("inconnu")).toBeUndefined();
   });
 });

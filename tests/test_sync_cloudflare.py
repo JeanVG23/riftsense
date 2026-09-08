@@ -15,6 +15,7 @@ for module_path in (
     if str(module_path) not in sys.path:
         sys.path.insert(0, str(module_path))
 
+import kv_client  # noqa: E402
 import ml_rank  # noqa: E402
 import riotlib as rl  # noqa: E402
 import sync_cloudflare as sc  # noqa: E402
@@ -144,8 +145,8 @@ def test_sync_referential(data_root):
 
 
 def test_dry_kv_never_calls_network(monkeypatch):
-    monkeypatch.setattr(sc.requests, "put", lambda *args, **kwargs: pytest.fail("network PUT"))
-    monkeypatch.setattr(sc.requests, "get", lambda *args, **kwargs: pytest.fail("network GET"))
+    monkeypatch.setattr(kv_client.requests, "put", lambda *args, **kwargs: pytest.fail("network PUT"))
+    monkeypatch.setattr(kv_client.requests, "get", lambda *args, **kwargs: pytest.fail("network GET"))
     kv = sc.DryKV()
     kv.put("key", "value")
     assert kv.get("key") is None
