@@ -1,0 +1,10 @@
+.git/
+.venv/
+data/
+docs/
+node_modules/
+web/
+tests/
+**/__pycache__/
+*.pkl
+*.parquet

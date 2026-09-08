@@ -21,6 +21,8 @@ package-mode = false
 pytest = ">=8.4"
 pytest-mock = ">=3.15"
 ruff = ">=0.14"
+flask = ">=3.1"
+boto3 = ">=1.35"
 
 [tool.ruff]
 line-length = 100

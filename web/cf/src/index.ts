@@ -33,6 +33,8 @@ export interface Env {
   OLLAMA_API_KEY?: string;
   OLLAMA_MODEL?: string;
   COACH_AUTH_PASSWORD?: string;
+  INGEST_URL?: string;
+  INGEST_SECRET?: string;
 }
 
 export { CoachGate };
