@@ -33,10 +33,11 @@ def test_ingest_refuse_un_mauvais_secret(client):
     assert response.status_code == 401
 
 
-def test_ingest_accepte_le_bon_secret(client):
-    response = client.post("/ingest", json={}, headers={"X-Ingest-Secret": "s3cr3t"})
-    assert response.status_code == 200
-    assert response.get_json()["status"] == "stub"
+def test_ingest_refuse_un_corps_incomplet(client):
+    response = client.post("/ingest", json={"slug": "x"},
+                           headers={"X-Ingest-Secret": "s3cr3t"})
+    assert response.status_code == 400
+    assert response.get_json()["error_code"] == "internal"
 
 
 def test_ingest_refuse_quand_le_secret_nest_pas_configure(monkeypatch):

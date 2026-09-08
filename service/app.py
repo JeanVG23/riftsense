@@ -12,8 +12,15 @@ from __future__ import annotations
 import functools
 import hmac
 import os
+import tempfile
+from pathlib import Path
 
 from flask import Flask, jsonify, request
+
+import riot_ingest
+from errors import error_code_of
+from kv_client import KV
+from storage import R2Storage
 
 app = Flask(__name__)
 
@@ -42,7 +49,41 @@ def health():
     return jsonify({"status": "ok", "service": "coaching-lol-ingest"})
 
 
+_REQUIRED = ("slug", "riot_id", "platform")
+
+
+def _kv() -> KV:
+    return KV(
+        os.environ["CF_ACCOUNT_ID"],
+        os.environ["CF_KV_NAMESPACE_ID"],
+        os.environ["CF_API_TOKEN"],
+    )
+
+
+def _r2() -> R2Storage:
+    return R2Storage(
+        os.environ["R2_BUCKET"],
+        os.environ["CF_ACCOUNT_ID"],
+        os.environ["R2_ACCESS_KEY_ID"],
+        os.environ["R2_SECRET_ACCESS_KEY"],
+    )
+
+
 @app.post("/ingest")
 @require_secret
 def ingest():
-    return jsonify({"status": "stub"})
+    payload = request.get_json(silent=True) or {}
+    missing = [field for field in _REQUIRED if not payload.get(field)]
+    if missing:
+        return jsonify({"error_code": "internal", "missing": missing}), 400
+    try:
+        client = riot_ingest.build_client(payload["platform"])
+        with tempfile.TemporaryDirectory(prefix="ingest-") as tmp:
+            result = riot_ingest.run(
+                payload, client=client, kv=_kv(), r2=_r2(), data_dir=Path(tmp))
+        return jsonify(result)
+    except Exception as exc:  # noqa: BLE001 : traduit en code stable, journalisé entier
+        code = error_code_of(exc)
+        app.logger.exception("ingestion échouée pour %s", payload.get("slug"))
+        status = 422 if code in ("riot_id_not_found", "no_ranked_games") else 503
+        return jsonify({"status": "error", "error_code": code}), status
