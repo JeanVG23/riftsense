@@ -669,8 +669,8 @@ function accountPage(slug, search) {
 
     sortedDrivers() {
       const d = (this.shap?.drivers || []).slice();
-      if (this.shapSort === "abs") d.sort((a, b) => Math.abs(b.mean_shap) - Math.abs(a.mean_shap));
-      else d.sort((a, b) => b.mean_shap - a.mean_shap);
+      if (this.shapSort === "abs") d.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+      else d.sort((a, b) => b.contribution - a.contribution);
       return d.slice(0, 16); // top 16 pour la lisibilité
     },
 
@@ -684,8 +684,8 @@ function accountPage(slug, search) {
         data: {
           labels: d.map(x => x.feature),
           datasets: [{
-            data: d.map(x => x.mean_shap),
-            backgroundColor: d.map(x => x.mean_shap >= 0 ? "#c8aa6e" : "#f85149"),
+            data: d.map(x => x.contribution),
+            backgroundColor: d.map(x => x.contribution >= 0 ? "#c8aa6e" : "#f85149"),
             borderRadius: 3, borderSkipped: false,
           }],
         },
@@ -694,7 +694,7 @@ function accountPage(slug, search) {
           responsive: true,
           maintainAspectRatio: false,
           plugins: { legend: { display: false }, tooltip: { callbacks: {
-            label: c => `SHAP ${c.raw.toFixed(4)}`,
+            label: c => `EBM ${c.raw.toFixed(4)}`,
           } } },
           scales: {
             x: { grid: { color: "#2a2d34" }, ticks: { color: "#9a9da4", font: { size: 11 } } },

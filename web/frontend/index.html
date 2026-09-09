@@ -1291,7 +1291,7 @@
       <template x-if="!shapLoading && shap && !shap.available">
         <div class="shap-empty state">
           Profil ML indisponible pour ce compte.<br>
-          <span class="faint">Le SHAP local est pré-calculé pour certains comptes seulement (V1).</span>
+          <span class="faint">L'analyse nécessite au moins 15 parties ADC dans les 20 dernières games.</span>
         </div>
       </template>
       <template x-if="!shapLoading && shap && shap.available">
@@ -1303,9 +1303,10 @@
                     x-text="shapSort === 'abs' ? 'Trier par impact' : 'Trier par valeur'"></button>
           </div>
           <p class="muted" style="font-size:13px;margin:0 0 14px">
-            Contribution moyenne de chaque indicateur à l'estimation de rang.
-            <span style="color:var(--gold)">or</span> = pousse vers High-Elo,
-            <span style="color:var(--loss)">rouge</span> = pousse vers Low-Elo.
+            Décomposition exacte du modèle EBM : contribution (log-odds) de chaque
+            indicateur au placement de ton rang estimé.
+            <span style="color:var(--gold)">or</span> = pousse vers High-Elo (GM/C),
+            <span style="color:var(--loss)">rouge</span> = pousse vers Low-Elo (M/D).
           </p>
           <div class="shap-wrap">
             <canvas id="shap-canvas"></canvas>
