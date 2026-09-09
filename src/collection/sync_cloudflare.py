@@ -2,8 +2,10 @@
 """Synchronise les données locales et prédictions précalculées vers Workers KV.
 
 Le Worker ne parle jamais à Riot et ne charge aucun modèle ML. Ce script relit les
-couches silver/gold/SHAP locales, calcule le rang via ``src/core/ml_rank.py`` et
-pousse une valeur KV par fichier logique. Les clés ``coaching:*`` restent la
+couches silver/gold locales, calcule le rang via ``src/core/ml_rank.py`` puis les
+drivers EBM via ``src/core/ebm_explain.py`` (sur la même ligne de features que la
+prédiction publiée), et pousse une valeur KV par fichier logique. Les clés
+``coaching:*`` restent la
 propriété du Worker ; ``--seed-reviews`` ne les amorce que si elles sont absentes.
 """
 from __future__ import annotations
@@ -97,6 +99,27 @@ def push_coaching(kv: KV, slug: str) -> None:
 GAME_PAYLOAD_BUNDLE_MAX_BYTES = 20 * 1024 * 1024
 
 
+def _ebm_drivers(bundle: tuple[dict, int] | None, n: int = 20) -> list[dict] | None:
+    """Top-n drivers EBM d'un joueur depuis son agrégat de features, ou None si
+    l'agrégat est indisponible (sous MIN_ADC_GAMES : sémantique de la clé `pred`,
+    pas de mise à jour de la clé).
+
+    Le rang servi vient de xgb+rf ; les drivers sont la décomposition EXACTE de
+    l'EBM per-player (somme des contributions = score du modèle, par construction)
+    sur la même ligne de features que la prédiction publiée : l'explication ne peut
+    pas diverger de ce qui est servi. La paire est légitimée au niveau population
+    par le cross-check de l'analyse
+    (06_shap/player/high_elo/crosscheck_tree_vs_ebm.json). Payload = array JSON nu :
+    le Worker (readers.ts readShap) exige Array.isArray."""
+    if bundle is None:
+        return None
+    import ebm_explain  # noqa: E402  (artefacts ML chargés uniquement pour le sync)
+    loaded = ebm_explain.load_level("player")
+    contribs = ebm_explain.explain_player_row(
+        loaded["models"]["ebm"], bundle[0], loaded["features"])
+    return ebm_explain.top_drivers(contribs, n)
+
+
 def sync_account(kv: KV, slug: str, *, seed_reviews: bool = False,
                  coaching: bool = False, game_payloads: bool = True) -> None:
     # Une seule lecture du JSONL : le texte brut part tel quel dans KV et sert aussi
@@ -135,10 +158,12 @@ def sync_account(kv: KV, slug: str, *, seed_reviews: bool = False,
     prediction = ml_rank.predict_rank(games[:20])
     if prediction is not None:
         put_json(kv, kv_key("pred", slug=slug), prediction)
-
-    shap = rl.DATA / "06_shap" / f"{slug}_drivers.json"
-    if shap.exists():
-        kv.put(kv_key("shap", slug=slug), shap.read_text())
+        # drivers EBM per-player : décomposition exacte de la prédiction publiée.
+        # La double agrégation (predict_rank l'a déjà calculée en interne) est
+        # acceptée : 20 games, coût négligeable, et predict_rank garde sa shape.
+        drivers = _ebm_drivers(ml_rank.player_aggregate(games[:20]))
+        if drivers is not None:
+            put_json(kv, kv_key("shap", slug=slug), drivers)
 
     if coaching:
         push_coaching(kv, slug)

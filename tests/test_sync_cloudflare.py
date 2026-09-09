@@ -62,12 +62,23 @@ def test_sync_account_pushes_keys(data_root, monkeypatch):
         data_root / "03_gold" / "personal" / "p" / "adc" / "aggregate.json",
         json.dumps({"n_games": 8}),
     )
-    _write(data_root / "06_shap" / "p_drivers.json", json.dumps([{"feature": "gd10"}]))
     monkeypatch.setattr(
         ml_rank,
         "predict_rank",
         lambda games: {"predicted_rank": "master", "proba": 0.6, "n_games_used": 20},
     )
+    monkeypatch.setattr(ml_rank, "player_aggregate",
+                        lambda games: ({"gd10": 80.0}, 20))
+    import ebm_explain  # noqa: E402  (src/core est déjà sur sys.path via conftest)
+    monkeypatch.setattr(
+        ebm_explain, "load_level",
+        lambda level: {"models": {"ebm": object()}, "features": ["gd10", "dpm"]})
+    monkeypatch.setattr(
+        ebm_explain, "explain_player_row",
+        lambda ebm, agg, features: [
+            {"feature": "gd10", "contribution": -0.4},
+            {"feature": "dpm", "contribution": 0.2},
+        ])
 
     kv = FakeKV()
     sc.sync_account(kv, "p")
@@ -79,7 +90,10 @@ def test_sync_account_pushes_keys(data_root, monkeypatch):
     assert json.loads(kv.store["gold:p:all"]) == {"n_games": 10}
     assert json.loads(kv.store["gold:p:adc"]) == {"n_games": 8}
     assert json.loads(kv.store["pred:p"])["predicted_rank"] == "master"
-    assert json.loads(kv.store["shap:p:drivers"]) == [{"feature": "gd10"}]
+    assert json.loads(kv.store["shap:p:drivers"]) == [
+        {"feature": "gd10", "contribution": -0.4},
+        {"feature": "dpm", "contribution": 0.2},
+    ]
     assert "coaching:p:reviews" not in kv.store
     assert "coaching:p:feedback" not in kv.store
     bundle = json.loads(kv.store["coaching:p:game-payloads"])
@@ -105,6 +119,7 @@ def test_sync_account_slices_last_20_games(data_root, monkeypatch):
     sc.sync_account(kv, "p")
     assert seen == [20]
     assert "pred:p" not in kv.store
+    assert "shap:p:drivers" not in kv.store   # pas de prediction => pas de drivers
 
 
 def test_sync_account_can_skip_game_payload_bundle(data_root, monkeypatch):
