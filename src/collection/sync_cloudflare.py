@@ -23,6 +23,7 @@ for module_path in (ROOT / "src" / "core", ROOT / "src" / "04_coaching"):
         sys.path.insert(0, str(module_path))
 
 import riotlib as rl  # noqa: E402
+import positioning as pos  # noqa: E402  (manifeste d'asymétrie : COACHING_SAFE vs ML_ONLY)
 import payload as coaching_payload  # noqa: E402
 from kv_keys import key as kv_key  # noqa: E402
 from kv_client import KV, DryKV, put_json  # noqa: E402
@@ -99,25 +100,56 @@ def push_coaching(kv: KV, slug: str) -> None:
 GAME_PAYLOAD_BUNDLE_MAX_BYTES = 20 * 1024 * 1024
 
 
+# Garde-fou asymétrie côté PUBLICATION. Les features per-player sont nommées
+# `pos_<base>__<stat>` (ml_features.aggregate_player_features), donc un proxy
+# ML_ONLY se reconnaît à son préfixe. Ces 3 proxys de vision alimentent le MODÈLE
+# (ils sont dans FEATURES, c'est voulu) mais l'onglet est lu par le joueur : lui
+# montrer une barre « morts en fog » revient à lui opposer une info que le modèle
+# reconstruit a posteriori et qu'il n'avait pas. compare.py garde le même manifeste
+# par un assert au chargement ; ici la liste des features vient d'un artefact
+# (player_features.json), donc le contrôle est à l'exécution, sur le payload sortant.
+_ML_ONLY_PREFIXES = tuple(f"pos_{name}__" for name in sorted(pos.ML_ONLY))
+
+
+def _is_ml_only(feature: str) -> bool:
+    return feature.startswith(_ML_ONLY_PREFIXES)
+
+
 def _ebm_drivers(bundle: tuple[dict, int] | None, n: int = 20) -> list[dict] | None:
     """Top-n drivers EBM d'un joueur depuis son agrégat de features, ou None si
     l'agrégat est indisponible (sous MIN_ADC_GAMES : sémantique de la clé `pred`,
-    pas de mise à jour de la clé).
+    pas de mise à jour de la clé) ou si les artefacts d'analyse manquent.
 
-    Le rang servi vient de xgb+rf ; les drivers sont la décomposition EXACTE de
-    l'EBM per-player (somme des contributions = score du modèle, par construction)
-    sur la même ligne de features que la prédiction publiée : l'explication ne peut
-    pas diverger de ce qui est servi. La paire est légitimée au niveau population
-    par le cross-check de l'analyse
+    Le rang servi vient de xgb+rf ; les drivers sont la décomposition exacte de
+    l'EBM per-player (l'additif rend la somme des contributions identique au score,
+    par construction) sur la même ligne de features que la prédiction publiée :
+    l'explication ne peut pas diverger de ce qui est servi. La paire est légitimée
+    au niveau population par le cross-check de l'analyse
     (06_shap/player/high_elo/crosscheck_tree_vs_ebm.json). Payload = array JSON nu :
-    le Worker (readers.ts readShap) exige Array.isArray."""
+    le Worker (readers.ts readShap) exige Array.isArray.
+
+    Ce qui est publié est un EXTRAIT, pas la décomposition entière : top-n sur 125
+    features, proxys ML_ONLY retirés (cf. _is_ml_only). La somme des barres
+    affichées ne vaut donc pas le score, et c'est assumé : l'onglet répond « quels
+    indicateurs pèsent », pas « refais l'addition »."""
     if bundle is None:
         return None
-    import ebm_explain  # noqa: E402  (artefacts ML chargés uniquement pour le sync)
-    loaded = ebm_explain.load_level("player")
+    try:
+        import ebm_explain  # noqa: E402  (artefacts ML chargés uniquement pour le sync)
+        loaded = ebm_explain.load_level("player")
+    except (FileNotFoundError, OSError) as exc:
+        # Dégradation propre : avant cette clé, un artefact ML absent ne pouvait pas
+        # abattre le sync d'un compte. load_level charge 3 pkl ET un parquet ; un seul
+        # manquant ne doit pas emporter games/gold/reviews avec lui.
+        print(f"  ⚠ drivers EBM ignorés (artefact d'analyse absent : {exc})")
+        return None
     contribs = ebm_explain.explain_player_row(
         loaded["models"]["ebm"], bundle[0], loaded["features"])
-    return ebm_explain.top_drivers(contribs, n)
+    drivers = ebm_explain.top_drivers(
+        [c for c in contribs if not _is_ml_only(c["feature"])], n)
+    assert not any(_is_ml_only(d["feature"]) for d in drivers), \
+        "un proxy ML_ONLY a atteint le payload publié — violation d'asymétrie"
+    return drivers
 
 
 def sync_account(kv: KV, slug: str, *, seed_reviews: bool = False,

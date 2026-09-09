@@ -196,3 +196,57 @@ def test_push_coaching_merges_reviews_and_feedback(data_root, monkeypatch):
     reviews = [json.loads(l) for l in kv.store["coaching:p:reviews"].splitlines()]
     assert [r["ts"] for r in reviews] == ["t1", "t2"]        # la review web survit
     assert json.loads(kv.store["coaching:p:feedback"])["ts"] == "t2"
+
+
+def test_ebm_drivers_excludes_ml_only_proxies(monkeypatch):
+    """Garde-fou asymetrie cote publication : les 3 proxys de vision ML_ONLY
+    nourrissent le modele mais ne doivent JAMAIS apparaitre dans l'onglet lu par
+    le joueur (pendant de l'assert de compare.py sur POS_ROWS). Ici ils dominent
+    en amplitude : sans le filtre ils occuperaient le top."""
+    import ebm_explain  # noqa: E402
+    contribs = [
+        {"feature": "pos_overext_x_unaccounted__p10", "contribution": 0.9},
+        {"feature": "pos_frac_deaths_in_fog__mean", "contribution": -0.8},
+        {"feature": "pos_avg_unaccounted_enemies__p50", "contribution": 0.7},
+        {"feature": "pos_max_map_depth__p10", "contribution": 0.2},
+        {"feature": "csm14__p10", "contribution": -0.1},
+    ]
+    monkeypatch.setattr(ebm_explain, "load_level",
+                        lambda level: {"models": {"ebm": object()},
+                                       "features": [c["feature"] for c in contribs]})
+    monkeypatch.setattr(ebm_explain, "explain_player_row",
+                        lambda ebm, agg, features: contribs)
+
+    drivers = sc._ebm_drivers(({"gd10": 1.0}, 20), n=20)
+
+    assert [d["feature"] for d in drivers] == ["pos_max_map_depth__p10", "csm14__p10"]
+    assert not any(sc._is_ml_only(d["feature"]) for d in drivers)
+
+
+def test_ebm_drivers_degrades_when_ml_artifacts_are_missing(monkeypatch):
+    """load_level charge 3 pkl ET un parquet : un seul absent ne doit pas abattre
+    le sync du compte (games/gold/reviews partent quand meme)."""
+    import ebm_explain  # noqa: E402
+
+    def boom(level):
+        raise FileNotFoundError("data/05_model/ebm_player_highelo.pkl")
+
+    monkeypatch.setattr(ebm_explain, "load_level", boom)
+    assert sc._ebm_drivers(({"gd10": 1.0}, 20)) is None
+
+
+def test_sync_account_publishes_pred_even_without_ml_artifacts(data_root, monkeypatch):
+    import ebm_explain  # noqa: E402
+    _write(data_root / "02_silver" / "personal" / "p" / "games.jsonl",
+           json.dumps({"match_id": "EUW1_1"}) + "\n")
+    monkeypatch.setattr(ml_rank, "predict_rank",
+                        lambda games: {"predicted_rank": "master", "proba": 0.6})
+    monkeypatch.setattr(ml_rank, "player_aggregate", lambda games: ({"gd10": 1.0}, 20))
+    monkeypatch.setattr(ebm_explain, "load_level",
+                        lambda level: (_ for _ in ()).throw(FileNotFoundError("pkl")))
+
+    kv = FakeKV()
+    sc.sync_account(kv, "p", game_payloads=False)
+
+    assert json.loads(kv.store["pred:p"])["predicted_rank"] == "master"
+    assert "shap:p:drivers" not in kv.store

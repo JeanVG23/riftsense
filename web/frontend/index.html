@@ -1307,6 +1307,10 @@
             indicateur au placement de ton rang estimé.
             <span style="color:var(--gold)">or</span> = pousse vers High-Elo (GM/C),
             <span style="color:var(--loss)">rouge</span> = pousse vers Low-Elo (M/D).
+            Lecture <strong>descriptive</strong> : ce graphe dit ce que le modèle a retenu de
+            tes parties, pas ce qu'il faut faire. En particulier la profondeur de carte
+            (<code>map_depth</code>) est un marqueur de risque : une barre or ne signifie
+            pas « enfonce-toi davantage ».
           </p>
           <div class="shap-wrap">
             <canvas id="shap-canvas"></canvas>
