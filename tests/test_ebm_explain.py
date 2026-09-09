@@ -5,6 +5,7 @@ zéro modèle sur disque. Le stub reproduit STRICTEMENT l'API interpret consomm�
 tests."""
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 import ebm_explain as ee
@@ -129,3 +130,20 @@ def test_top_drivers_sorts_by_abs_and_keeps_sign():
         {"feature": "b", "contribution": -0.9},
         {"feature": "c", "contribution": 0.5},
     ]
+
+
+def test_crosscheck_constant_column_spearman_is_zero_not_nan(monkeypatch):
+    """Colonne constante (features __p10 quasi constantes du smoke player) ->
+    spearmanr scipy renvoie NaN : coercé en 0.0 comme le fait déjà shape_summary
+    sur des scores constants, jamais sérialisé NaN en JSON (9 cas réels vus)."""
+    X = pd.DataFrame({"flat": [0.0, 0.0, 0.0, 0.0], "wave": [1.0, 2.0, 3.0, 4.0]})
+    ebm_contribs = np.array([[0.0, 0.1], [0.0, -0.2], [0.0, 0.3], [0.0, -0.4]])
+    sv = np.array([[0.0, 0.5], [0.0, 0.1], [0.0, -0.3], [0.0, -0.6]])
+    monkeypatch.setattr(ee, "tree_shap_values", lambda model, X: sv)
+    rows, sv_vals = ee.crosscheck({"xgb": object(), "rf": object()}, X,
+                                  ["flat", "wave"], ebm_contribs)
+    flat = next(r for r in rows if r["feature"] == "flat")
+    wave = next(r for r in rows if r["feature"] == "wave")
+    assert flat["spearman"] == 0.0     # NaN != 0.0 : ce assert échouerait sur NaN
+    assert np.isfinite(wave["spearman"])   # la feature variée reste calculée telle quelle
+    assert sv_vals.shape == (4, 2)     # moyenne des deux modèles stubés, brute

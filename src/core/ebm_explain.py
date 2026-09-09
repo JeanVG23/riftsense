@@ -170,6 +170,8 @@ def crosscheck(models: dict, X: pd.DataFrame, features: list[str],
     rows = []
     for j, f in enumerate(features):
         rho = float(spearmanr(ebm_contribs[:, j], sv_vals[:, j])[0])
+        if not np.isfinite(rho):   # colonne constante -> NaN scipy, même garde que shape_summary
+            rho = 0.0
         sign_agree = float(np.mean(np.sign(ebm_contribs[:, j]) == np.sign(sv_vals[:, j])))
         rows.append({"feature": f, "spearman": round(rho, 3),
                      "sign_agree": round(sign_agree, 3)})
