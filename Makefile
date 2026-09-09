@@ -102,8 +102,18 @@ pipeline: models gold analyse
 
 # `make -n` sur le graphe réel : la seule façon honnête de répondre à « qu'est-ce
 # qui est périmé ? », puisque c'est make lui-même qui répond.
+#
+# `-o force` : le témoin raw dépend de la cible bidon `force` (sans recette) pour être
+# réévalué à chaque invocation. En mode -n, make ne PEUT PAS exécuter le `find` de la
+# recette du témoin : il suppose donc le stamp refait et cascade tout l'aval, si bien
+# que `make plan` ne revenait jamais propre. Traiter `force` comme à jour lève ce faux
+# positif, mais aveugle du même coup le seul capteur de fraîcheur du raw : la 1re ligne
+# rejoue explicitement le MÊME test `find` que la recette, sinon on échangerait un faux
+# positif permanent contre un faux négatif silencieux.
 plan:
-	@$(MAKE) --no-print-directory -n pipeline \
+	@if [ -e $(STAMPS)/raw ] && [ -n "$$(find $(RAW_DIR) -newer $(STAMPS)/raw -print -quit 2>/dev/null)" ]; then \
+	  echo "  ⚠ 01_raw plus récent que le témoin : tout l'aval est périmé (make pipeline)."; fi
+	@$(MAKE) --no-print-directory -n -o force pipeline \
 	  | grep -E '^[[:space:]]*poetry run' \
 	  || echo "  ✓ rien à recalculer, tout l'aval est à jour."
 
