@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-DÉPRÉCIÉ — arrêté le 2026-07-18. Modèle per-game (1 ligne = 1 ADC d'une game) NON servi
-en prod : le web (web/backend/ml_rank.py) tourne sur le per-player « constance/plancher ».
-AUC trop basse (~0.63 dia_chall / ~0.59 high_elo) — 1 game porte un signal quasi aléatoire
-(RNG matchmaking/stomps), sans valeur prédictive utile. Conservé pour l'historique et la
-reproductibilité (aucune suppression). Ne pas migrer au protocole gold standard.
-Voir docs/superpowers/specs/2026-07-18-gold-standard-eval-protocol-design.md.
+MODÈLE D'EXPLICATION DU JEU-TYPE (rôle acté le 2026-09-08) : re-entraîné dans le DAG
+(cible dia_chall uniquement, stamp metrics_dia_chall.json) pour l'analyse EBM glass-box
+(seuils de bascule in-game : src/03_data_analyse/shap_analysis.py --level game),
+JAMAIS servi pour le rang (le rang = per-player, cf. src/core/ml_rank.py). La frontière
+per-game high_elo est abandonnée : illisible à N=1 (tabular 0.609, transformer
+séquentiel 0.546 ± 0.005, MLP 0.504 ; la même frontière est lisible au niveau joueur :
+per-player test held-out 0.677). Protocole CV ancien assumé (pas de headline gold
+standard). Voir docs/superpowers/specs/2026-09-08-unified-ebm-analysis-design.md.
 
-02_data_science — entraîne un Ensemble (XGBoost, Random Forest + EBM) pour séparer
-high-elo (GM+Chall) de low (master+diam).
+02_data_science : entraîne un Ensemble (XGBoost, Random Forest + EBM) pour séparer
+challenger de diamond (1 ligne = 1 ADC d'une game).
 
 But : Obtenir un modèle très robuste dont les valeurs SHAP moyennes
 représentent de vraies tendances de fond, indépendantes de l'algorithme choisi.
@@ -35,8 +37,8 @@ un GAM, augmenté des interactions). L'EBM remplace donc le GAM : stricte
 généralisation, même rôle de validation + interactions en bonus.
 
 Anti-fuite : on EXCLUT `win` et toute colonne dérivée du rang.
-Sorties : data/05_model/{xgb,rf,ebm}_highelo.pkl, metrics.json, features.json
-Usage : poetry run python3 src/02_data_science/train_ensemble.py
+Sorties : data/05_model/{xgb,rf,ebm}_<sfx>.pkl (sfx = highelo | dia_chall), metrics.json | metrics_dia_chall.json, features.json
+Usage : poetry run python3 src/02_data_science/train_ensemble.py [--target high_elo|dia_chall]
 """
 from __future__ import annotations
 
@@ -168,10 +170,10 @@ def main(target: str = "high_elo") -> int:
     print(classification_report(y, (ensemble_proba >= 0.5).astype(int),
                                 target_names=spec["names"], digits=3))
 
-    # --- modèle final sur toutes les données (pour SHAP) ---
-    # Suffixe par cible : la cible par défaut (high_elo) garde les noms historiques
-    # ({name}_highelo.pkl, metrics.json) que shap_analysis.py lit ; les variantes
-    # écrivent à part pour ne pas écraser le pipeline principal.
+    # --- modèle final sur toutes les données (pour l'analyse glass-box) ---
+    # Suffixe par cible : le DAG n'entraîne que dia_chall ({name}_dia_chall.pkl,
+    # metrics_dia_chall.json, lus par core/ebm_explain.py niveau "game") ; high_elo
+    # garde les noms historiques de la cible par défaut.
     sfx = "highelo" if target == "high_elo" else target
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
 

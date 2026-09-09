@@ -27,6 +27,7 @@ STAMPS  := $(DATA)/.stamps
 RAW_DIR := $(DATA)/01_raw
 DATASET := $(DATA)/04_dataset
 MODEL   := $(DATA)/05_model
+SHAP    := $(DATA)/06_shap
 
 # Le code partagé périme tout l'aval : `riotlib` change le silver, `ml_features`
 # change les datasets. On dépend du dossier entier plutôt que d'entretenir une
@@ -46,7 +47,7 @@ ROUNDS  ?= 5
 PAUSE   ?= 10
 
 .PHONY: help demo demo-clean test lint fixtures generate-shared \
-        pipeline plan silver gold dataset split models report \
+        pipeline plan silver gold dataset split models analyse report \
         collect lp-label sync sync-push graph force
 
 help:
@@ -55,8 +56,8 @@ help:
 	@echo ""
 	@echo "Pipeline de production (data/ local)"
 	@echo "  make plan      ce qui est périmé et serait relancé (ne lance rien)"
-	@echo "  make pipeline  silver -> gold -> datasets -> split -> modèles"
-	@echo "  make silver | gold | dataset | split | models | report"
+	@echo "  make pipeline  silver -> gold -> datasets -> split -> modèles -> analyse"
+	@echo "  make silver | gold | dataset | split | models | analyse | report"
 	@echo "  make graph     le graphe de dépendances"
 	@echo ""
 	@echo "Étapes réseau (jamais déclenchées automatiquement)"
@@ -96,7 +97,7 @@ demo-clean:
 
 # ------------------------------------------------------------- pipeline --------
 
-pipeline: models gold
+pipeline: models gold analyse
 	@echo "\n✓ Pipeline à jour."
 
 # `make -n` sur le graphe réel : la seule façon honnête de répondre à « qu'est-ce
@@ -175,6 +176,27 @@ $(MODEL)/player_lp_metrics.json: $(DATASET)/adc_player_lp_dataset.parquet $(DATA
                                  src/02_data_science/cv_common.py $(CORE)
 	$(PY) src/02_data_science/train_player_lp.py
 
+# Modèle d'explication du jeu-type (dia_chall) : re-entraîné dans le DAG pour
+# l'analyse EBM glass-box (seuils de bascule in-game), JAMAIS servi pour le rang
+# (le rang = per-player, cf. src/core/ml_rank.py). metrics_dia_chall.json = stamp
+# des {xgb,rf,ebm}_dia_chall.pkl écrits par le même run.
+$(MODEL)/metrics_dia_chall.json: $(DATASET)/adc_dataset.parquet \
+                                 src/02_data_science/train_ensemble.py $(CORE)
+	$(PY) src/02_data_science/train_ensemble.py --target dia_chall
+
+# Analyse EBM glass-box unifiée (moteur : src/core/ebm_explain.py, CLI fine :
+# shap_analysis.py). ebm_shape_functions.json = stamp-of-record de TOUTES les
+# sorties du niveau : un seul run les écrit ensemble.
+$(SHAP)/player/high_elo/ebm_shape_functions.json: $(MODEL)/player_metrics.json \
+        $(DATASET)/adc_player_dataset.parquet src/03_data_analyse/shap_analysis.py $(CORE)
+	$(PY) src/03_data_analyse/shap_analysis.py --level player
+
+$(SHAP)/game/dia_chall/ebm_shape_functions.json: $(MODEL)/metrics_dia_chall.json \
+        $(DATASET)/adc_dataset.parquet src/03_data_analyse/shap_analysis.py $(CORE)
+	$(PY) src/03_data_analyse/shap_analysis.py --level game
+
+analyse: $(SHAP)/player/high_elo/ebm_shape_functions.json $(SHAP)/game/dia_chall/ebm_shape_functions.json
+
 report:
 	@$(PY) src/pipeline_ops/dataset_report.py
 
@@ -184,11 +206,14 @@ graph:
 	@echo "         ├─ rebuild_gold ──> 03_gold ──> compare / payload coaching"
 	@echo "         └─ build_dataset ──> adc_dataset.parquet"
 	@echo "              ├─ build_player_dataset ──> adc_player_dataset.parquet"
+	@echo "              ├─ train_ensemble (dia_chall) ──> *_dia_chall.pkl (modèle d'explication du jeu-type, jamais servi)"
+	@echo "              │    └─ shap_analysis --level game ──> 06_shap/game/dia_chall/"
 	@echo "              └─ build_player_lp_dataset ──> adc_player_lp_dataset.parquet"
 	@echo "                   (+ apex_lp.json, 'make lp-label')"
 	@echo "                        └─ build_split ──> split.json"
 	@echo "                             ├─ train_player_ensemble ──> *_player_highelo.pkl"
-	@echo "                             │    └─ calibrate_player_rank ──> calibration"
+	@echo "                             │    ├─ calibrate_player_rank ──> calibration"
+	@echo "                             │    └─ shap_analysis --level player ──> 06_shap/player/high_elo/"
 	@echo "                             └─ train_player_lp ──> *_player_lp.pkl"
 	@echo "                                  └─ sync_cloudflare ──> KV (manuel)"
 

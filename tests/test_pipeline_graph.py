@@ -39,7 +39,10 @@ def test_every_script_referenced_by_the_makefile_exists():
 def test_the_plan_follows_the_medallion_order(tmp_path):
     plan = "\n".join(_plan(tmp_path))
     order = ["reextract_silver", "build_dataset", "build_player_dataset",
-             "build_split", "train_player_ensemble", "calibrate_player_rank"]
+             "build_split", "train_player_ensemble", "calibrate_player_rank",
+             "train_player_lp", "rebuild_gold",
+             "shap_analysis.py --level player", "train_ensemble.py",
+             "shap_analysis.py --level game"]
     positions = [plan.find(step) for step in order]
     assert all(p >= 0 for p in positions), dict(zip(order, positions))
     assert positions == sorted(positions), f"ordre casse : {dict(zip(order, positions))}"
