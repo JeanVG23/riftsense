@@ -91,13 +91,22 @@ def run_level(level: str) -> int:
         ti = ee.term_index(ebm, f)
         if ti is not None:
             shapes[f] = ee.shape_summary(ebm, ti, xref[f], neg, pos)
-    by_swing = sorted(shapes.items(), key=lambda kv: -kv[1]["swing_logodds"])
+    # Les résumés DÉGÉNÉRÉS passent derrière, quelle que soit leur amplitude : un
+    # `swing` calculé faute de cœur mesurable ([p5, p95] plus étroit qu'un bin, cas
+    # des features de comptage dont le p10 vaut 0 sur presque toute la population)
+    # vient des bins situés HORS des données, soit exactement le bruit que la
+    # restriction au cœur devait écarter. Sans ce tri, les 8 premières lignes du
+    # livrable prescriptif au niveau player étaient toutes dans ce cas.
+    by_swing = sorted(shapes.items(),
+                      key=lambda kv: (kv[1]["degenerate"] is not None,
+                                      -kv[1]["swing_logodds"]))
     print("\n  📐 EBM shape functions (prescriptif, trié par amplitude d'effet) :")
     print(f"    {'feature':<34} {'swing':>6} {'mono':>5} {'seuil':>9}  sens")
     for f, s in by_swing:
         seuil = "-" if s["crossover_value"] is None else f"{s['crossover_value']:.2f}"
+        flag = "" if s["degenerate"] is None else f"  ⚠ {s['degenerate']}"
         print(f"    {f:<34} {s['swing_logodds']:>6.2f} {s['monotonic_rho']:>+5.2f} "
-              f"{seuil:>9}  {s['direction']}")
+              f"{seuil:>9}  {s['direction']}{flag}")
     _dump(out / "ebm_shape_functions.json", dict(by_swing))
 
     # --- interactions par paires (la structure que l'additif pur ne voit pas) ---

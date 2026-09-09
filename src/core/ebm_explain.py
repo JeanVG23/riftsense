@@ -96,13 +96,33 @@ def shape_summary(ebm, ti: int, vals: pd.Series, neg: str, pos: str) -> dict:
 
     score log-odds par bin (>0 pousse vers `pos`). On restreint le résumé au cœur
     des données [p5, p95] : les bins extrêmes low-density de l'EBM sont bruités et
-    donnent des seuils trompeurs."""
+    donnent des seuils trompeurs. La clé `degenerate` porte la raison quand le
+    résumé n'est PAS prescriptible (`constant` : colonne sans contraste, refusée ;
+    `core_hors_bins` : repli sur tous les bins faute de cœur mesurable)."""
     d = ebm.explain_global().data(ti)
     edges, scores = list(d["names"]), list(d["scores"])
     mids = [(edges[i] + edges[i + 1]) / 2 for i in range(len(scores))]
     clean = vals.dropna()
+    # Une colonne CONSTANTE n'a pas de forme : la population n'offre aucun contraste,
+    # et les bins que l'EBM a quand même appris ne décrivent que du binning. La classer
+    # produirait un seuil de bascule inventé (9 features __p10 du niveau player sont
+    # dans ce cas). On refuse de la ranger : swing 0 -> bas du tri prescriptif, et le
+    # JSON dit POURQUOI plutôt que de livrer un chiffre indistinguable d'un vrai.
+    # Série VIDE ≠ constante : pas de données n'est pas l'absence de contraste, on
+    # garde là le repli historique sur tous les bins.
+    if clean.nunique() == 1:
+        v = round(float(clean.iloc[0]), 2)
+        return {
+            "swing_logodds": 0.0, "monotonic_rho": 0.0,
+            "score_low": 0.0, "score_high": 0.0, "crossover_value": None,
+            "direction": "indéterminé (colonne constante)",
+            "core_range": [v, v], "degenerate": "constant",
+        }
     p5, p95 = (float(clean.quantile(0.05)), float(clean.quantile(0.95))) if len(clean) else (mids[0], mids[-1])
-    core = [(m, s) for m, s in zip(mids, scores) if p5 <= m <= p95] or list(zip(mids, scores))
+    core = [(m, s) for m, s in zip(mids, scores) if p5 <= m <= p95]
+    degenerate = None
+    if not core:   # [p5, p95] plus étroit qu'un bin : aucun cœur mesurable
+        core, degenerate = list(zip(mids, scores)), "core_hors_bins"
     cmids = [m for m, _ in core]
     cscores = [s for _, s in core]
 
@@ -127,6 +147,7 @@ def shape_summary(ebm, ti: int, vals: pd.Series, neg: str, pos: str) -> dict:
         "crossover_value": crossover,
         "direction": direction,
         "core_range": [round(p5, 2), round(p95, 2)],
+        "degenerate": degenerate,
     }
 
 
@@ -170,11 +191,17 @@ def crosscheck(models: dict, X: pd.DataFrame, features: list[str],
     rows = []
     for j, f in enumerate(features):
         rho = float(spearmanr(ebm_contribs[:, j], sv_vals[:, j])[0])
-        if not np.isfinite(rho):   # colonne constante -> NaN scipy, même garde que shape_summary
-            rho = 0.0
+        # NaN scipy = au moins une des deux séries est constante : la corrélation
+        # n'est pas définie, ce qui n'est PAS « corrélation nulle ». On garde 0.0
+        # pour que le tri par |rho| reste total, mais `degenerate` dit que ce 0.0
+        # est un « non mesurable » : sans ce drapeau, une feature dont l'EBM ne dit
+        # rien serait indistinguable d'une feature où EBM et arbres se contredisent.
+        degenerate = None
+        if not np.isfinite(rho):
+            rho, degenerate = 0.0, "non_mesurable"
         sign_agree = float(np.mean(np.sign(ebm_contribs[:, j]) == np.sign(sv_vals[:, j])))
         rows.append({"feature": f, "spearman": round(rho, 3),
-                     "sign_agree": round(sign_agree, 3)})
+                     "sign_agree": round(sign_agree, 3), "degenerate": degenerate})
     rows.sort(key=lambda d: -abs(d["spearman"]))
     return rows, sv_vals
 

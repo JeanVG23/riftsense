@@ -147,3 +147,50 @@ def test_crosscheck_constant_column_spearman_is_zero_not_nan(monkeypatch):
     assert flat["spearman"] == 0.0     # NaN != 0.0 : ce assert échouerait sur NaN
     assert np.isfinite(wave["spearman"])   # la feature variée reste calculée telle quelle
     assert sv_vals.shape == (4, 2)     # moyenne des deux modèles stubés, brute
+
+
+def test_shape_summary_refuses_to_rank_a_constant_column():
+    """Colonne constante = aucun contraste dans la population : les bins que l'EBM
+    a quand meme appris ne decrivent que du binning. On refuse de la ranger (swing 0
+    -> bas du tri prescriptif) et on dit pourquoi, plutot que de livrer un seuil de
+    bascule indistinguable d'un vrai (9 features __p10 du niveau player)."""
+    ebm = _mono_ebm()
+    s = ee.shape_summary(ebm, 0, pd.Series([3.0, 3.0, 3.0]),
+                         neg="diamond", pos="challenger")
+    assert s["degenerate"] == "constant"
+    assert s["swing_logodds"] == 0.0
+    assert s["crossover_value"] is None
+    assert s["direction"] == "indéterminé (colonne constante)"
+    assert s["core_range"] == [3.0, 3.0]
+
+
+def test_shape_summary_flags_core_narrower_than_a_bin():
+    """[p5, p95] plus etroit qu'un bin : le repli sur tous les bins reste, mais il
+    est declare (sinon un resume bruite passe pour un resume mesure)."""
+    ebm = _mono_ebm()
+    s = ee.shape_summary(ebm, 0, pd.Series([100.0, 100.5, 101.0]),
+                         neg="diamond", pos="challenger")
+    assert s["degenerate"] == "core_hors_bins"
+
+
+def test_shape_summary_healthy_column_is_not_flagged():
+    ebm = _mono_ebm()
+    s = ee.shape_summary(ebm, 0, pd.Series([10.0, 90.0, 160.0, 190.0]),
+                         neg="diamond", pos="challenger")
+    assert s["degenerate"] is None
+
+
+def test_crosscheck_flags_non_measurable_spearman(monkeypatch):
+    """0.0 « non mesurable » vs 0.0 mesure : sans le drapeau, une feature dont
+    l'EBM ne dit rien serait indistinguable d'une feature ou EBM et arbres se
+    contredisent."""
+    X = pd.DataFrame({"flat": [0.0, 0.0, 0.0, 0.0], "wave": [1.0, 2.0, 3.0, 4.0]})
+    ebm_contribs = np.array([[0.0, 0.1], [0.0, -0.2], [0.0, 0.3], [0.0, -0.4]])
+    sv = np.array([[0.0, 0.5], [0.0, 0.1], [0.0, -0.3], [0.0, -0.6]])
+    monkeypatch.setattr(ee, "tree_shap_values", lambda model, X: sv)
+    rows, _ = ee.crosscheck({"xgb": object(), "rf": object()}, X,
+                            ["flat", "wave"], ebm_contribs)
+    by_f = {r["feature"]: r for r in rows}
+    assert by_f["flat"]["spearman"] == 0.0
+    assert by_f["flat"]["degenerate"] == "non_mesurable"
+    assert by_f["wave"]["degenerate"] is None
