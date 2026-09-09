@@ -161,7 +161,7 @@ agrégation contextuelle. Lancer : `poetry run pytest tests/`.
 ```
 src/
   core/           riotlib.py, positioning.py, champion_profiles.py, game_journal.py, ml_features.py,
-                  ranks.py, cli.py, kv_keys.py, dataset_split.py, ml_rank.py, settings.py
+                  ranks.py, cli.py, kv_keys.py, dataset_split.py, ml_rank.py, ebm_explain.py, settings.py
   collection/     build_referential.py, aggregate_games.py, live_capture.py, sync_cloudflare.py,
                   refresh_cloudflare.py, pipeline.py, densify_targets.py, densify_sweet_spot.py,
                   densify_players.py, fetch_apex_lp.py
@@ -176,7 +176,7 @@ src/
                         lp_metrics.py, audit_leakage.py, poc/per_player_hypothesis.py,
                         sequence_model.py, sequence_data.py, train_sequence_model.py,
                         pretrain_sequence_model.py, cv_common.py
-  03_data_analyse/      shap_analysis.py, plot_custom_shap.py
+  03_data_analyse/      shap_analysis.py, plotter.py
   04_coaching/          payload.py, prompt.py, schema.py, llm_client.py, coach.py, feedback.py,
                         grounding.py, counterfactual.py
 data/
@@ -188,7 +188,9 @@ data/
   04_dataset/     adc_dataset.parquet, densify_targets.json, datasets per-player/LP
   05_model/       modèles ML + metrics (xgb_highelo.pkl, player_metrics.json, player_lp_metrics.json,
                   rank_calibration.json, auc_vs_ngames.{json,png})
-  06_shap/        SHAP/EBM outputs
+  06_shap/        player/high_elo/ + game/dia_chall/ : analyse EBM glass-box unifiée
+                  (ebm_shape_functions.json = seuils de bascule, ebm_ranking, cross-check
+                  SHAP-arbres vs EBM, diagnostics LOWESS, visuels)
   07_coaching/<player>/reviews.jsonl + feedback.jsonl
 web/
   cf/             Worker TypeScript de production : API, assets, KV, Ollama SSE
@@ -267,6 +269,16 @@ Renommer un dossier data SANS mettre à jour le code → le code recrée l'ancie
   dont le bundle local `coaching:{slug}:game-payloads` consommé par le coaching unitaire web.
   Miroir de `KEYS` dans `web/cf/src/readers.ts`, verrouillé par `tests/test_kv_keys_parity.py`
   (deux runtimes = deux tables, mais toute divergence de nom/gabarit fait échouer le test).
+- **`ebm_explain.py`** : moteur d'analyse EBM glass-box unifié, registre déclaratif `LEVELS`
+  aux rôles explicites : "player" = explication du modèle servi (features agrégées,
+  drivers publiés par le sync), "game" = modèle d'explication du jeu-type dia_chall
+  (re-entraîné dans le DAG, JAMAIS servi pour le rang). Shape functions exactes avec
+  seuils de bascule (`shape_summary`, cœur [p5, p95]), contributions par terme,
+  cross-check SHAP-sur-arbres xgb+rf (`crosscheck`), décomposition exacte d'un joueur
+  (`explain_player_row` + `top_drivers`). Bibliothèque pure : 0 écriture disque, import
+  shap différé (le sync ne charge pas ce runtime pour rien). Consommée par le CLI
+  `03_data_analyse/shap_analysis.py --level {player,game}` et par `sync_cloudflare.py`
+  (drivers per-player sous `shap:{slug}:drivers`).
 
 ### Modules `collection/`
 
@@ -307,6 +319,10 @@ dépendances déclaré dans le `Makefile`. Chaque étape dépend des artefacts q
 code qui la produit (`src/core/*.py` en bloc), donc toucher `positioning.py` périme silver →
 gold → datasets → modèles. `make plan` répond « qu'est-ce qui est périmé ? » en déléguant à
 `make -n` (la seule réponse honnête). `make graph` affiche le DAG.
+`make analyse` (inclus dans `make pipeline`) régénère l'analyse EBM glass-box des deux
+niveaux via `core/ebm_explain.py` : le niveau player explique le modèle servi, le niveau
+game re-entraîne d'abord le modèle d'explication du jeu-type
+(`train_ensemble.py --target dia_chall`, jamais servi pour le rang).
 ⚠️ **Les étapes réseau ne sont JAMAIS des dépendances** : `collect` (Riot), `lp-label`
 (fetch_apex_lp) et `sync`/`sync-push` (Cloudflare) sont des cibles explicites, et
 `tests/test_pipeline_graph.py` échoue si l'une d'elles devient un prérequis de `pipeline`.
@@ -394,9 +410,10 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   `calibrate_player_rank.py`, `lp_metrics.py` (Spearman pooled/by-tier + RMSE, garde anti-NaN
   `_safe_spearman`), `audit_leakage.py` (diagnostic OOF/AUC), `poc/per_player_hypothesis.py`
   (hypothèse constance, repris en prod par `src/core/ml_rank.py`).
-- **`03_data_analyse/`** : `shap_analysis.py` (SHAP global + Spadzze + cross-check EBM :
-  direction par feature via `explain_local`, interactions par paires via `explain_global`) et
-  `plot_custom_shap.py`.
+- **`03_data_analyse/`** : `shap_analysis.py` (CLI fine `--level {player,game}` sur le moteur
+  `core/ebm_explain.py` : ranking + shape functions exactes avec seuils de bascule,
+  interactions par paires au niveau game, cross-check SHAP-sur-arbres, visuels et
+  diagnostics LOWESS via `plotter.py` ; drivers Spadzze au niveau game uniquement).
 - **`04_coaching/`** : narration LLM (Ollama Cloud, structured output).
   `payload.py` (gold perso+réf → payload déterministe, **safe-only** : positioning ⊂
   COACHING_SAFE, profondeur `descriptive_only` ; **échantillon qualitatif borné** :
@@ -498,6 +515,16 @@ fichier pointe donc vers un document absent d'un clone frais ; l'historique git 
 versions antérieures à cette date.
 
 ## État d'avancement
+
+- **Analyse ML unifiée (EBM glass-box)** ✅ (2026-09-08) : un moteur unique
+  (`core/ebm_explain.py`, registre `LEVELS` player/game) sert l'analyse des deux niveaux
+  ET la chaîne aval. `make analyse` (dans `make pipeline`) écrit
+  `06_shap/{player/high_elo,game/dia_chall}/`. Le sync publie la décomposition exacte
+  per-player sous `shap:{slug}:drivers` (champ `contribution`, array JSON nu, clé
+  inchangée : le Worker ne bouge pas) et l'onglet « Analyse ML » du site affiche les
+  contributions EBM. Le rang servi reste xgb+rf ; les drivers EBM sont légitimés par le
+  cross-check population (`crosscheck_tree_vs_ebm.json`). Cf. spec locale
+  `docs/superpowers/specs/2026-09-08-unified-ebm-analysis-design.md`.
 
 - **Incrément LLM enrichi validé (cohorte de prompt)** ✅ — 2026-09-07. Lot frais de 10 reviews
   par-game sous la cohorte `350f7c404b5b` (`kimi-k2.6`), évalué automatiquement AVANT toute
@@ -622,8 +649,13 @@ versions antérieures à cette date.
   201, 70/15/15 stratifié). LP (`player_lp_metrics.json`) : cv_train.spearman_pooled=0.4931
   (rmse 535.4, n=805) / test.spearman_pooled=0.5373 (rmse 555.1, n=170) ; by_tier test :
   challenger 0.6601 (n=55), grandmaster 0.7545 (n=11, bruité), master 0.3634 (n=104).
-- **Per-game DÉPRÉCIÉ** — 2026-07-18. `train_ensemble.py` / `calibrate_rank.py` arrêtés (non
-  servis, AUC ~0.63/0.59 trop aléatoire) ; code et artefacts conservés pour l'historique.
+- **Per-game rang : ABANDONNÉ (2026-09-08, acté)** : la frontière master/GM est illisible
+  à N=1 (tabular 0.609, transformer séquentiel 0.546 ± 0.005 sur 95 378 rows, MLP 0.504),
+  alors que la même frontière est lisible au niveau joueur (per-player test held-out
+  0.677). `calibrate_rank.py` reste déprécié (le rang servi = per-player calibré).
+  `train_ensemble.py --target dia_chall` reste VIVANT avec un rôle réacté (2026-09-08) :
+  modèle d'explication du jeu-type pour l'analyse glass-box (AUC 0.724), nœud du DAG
+  (`metrics_dia_chall.json`), jamais servi pour le rang.
 - **Compte-rendu par-game (axe prioritaire coaching)** ✅ — 2026-07-05. Diagnostic feedback :
   les tags « trop-vague »/« non-actionnable » venaient du **payload agrégé** (le LLM ne peut pas
   être plus précis que des médianes) + du schéma forçant 3 forces. Fix : `game_journal` (morts/
