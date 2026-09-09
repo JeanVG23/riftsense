@@ -523,7 +523,16 @@ versions antérieures à cette date.
   per-player sous `shap:{slug}:drivers` (champ `contribution`, array JSON nu, clé
   inchangée : le Worker ne bouge pas) et l'onglet « Analyse ML » du site affiche les
   contributions EBM. Le rang servi reste xgb+rf ; les drivers EBM sont légitimés par le
-  cross-check population (`crosscheck_tree_vs_ebm.json`). Cf. spec locale
+  cross-check population (`crosscheck_tree_vs_ebm.json`).
+  ⚠️ **Asymétrie côté publication** : les 3 proxys `ML_ONLY` (`pos_frac_deaths_in_fog`,
+  `pos_avg_unaccounted_enemies`, `pos_overext_x_unaccounted`) nourrissent le MODÈLE mais
+  sont RETIRÉS du payload publié (`sync_cloudflare._is_ml_only`, garde par `assert` sur le
+  payload sortant, pendant de celui de `compare.py`) : l'onglet est lu par le joueur, et
+  lui montrer une barre « morts en fog » lui opposerait une info reconstruite a posteriori
+  qu'il n'avait pas. Ce qui est publié est donc un EXTRAIT (top-20 sur 125 features, proxys
+  retirés) : la somme des barres ne vaut pas le score, c'est assumé. L'onglet porte la
+  mention de lecture descriptive, en particulier pour `map_depth` (marqueur de risque).
+  Cf. spec locale
   `docs/superpowers/specs/2026-09-08-unified-ebm-analysis-design.md`.
 
 - **Incrément LLM enrichi validé (cohorte de prompt)** ✅ — 2026-09-07. Lot frais de 10 reviews
@@ -572,6 +581,9 @@ versions antérieures à cette date.
   (ensemble XGB/RF/EBM). Dataset densifié : 2 ADC/game depuis le raw → ~7 873 rows.
 - **Phase 1.8 — macro-positionnement (timeline, 0 CV)** ✅ — module `positioning` (17 features).
   ML : AUC **dia_chall 0.655 → 0.724 (+0.069)**, top-3 discriminants EBM tous positionnels.
+  (Chiffres de juillet, sur ~7 873 rows : le rebuild du 2026-09-09 sur 43 000 rows donne
+  0.6312, cf. l'entrée « Per-game rang : ABANDONNÉ ». L'apport des features positionnelles
+  n'a pas été re-mesuré sur la population densifiée.)
   Coaching : 14 features câblées dans `aggregate`/`compare`. ⚠️ `xgb/rf/ebm_highelo.pkl` à
   ré-entraîner avant de servir en inférence web — per-game déprécié 2026-07-18, non servi ; le
   serving utilise les `*_player_highelo.pkl`. **AUC high_elo = 0.589** (frontière Master|GM
@@ -650,12 +662,25 @@ versions antérieures à cette date.
   (rmse 535.4, n=805) / test.spearman_pooled=0.5373 (rmse 555.1, n=170) ; by_tier test :
   challenger 0.6601 (n=55), grandmaster 0.7545 (n=11, bruité), master 0.3634 (n=104).
 - **Per-game rang : ABANDONNÉ (2026-09-08, acté)** : la frontière master/GM est illisible
-  à N=1 (tabular 0.609, transformer séquentiel 0.546 ± 0.005 sur 95 378 rows, MLP 0.504),
-  alors que la même frontière est lisible au niveau joueur (per-player test held-out
-  0.677). `calibrate_rank.py` reste déprécié (le rang servi = per-player calibré).
+  à N=1. Trois mesures, trois populations, même verdict : ensemble tabulaire per-game
+  `high_elo` auc_cv 0.609 (`metrics.json`, n_train 18 734) ; et dans l'étude séquence
+  (95 378 rows) transformer 0.546 ± 0.005 ≈ baseline tabulaire 0.554 ≈ MLP 0.504. La même
+  frontière est lisible au niveau joueur (per-player test held-out 0.688).
+  `calibrate_rank.py` reste déprécié (le rang servi = per-player calibré).
   `train_ensemble.py --target dia_chall` reste VIVANT avec un rôle réacté (2026-09-08) :
-  modèle d'explication du jeu-type pour l'analyse glass-box (AUC 0.724), nœud du DAG
+  modèle d'explication du jeu-type pour l'analyse glass-box, nœud du DAG
   (`metrics_dia_chall.json`), jamais servi pour le rang.
+  ⚠️ **Le critère de décision qui justifiait ce nœud a cessé de discriminer** (rebuild
+  complet 2026-09-09) : dia_chall auc_cv = **0.6312** (`metrics_dia_chall.json`, n_train
+  43 000 = 25 675 challenger / 17 325 diamond, 41 features), et non les 0.724 mesurés en
+  juillet sur ~7 873 rows. L'écart avec le 0.609 qui a condamné le per-game `high_elo`
+  passe de 0.115 à 0.022. Le protocole CV est INCHANGÉ entre les deux runs : « l'ancien
+  0.724 était optimiste par fuite » est donc écarté, la cause est le changement de
+  population (densification). Ce qui légitime encore ce nœud n'est plus un AUC absolu mais
+  **`ebm_gap_vs_ensemble` = 0.0004** : l'EBM seul égale l'ensemble, donc son explication
+  décrit fidèlement le modèle, indépendamment de la force du signal. Conséquence à tenir :
+  un jeu-type séparable à 0.63 reste faiblement séparable ; les seuils de bascule des shape
+  functions sont **descriptifs**, jamais des cibles à atteindre.
 - **Compte-rendu par-game (axe prioritaire coaching)** ✅ — 2026-07-05. Diagnostic feedback :
   les tags « trop-vague »/« non-actionnable » venaient du **payload agrégé** (le LLM ne peut pas
   être plus précis que des médianes) + du schéma forçant 3 forces. Fix : `game_journal` (morts/
