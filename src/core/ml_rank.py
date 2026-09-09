@@ -22,6 +22,10 @@ Hybride LP (2026-07-07) : si le rang placé est apex (master/GM/chall) et que le
 regressors LP ({xgb,rf,ebm}_player_lp.pkl, cf. train_player_lp.py) sont présents,
 le retour porte en plus "predicted_lp" (LP estimé sur l'échelle continue
 master->challenger). Diamond n'en a jamais (divisions avec reset, hors échelle).
+
+player_aggregate (public) : l'agrégat de features + le nombre de games ADC,
+extrait de predict_rank, pour que le sync explique la prédiction publiée avec
+la même ligne de features (drivers EBM, cf. core/ebm_explain.py).
 """
 from __future__ import annotations
 
@@ -108,8 +112,12 @@ def attach_lp(result: dict, agg: dict) -> dict:
     return result
 
 
-def predict_rank(games: list[dict]) -> dict | None:
-    """None si moins de MIN_ADC_GAMES games ADC (BOTTOM) dans l'historique fourni."""
+def player_aggregate(games: list[dict]) -> tuple[dict, int] | None:
+    """Agrégat de features per-player des games ADC (BOTTOM) de `games`, avec
+    le nombre de games utilisées, ou None si moins de MIN_ADC_GAMES. C'est la
+    ligne EXACTE sur laquelle predict_rank calcule sa probabilité : le sync la
+    réutilise pour publier les drivers EBM de la prédiction (l'explication ne
+    peut pas diverger de ce qui est servi)."""
     adc_games = [g for g in games if g.get("role") == "BOTTOM"]
     if len(adc_games) < MIN_ADC_GAMES:
         return None
@@ -117,6 +125,15 @@ def predict_rank(games: list[dict]) -> dict | None:
         build_dataset.game_to_row(g, rank=None, source="inference") for g in adc_games
     ])
     agg = mf.aggregate_player_features(rows, mf.FEATURES)
+    return agg, len(adc_games)
+
+
+def predict_rank(games: list[dict]) -> dict | None:
+    """None si moins de MIN_ADC_GAMES games ADC (BOTTOM) dans l'historique fourni."""
+    bundle = player_aggregate(games)
+    if bundle is None:
+        return None
+    agg, n_games = bundle
 
     models = _load_models()
     features = _load_features()
@@ -132,5 +149,5 @@ def predict_rank(games: list[dict]) -> dict | None:
     return attach_lp({
         "predicted_rank": closest["rank"],
         "proba": round(player_proba, 4),
-        "n_games_used": len(adc_games),
+        "n_games_used": n_games,
     }, agg)
