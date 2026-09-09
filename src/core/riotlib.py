@@ -15,6 +15,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
 import zstandard as zstd
@@ -196,8 +197,13 @@ class RiotClient:
 
     # account-v1 (régional)
     def puuid_from_riot_id(self, game_name: str, tag_line: str) -> str | None:
+        # `quote(..., safe="")` encode aussi `/` et `?` : le pseudo vient du
+        # visiteur sur le chemin d'inscription publique, et une f-string
+        # concaténée sans encodage lui laisserait choisir l'endpoint appelé
+        # avec la clé Riot du propriétaire.
         d = self._get(self.regional,
-                      f"/riot/account/v1/accounts/by-riot-id/{game_name}/{tag_line}")
+                      "/riot/account/v1/accounts/by-riot-id/"
+                      f"{quote(game_name, safe='')}/{quote(tag_line, safe='')}")
         return d["puuid"] if d else None
 
     # match-v5 (régional)

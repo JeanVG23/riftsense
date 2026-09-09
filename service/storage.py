@@ -8,7 +8,11 @@ from __future__ import annotations
 
 import boto3
 
-_SUFFIX = {"match": ".json.zst", "timeline": ".timeline.json.zst"}
+# Nom de fichier identique à celui de la couche locale (`riotlib._raw_path`, qui
+# compose `{match_id}_{kind}` + `.json.zst`) : un rapatriement de R2 vers
+# data/01_raw/ se fait alors par simple copie, sans passe de renommage. Seul le
+# préfixe `raw/{platform}/` est propre à R2, où il sert de partitionnement.
+_SUFFIX = {"match": "_match.json.zst", "timeline": "_timeline.json.zst"}
 
 
 class R2Storage:
@@ -26,7 +30,7 @@ class R2Storage:
 
     @staticmethod
     def raw_key(platform: str, match_id: str, kind: str) -> str:
-        """`raw/{platform}/{match_id}.json.zst` ou `.timeline.json.zst`."""
+        """`raw/{platform}/{match_id}_match.json.zst` ou `_timeline.json.zst`."""
         return f"raw/{platform}/{match_id}{_SUFFIX[kind]}"
 
     def put_raw(self, platform: str, match_id: str, kind: str, blob: bytes) -> str:

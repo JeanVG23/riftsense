@@ -62,6 +62,19 @@ describe("GET /api/accounts", () => {
       games_count: 3, last_review_ts: "2026-08-30T11:00:00",
     }]);
   });
+
+  it("ne publie pas les comptes inscrits depuis le site", async () => {
+    // Le Riot ID d'un visiteur n'a pas à apparaître sur la page d'accueil : il
+    // s'est inscrit pour consulter ses parties, pas pour entrer dans une galerie.
+    const { env, kv } = await seed();
+    await kv.put(KEYS.account("visiteur-euw"), JSON.stringify({
+      slug: "visiteur-euw", riot_id: "Visiteur#euw", region: "euw1", source: "public",
+    }));
+    await kv.put(KEYS.accounts_index(), JSON.stringify(["spadzze", "visiteur-euw"]));
+    const r = await handle(new Request("http://x/api/accounts"), env);
+    const body = await r.json() as Array<{ slug: string }>;
+    expect(body.map((account) => account.slug)).toEqual(["spadzze"]);
+  });
 });
 
 describe("POST /api/chat", () => {

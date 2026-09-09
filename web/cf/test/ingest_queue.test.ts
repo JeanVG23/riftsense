@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { IngestQueue } from "../src/ingest_queue";
+import { IngestQueue, JOB_TTL_MS, RETRY_AFTER_ERROR_MS } from "../src/ingest_queue";
 
 function fakeState() {
   const storage = new Map<string, unknown>();
@@ -10,6 +10,9 @@ function fakeState() {
       get: async <T>(key: string) => storage.get(key) as T | undefined,
       put: async (key: string, value: unknown) => { storage.set(key, value); },
       delete: async (key: string) => { storage.delete(key); },
+      list: async <T>({ prefix = "" } = {}) => new Map(
+        [...storage.entries()].filter(([key]) => key.startsWith(prefix)),
+      ) as Map<string, T>,
       setAlarm: async (at: number) => { alarms.push(at); },
     },
     blockConcurrencyWhile: async (fn: () => Promise<void>) => fn(),
@@ -122,5 +125,60 @@ describe("IngestQueue", () => {
       new Response(JSON.stringify({ status: "ok", n_games: 3 }), { status: 200 }));
     await queue.alarm();
     expect(await (await status(queue, "b")).json()).toMatchObject({ state: "done" });
+  });
+  it("ne ré-empile pas immédiatement un slug dont la tentative a échoué", async () => {
+    // `last_ingest_ts` n'est écrit que sur le chemin de succès : une inscription
+    // en échec ne laisse aucune trace côté compte, et le martelage y serait
+    // gratuit alors que chaque tentative coûte au moins un appel Riot.
+    vi.stubGlobal("fetch", async () =>
+      new Response(JSON.stringify({ error_code: "riot_id_not_found" }), { status: 422 }));
+    const state = fakeState();
+    const queue = new IngestQueue(state, ENV);
+    await enqueue(queue, "a");
+    await queue.alarm();
+    const alarmsAfterFirst = state.alarms.length;
+
+    const again = await (await enqueue(queue, "a")).json();
+    expect(again).toMatchObject({ state: "error", error_code: "riot_id_not_found" });
+    // Ni remise en file, ni nouvelle alarme : le service n'est pas rappelé.
+    expect(state.alarms.length).toBe(alarmsAfterFirst);
+    await queue.alarm();
+    expect(await (await status(queue, "a")).json()).toMatchObject({ state: "error" });
+  });
+
+  it("ré-empile le slug une fois la fenêtre de nouvelle tentative passée", async () => {
+    vi.stubGlobal("fetch", async () =>
+      new Response(JSON.stringify({ error_code: "riot_unavailable" }), { status: 503 }));
+    const state = fakeState();
+    const queue = new IngestQueue(state, ENV);
+    await enqueue(queue, "a");
+    await queue.alarm();
+
+    const stale = await state.storage.get<{ updated_at: number }>("job:a");
+    await state.storage.put("job:a", { ...stale, updated_at: Date.now() - RETRY_AFTER_ERROR_MS - 1 });
+
+    expect(await (await enqueue(queue, "a")).json()).toMatchObject({ state: "queued" });
+    vi.stubGlobal("fetch", async () =>
+      new Response(JSON.stringify({ status: "ok", n_games: 4 }), { status: 200 }));
+    await queue.alarm();
+    expect(await (await status(queue, "a")).json()).toMatchObject({ state: "done", n_games: 4 });
+  });
+
+  it("purge les statuts de job périmés au passage de l'alarme", async () => {
+    // La file se vide, le journal des jobs non : c'est le vecteur de saturation
+    // durable de l'instance unique, qui est globale.
+    vi.stubGlobal("fetch", async () =>
+      new Response(JSON.stringify({ status: "ok", n_games: 1 }), { status: 200 }));
+    const state = fakeState();
+    const queue = new IngestQueue(state, ENV);
+    await state.storage.put("job:ancien", {
+      state: "done", n_games: 2, updated_at: Date.now() - JOB_TTL_MS - 1,
+    });
+    await enqueue(queue, "recent");
+    await queue.alarm();
+
+    expect((await status(queue, "ancien")).status).toBe(404);
+    // Le job frais, lui, survit : la purge est fondée sur l'âge, pas sur l'état.
+    expect(await (await status(queue, "recent")).json()).toMatchObject({ state: "done" });
   });
 });

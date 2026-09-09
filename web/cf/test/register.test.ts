@@ -17,6 +17,32 @@ describe("parseRiotId", () => {
       expect(parseRiotId(bad), bad).toBeNull();
     }
   });
+
+  it("refuse les caracteres de structure d'URL dans le pseudo", () => {
+    // Sans cette garde, le pseudo traverse le Worker jusqu'a une f-string
+    // interpolee cote service et choisit l'endpoint appele avec la cle Riot.
+    for (const bad of [
+      "../../../lol/match/v5/matches/EUW1_1#euw",
+      "a/b#euw",
+      "a?queue=420#euw",
+      "a%2Fb#euw",
+      "a\\b#euw",
+      "a\u0000b#euw",
+      "a\u001fb#euw",
+      "a\u007fb#euw",
+    ]) {
+      expect(parseRiotId(bad), bad).toBeNull();
+    }
+  });
+
+  it("accepte les pseudos non latins et les espaces", () => {
+    // La garde est une liste noire, pas une liste blanche latine : refuser le
+    // coreen ou le cyrillique ecarterait des joueurs parfaitement legitimes.
+    for (const good of ["\uAE40\uCCA0\uC218#KR1", "\u0418\u0433\u0440\u043E\u043A#RU",
+                        "\u30D2\u30ED#JP1", "Le Petit Chat#euw", "Cr\u00E8me Br\u00FBl\u00E9e#EUW"]) {
+      expect(parseRiotId(good), good).not.toBeNull();
+    }
+  });
 });
 
 describe("slugFor", () => {
@@ -143,6 +169,22 @@ describe("apiRegister", () => {
     expect((await apiRegister(post({ riot_id: "Spadzze#euw", platform: "euw1" }), env)).status)
       .toBe(202);
     expect(seen.body).toBeDefined();
+  });
+
+  it("refuse d'inscrire un compte curé, qui ne peut pas être ré-ingéré par un inconnu", async () => {
+    // Une inscription déclenche une collecte, donc une ÉCRITURE sur le silver et
+    // le gold du compte visé : sans ce refus, un étranger réécrirait les agrégats
+    // d'un compte suivi, et `seed_accounts.py` n'écrivant pas de `last_ingest_ts`,
+    // la fenêtre de fraîcheur ne l'en empêcherait pas au premier passage.
+    const store = new Map<string, string>([["account:spadzze-euw", JSON.stringify({
+      slug: "spadzze-euw", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
+    })]]);
+    const { env, seen } = envWithQueue(store);
+    const response = await apiRegister(post({ riot_id: "Spadzze#euw", platform: "euw1" }), env);
+    expect(response.status).toBe(409);
+    expect(seen.body).toBeUndefined();
+    const body = await response.json() as { detail?: string };
+    expect(body.detail).toMatch(/suivi/);
   });
 
   it("refuse un slug déjà pris par un autre Riot ID", async () => {

@@ -108,7 +108,14 @@ function gameReviewSummary(item: StoredReview): Record<string, unknown> {
 }
 
 async function apiAccounts(env: Env): Promise<Response> {
-  const registry = await listAccounts(env.DATA);
+  // Seuls les comptes curés sont publiés. Un visiteur qui s'inscrit n'a consenti
+  // à rien d'autre qu'à consulter ses propres parties : lister son Riot ID en
+  // vitrine serait une divulgation de donnée personnelle. Accessoirement, chaque
+  // compte publié coûte deux lectures KV et un parcours complet du JSONL de ses
+  // parties, à chaque chargement de page : la galerie est bornée par la curation,
+  // pas par le nombre d'inscrits.
+  const registry = (await listAccounts(env.DATA))
+    .filter((account) => account.source === "curated");
   // Les comptes sont indépendants : lectures KV en parallèle plutôt qu'en série.
   const out = await Promise.all(registry.map(async (account) => {
     const [games, reviews] = await Promise.all([

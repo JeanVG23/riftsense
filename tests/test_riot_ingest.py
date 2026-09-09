@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 import pytest
+import requests
 
 import errors
 import riot_ingest
@@ -115,6 +116,56 @@ def test_aucune_partie_classee(tmp_path, demo_puuid):
     with pytest.raises(errors.NoRankedGames):
         _run(tmp_path, client, FakeKV(), FakeR2())
     assert _pile_medaillon() == before
+
+
+class BrokenRiotClient(FakeRiotClient):
+    """La liste des matchs répond, puis Riot tombe.
+
+    C'est le scénario que `rl.get_match_timeline` rend invisible : il avale ses
+    propres exceptions réseau et rend None, donc la garde `except` de `run` est
+    inerte sur la boucle de collecte.
+    """
+
+    def match(self, match_id):
+        raise requests.ConnectionError("Riot indisponible")
+
+    def timeline(self, match_id):
+        raise requests.ConnectionError("Riot indisponible")
+
+
+def test_une_panne_riot_pendant_la_collecte_ne_se_dit_pas_aucune_partie(
+        tmp_path, demo_puuid):
+    """`riot_unavailable`, jamais `no_ranked_games`.
+
+    Annoncer « aucune partie classée » sur une panne envoie le visiteur douter de
+    son compte alors que le service est en cause : c'est le pire message possible
+    parce qu'il est faux ET actionnable dans la mauvaise direction.
+    """
+    client = BrokenRiotClient(_demo_match_ids(), puuid=demo_puuid)
+    with pytest.raises(errors.RiotUnavailable):
+        _run(tmp_path, client, FakeKV(), FakeR2())
+
+
+def test_le_code_publie_pour_une_panne_de_collecte_est_riot_unavailable(
+        tmp_path, demo_puuid):
+    """Le contrat vu du visiteur : le code vient du TYPE de l'exception."""
+    client = BrokenRiotClient(_demo_match_ids(), puuid=demo_puuid)
+    try:
+        _run(tmp_path, client, FakeKV(), FakeR2())
+    except Exception as exc:  # noqa: BLE001 : c'est le code publie qu'on mesure
+        assert errors.error_code_of(exc) == "riot_unavailable"
+    else:
+        raise AssertionError("la collecte aurait du echouer")
+
+
+def test_aucune_partie_collectee_sans_echec_reste_no_ranked_games(
+        tmp_path, demo_data, demo_puuid):
+    """Un puuid absent de toutes les parties : elles se téléchargent, mais
+    `extract_game` ne rend rien. Aucun échec d'itération, donc le diagnostic
+    honnête reste `no_ranked_games`."""
+    client = FakeRiotClient(_demo_match_ids(), puuid="PUUID-ABSENT-DES-PARTIES")
+    with pytest.raises(errors.NoRankedGames):
+        _run(tmp_path, client, FakeKV(), FakeR2())
 
 
 def test_publie_les_cles_attendues(tmp_path, demo_data, demo_puuid):

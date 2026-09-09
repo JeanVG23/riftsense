@@ -6,17 +6,18 @@ partagées par deux inscrits et fausserait le comptage du dataset.
 """
 from __future__ import annotations
 
+import riotlib as rl
 import storage
 
 
 def test_la_cle_raw_ne_contient_pas_le_slug():
     key = storage.R2Storage.raw_key("euw1", "EUW1_7412345678", "match")
-    assert key == "raw/euw1/EUW1_7412345678.json.zst"
+    assert key == "raw/euw1/EUW1_7412345678_match.json.zst"
 
 
 def test_la_cle_timeline_est_distincte():
     assert storage.R2Storage.raw_key("euw1", "EUW1_7412345678", "timeline") == \
-        "raw/euw1/EUW1_7412345678.timeline.json.zst"
+        "raw/euw1/EUW1_7412345678_timeline.json.zst"
 
 
 def test_la_cle_ne_depend_d_aucun_identifiant_de_joueur():
@@ -46,5 +47,20 @@ def test_put_raw_envoie_la_cle_calculee():
     r2.bucket = "coaching-lol-raw"
     r2.client = _FakeClient()
     key = r2.put_raw("euw1", "EUW1_1", "match", b"payload")
-    assert key == "raw/euw1/EUW1_1.json.zst"
+    assert key == "raw/euw1/EUW1_1_match.json.zst"
     assert sent == {"bucket": "coaching-lol-raw", "key": key, "body": b"payload"}
+
+
+def test_le_nom_de_fichier_suit_la_convention_de_la_couche_locale(tmp_path, monkeypatch):
+    """Un rapatriement de R2 vers data/01_raw/ doit être une copie, pas un
+    renommage : le nom de fichier produit ici est celui que `riotlib._raw_path`
+    va chercher. Le coût de la divergence croît avec le contenu du bucket."""
+    monkeypatch.setattr(rl, "DATA", tmp_path)
+    raw_dir = rl.raw_dir()
+    raw_dir.mkdir(parents=True)
+    for kind in ("match", "timeline"):
+        local = raw_dir / f"EUW1_7412345678_{kind}.json.zst"
+        local.write_bytes(b"x")
+        key = storage.R2Storage.raw_key("euw1", "EUW1_7412345678", kind)
+        assert key.rsplit("/", 1)[-1] == local.name
+        assert rl._raw_path(f"EUW1_7412345678_{kind}") == local

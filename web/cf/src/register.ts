@@ -10,8 +10,9 @@ import type { Env } from "./index";
 
 /** Miroir des clés de `PLATFORM_TO_REGIONAL` (src/core/riotlib.py).
  * Verrouillé par tests/test_platform_parity.py : proposer au visiteur une
- * plateforme que le service ne sait pas router produirait une erreur `internal`
- * une minute après l'inscription, au lieu d'un refus immédiat. */
+ * plateforme que le service ne sait pas router produirait un `riot_id_not_found`
+ * (le type levé par `riot_ingest.build_client`) une minute après l'inscription,
+ * c'est-à-dire un doute sur son Riot ID, au lieu d'un refus immédiat et exact. */
 export const PLATFORMS = [
   "euw1", "eun1", "tr1", "ru", "me1",
   "na1", "br1", "la1", "la2",
@@ -24,6 +25,18 @@ export const PLATFORMS = [
  * rafraîchit sa page. */
 export const FRESH_WINDOW_MS = 6 * 60 * 60 * 1000;
 
+/** Caractères refusés dans un pseudo : structure d'URL et points de contrôle.
+ *
+ * Une liste noire, et surtout pas une liste blanche latine : les pseudos Riot
+ * acceptent le coréen, le cyrillique, le japonais et les espaces, qu'une liste
+ * blanche ASCII refuserait. Ce qui est interdit ici est exactement ce qui
+ * changerait la forme de l'URL construite côté service.
+ *
+ * La garde est doublée côté Python (`riotlib.puuid_from_riot_id` encode ses deux
+ * segments) et c'est voulu : la validation refuse tôt et explique au visiteur,
+ * l'encodage protège quel que soit l'appelant. */
+const FORBIDDEN_IN_NAME = /[/?#%\\\u0000-\u001f\u007f]/;
+
 export function parseRiotId(value: string): { gameName: string; tagLine: string } | null {
   const parts = value.trim().split("#");
   if (parts.length !== 2) return null;
@@ -31,6 +44,7 @@ export function parseRiotId(value: string): { gameName: string; tagLine: string 
   const tagLine = parts[1].trim();
   if (!gameName || !tagLine) return null;
   if (gameName.length > 32 || !/^[A-Za-z0-9]{2,5}$/.test(tagLine)) return null;
+  if (FORBIDDEN_IN_NAME.test(gameName)) return null;
   return { gameName, tagLine };
 }
 
@@ -88,6 +102,16 @@ export async function apiRegister(request: Request, env: Env): Promise<Response>
   const existing: Account | null = await readAccount(env.DATA, slug);
   if (existing && existing.riot_id.toLowerCase() !== riotId.toLowerCase()) {
     return jsonError(409, "ce slug est déjà pris par un autre compte");
+  }
+  if (existing?.source === "curated") {
+    // Une inscription n'est pas qu'une lecture : elle déclenche une collecte, donc
+    // une ÉCRITURE sur `silver:{slug}:games` et `gold:{slug}:*`. Or ces clés ont
+    // deux écrivains aux sémantiques opposées (le service fusionne,
+    // sync_cloudflare.py remplace depuis le local). Sans preuve de propriété, un
+    // étranger pourrait réécrire les agrégats d'un compte suivi. Le refus est un
+    // 409 déjà existant : la liste des codes d'erreur du service reste fermée.
+    return jsonError(409, "ce compte est déjà suivi et se met à jour tout seul ; "
+                          + "consulte-le directement depuis la page d'accueil");
   }
   const last = existing?.last_ingest_ts ? Date.parse(existing.last_ingest_ts) : NaN;
   if (Number.isFinite(last) && Date.now() - last < FRESH_WINDOW_MS) {

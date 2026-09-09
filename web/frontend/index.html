@@ -224,9 +224,11 @@
         <section class="card" x-data="registerPage()">
           <h2>Analyser mon compte</h2>
           <p class="muted">
-            Saisis ton Riot ID : on récupère tes vingt dernières parties classées et on les
-            compare aux référentiels par rang. Les analyses écrites par le modèle restent
-            réservées, mais toutes tes statistiques sont accessibles.
+            Saisis ton Riot ID : on récupère tes vingt dernières parties classées et on
+            t'ouvre ton tableau de bord (le détail de chaque partie, ton rang et ton profil
+            de jeu). Les analyses écrites par le modèle restent réservées. Ton compte
+            n'apparaît pas dans la liste ci-dessus : le lien de ta page ne sera connu que
+            de toi.
           </p>
           <form @submit.prevent="submit()" class="row wrap">
             <label class="field-label" for="riot-id">Riot ID
@@ -257,7 +259,9 @@
     <template x-if="route.name === 'register'">
       <div x-data="registerPage()" class="page-intro home-intro">
         <p class="eyebrow">INSCRIPTION</p>
-        <h1>Analyse de ton compte en cours</h1>
+        <!-- Le titre suit l'état : garder « Analyse en cours » au-dessus d'un message
+             d'erreur dit au visiteur le contraire de ce qui s'est passé. -->
+        <h1 x-text="state === 'error' ? 'Analyse impossible' : 'Analyse de ton compte en cours'"></h1>
         <div class="card">
           <p x-show="state === 'queued'" class="muted">
             En file d'attente<span x-show="position" x-text="` (position ${position})`"></span>.
@@ -267,6 +271,11 @@
             Collecte en cours auprès de l'API Riot. Cela prend jusqu'à une minute.
           </p>
           <p x-show="error" class="state err" x-text="error"></p>
+          <!-- Sans ce retour, un échec laisse le visiteur sur une page morte : le
+               formulaire est sur l'accueil, et rien ne l'y ramène. -->
+          <p x-show="state === 'error'" class="row">
+            <a class="btn" href="/" @click.prevent="backToForm()">Revenir au formulaire</a>
+          </p>
         </div>
       </div>
     </template>

@@ -1,7 +1,10 @@
 """Parité de la liste des plateformes entre le formulaire et le routeur Riot.
 
-Une plateforme proposée au visiteur mais absente de PLATFORM_TO_REGIONAL donne
-une erreur `internal` une minute après l'inscription, au lieu d'un refus immédiat.
+Une plateforme proposée au visiteur mais absente de PLATFORM_TO_REGIONAL fait
+lever `RiotIdNotFound` à `riot_ingest.build_client`, donc un `riot_id_not_found`
+publié une minute après l'inscription : le visiteur doute de son Riot ID alors
+que c'est le formulaire qui lui a proposé un serveur non routé. Un refus immédiat
+et exact vaut mieux, d'où cette parité.
 """
 from __future__ import annotations
 

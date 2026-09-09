@@ -500,6 +500,14 @@ function registerPage() {
     goToProfile() {
       window.dispatchEvent(new CustomEvent("coach-go", { detail: { path: `/c/${this.slug}` } }));
     },
+
+    // Sortie de secours depuis la page d'attente en échec. Le sondage est arrêté
+    // explicitement : `Alpine.onElRemoved` s'en chargerait aussi, mais dépendre du
+    // démontage laisserait une requête en vol pendant la navigation.
+    backToForm() {
+      this.stopPolling();
+      window.dispatchEvent(new CustomEvent("coach-go", { detail: { path: "/" } }));
+    },
   };
 }
 

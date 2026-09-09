@@ -89,6 +89,7 @@ def run(payload: dict, *, client, kv, r2, data_dir: Path, max_games: int = 20) -
         # l'écrasante majorité du trafic) doit rendre le même code `riot_unavailable`.
         # `RuntimeError` = épuisement des retries dans `riotlib._get`, même symptôme
         # qu'une `requests.RequestException` non retryée.
+        failed = 0
         try:
             puuid = client.puuid_from_riot_id(game_name, tag_line)
             if not puuid:
@@ -100,9 +101,21 @@ def run(payload: dict, *, client, kv, r2, data_dir: Path, max_games: int = 20) -
 
             games, collected = [], []
             for match_id in match_ids:
+                # `rl.get_match_timeline` avale ses propres exceptions réseau et
+                # rend None (code partagé avec le pilote local, qui préfère sauter
+                # une partie plutôt que d'interrompre un scraping de plusieurs
+                # heures). La garde `except` ci-dessous est donc INERTE sur cette
+                # boucle : sans ce comptage, une panne Riot survenue après
+                # `match_ids` produirait zéro partie et serait annoncée au visiteur
+                # comme « aucune partie classée », c'est-à-dire un doute sur son
+                # compte au lieu d'un diagnostic sur le service.
                 got = rl.get_match_timeline(client, match_id)
                 if not got:
+                    failed += 1
                     continue
+                # `extract_game` qui rend None n'est PAS un échec : c'est un filtre
+                # (patch, file, carte) qui a fait son travail sur une partie
+                # correctement téléchargée.
                 game = rl.extract_game(got[0], got[1], puuid)
                 if game:
                     games.append(game)
@@ -110,6 +123,9 @@ def run(payload: dict, *, client, kv, r2, data_dir: Path, max_games: int = 20) -
         except (requests.RequestException, RuntimeError) as exc:
             raise RiotUnavailable(str(exc)) from exc
         if not games:
+            if failed:
+                raise RiotUnavailable(
+                    f"{failed} partie(s) non collectée(s) sur {len(match_ids)}")
             raise NoRankedGames(riot_id)
 
         # Amorçage depuis l'historique KV existant : `merge_jsonl` fusionne contre

@@ -29,7 +29,31 @@ export interface JobStatus {
 }
 
 const QUEUE_KEY = "queue";
-const jobKey = (slug: string) => `job:${slug}`;
+const JOB_PREFIX = "job:";
+const jobKey = (slug: string) => `${JOB_PREFIX}${slug}`;
+
+/** Délai avant qu'un slug dont la dernière tentative a ÉCHOUÉ redevienne
+ * empilable.
+ *
+ * L'anti-doublon de `register.ts` s'appuie sur `last_ingest_ts`, qui n'existe
+ * que sur le chemin de succès : une inscription en échec ne créait aucun compte
+ * et redevenait empilable dès que le job passait de `running` à `error`. Le trou
+ * était exactement là où le martelage est gratuit, chaque tentative coûtant au
+ * moins un appel Riot.
+ *
+ * Cinq minutes, pas six heures : une panne Riot passagère ou un tag mal tapé se
+ * corrige tout de suite, et une fenêtre longue punirait le visiteur de bonne foi
+ * bien plus que le marteleur. */
+export const RETRY_AFTER_ERROR_MS = 5 * 60 * 1000;
+
+/** Âge au-delà duquel un statut `job:{slug}` est supprimé au passage de l'alarme.
+ *
+ * La file se vidait, le journal des jobs non : c'est le vecteur de saturation
+ * durable de l'instance unique. Vingt-quatre heures, largement au-dessus de
+ * `RETRY_AFTER_ERROR_MS` (une purge plus courte rouvrirait la porte au
+ * martelage) et au-dessus de la durée de vie d'un onglet en attente, dont le
+ * sondage retomberait sinon sur un 404. */
+export const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class IngestQueue {
   constructor(private state: DurableObjectState, private env: Env) {}
@@ -63,6 +87,12 @@ export class IngestQueue {
       // statut de "running" à "queued", visible du visiteur qui recharge la page.
       return current;
     }
+    if (current?.state === "error"
+        && Date.now() - current.updated_at < RETRY_AFTER_ERROR_MS) {
+      // Même corps qu'un statut ordinaire : le visiteur revoit son code d'erreur,
+      // le service n'est pas rappelé, et aucun cinquième code n'apparaît.
+      return current;
+    }
     const queue = await this.queue();
     let position = queue.findIndex((item) => item.slug === entry.slug) + 1;
     if (position === 0) {
@@ -87,7 +117,20 @@ export class IngestQueue {
     return { ...status, position: position || 1 };
   }
 
+  /** Supprime les statuts de job périmés. Appelée au passage de l'alarme, donc
+   * amortie sur le trafic d'inscription : pas de tâche de fond à surveiller. */
+  private async purgeStaleJobs(): Promise<void> {
+    const jobs = await this.state.storage.list<JobStatus>({ prefix: JOB_PREFIX });
+    const cutoff = Date.now() - JOB_TTL_MS;
+    for (const [key, status] of jobs) {
+      if (typeof status?.updated_at === "number" && status.updated_at < cutoff) {
+        await this.state.storage.delete(key);
+      }
+    }
+  }
+
   async alarm(): Promise<void> {
+    await this.purgeStaleJobs();
     const queue = await this.queue();
     const entry = queue[0];
     if (!entry) return;
