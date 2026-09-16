@@ -44,4 +44,5 @@ web/cf/.wrangler/
 # negation ci-dessous inoperante (git n'ouvre pas un repertoire exclu).
 docs/*
 !docs/MODEL_CARD.md
+!docs/PROGRESS.md
 info_gcp.md

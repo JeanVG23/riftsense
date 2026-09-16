@@ -221,64 +221,14 @@ Renommer un dossier data SANS mettre à jour le code → le code recrée l'ancie
 
 ### Modules `core/`
 
-- **`riotlib.py`** — socle (helpers de chemins médaillon `silver_games`/`gold_base`/
-  `gold_aggregate`/`silver_roots` + `KIND_REF`/`KIND_PERSONAL` — ⚠️ résolus depuis `DATA` À
-  L'APPEL, les tests substituant `rl.DATA` ; primitives publiques `participant_id`/`find_pid`/
-  `frames_by_minute`/`iter_events`/`cs_of` ; `MatchCache` = travail par-match partagé par
-  `extract_all_games`) : `RiotClient` (routing régional account/match vs plateforme league ;
-  rate-limiter ~1.3s/appel ; `entries_by_puuid` = rang courant via league-v4, frais pour le
-  coach web), helpers (`approx_zone`, `phase_of`, `patch_of`), `get_match_timeline` (cache raw
-  compressé zstd), `extract_game` (silver + benchmark de lane + sous-objet `comp` des 6 champions
-  botlane + sous-objet `position` via `positioning`), `aggregate`/`write_gold` (gold, facettes
-  win/loss + dimension `by_lane_context` + bloc `positioning` = médianes des 14 features
-  COACHING_SAFE via `_fmedian`, sans arrondi entier), chemins médaillon. Importe `champion_profiles`.
-- **`positioning.py`** — features macro-positionnement depuis la timeline (0 CV, module pur).
-  `positioning_features` → 17 scalaires nichés sous `record["position"]`. Manifeste d'asymétrie
-  mécanique : `COACHING_SAFE` (14 exactes → ML + coaching) vs `ML_ONLY` (3 proxys vision →
-  jamais prescrits). ⚠️ **Profondeur** (`avg/max_map_depth`) : sens contre-intuitif (valeur haute
-  → diamond, rang INFÉRIEUR) → marqueur de risque, jamais à prescrire.
-- **`game_journal.py`** — journal structuré d'UNE game depuis match+timeline raw (0 CV). Morts
-  et recalls **horodatés** (clock mm:ss) avec contexte : zone/phase, gold-state vs adversaire,
-  **gold non dépensé**, killer/gank, **objectif up/imminent** (timers v1 en tête de module :
-  drake 5:00/+5:00, baron 25:00/+6:00 — ajuster par patch ; Elder/Atakhan ignorés). Recalls =
-  clusters d'`ITEM_PURCHASED` (inclut resets après mort, `gold_before` = plancher frame précédente),
-  **`item_ids`** par recall (achats bruts, `ITEM_UNDO` honoré = retiré, `ITEM_SOLD` ignoré v1).
-  **Asymétrie** : uniquement de l'info que le joueur avait — aucun proxy ML_ONLY.
-  **Conséquences post-mort** (chaîne causale, 2026-07-18) : chaque mort porte un bloc
-  `consequences` calculé mécaniquement — objectifs (`ELITE_MONSTER_KILL` ennemi) et
-  bâtiments (`BUILDING_KILL`, ⚠️ `teamId` = équipe qui PERD) pris dans les
-  `CONSEQUENCE_WINDOW_S=60` s post-mort, + `team_gold_swing_90s` (écart de gold
-  d'équipe avant vs ~90 s après). Clé omise si fenêtre vide. `SYSTEM_GAME` impose de
-  restituer la chaîne (« mort → Baron perdu → -1 840 g ») en formulation corrélationnelle.
-- **`champion_profiles.py`** — identité champion : `champion_vector` (Data Dragon + table curée,
-  résolution casse-insensible), `derive_context(comp)` → `lane_pattern`
-  (poke/all_in/scaling/mixed/unknown) et `gank_exposure` (low/med/high/unknown). `fetch_ddragon`
-  (one-shot, idempotent). Champion inconnu → `unknown`, jamais d'erreur. `fetch_ddragon_items`/
-  `load_items` — même pattern one-shot pour le catalogue d'items Data Dragon (`item.json` →
-  `data/00_static/ddragon/<version>/`, `{id: {name, cost}}`).
-- **`ml_features.py`** — FEATURES canonique (partagé train/serve) + `aggregate_player_features`
-  (mean/std/p10/p50/p90 dérivés de la table unique `AGG_FUNCS` + `win_rate`) + `resolve_rank`
-  (mode, tie-break rang le plus bas). Réexporte `RANK_ORD` depuis `ranks`.
-- **`ranks.py`** — source unique des rangs et des cibles binaires (`RANKS`, `RANK_ORD`,
-  `HIGH_ELO`, `APEX`, `COLLECT_ORDER`, `TARGETS` = `high_elo`/`dia_chall`). Stdlib-only pour
-  rester importable par la collecte. ⚠️ La frontière de rang est un paramètre de recherche
-  actif : la déplacer se fait ICI, ces constantes étaient recopiées dans ~11 scripts.
-- **`cli.py`** — `arg`/`flag`/`int_arg`/`csv_arg` : parseur argv des scripts de collecte
-  (recopié à l'identique dans 7 fichiers). `live_capture.py` garde sa copie (stdlib-only assumé).
-- **`kv_keys.py`** — gabarits des clés Cloudflare KV côté Python (`key("gold", slug=…, scope=…)`),
-  dont le bundle local `coaching:{slug}:game-payloads` consommé par le coaching unitaire web.
-  Miroir de `KEYS` dans `web/cf/src/readers.ts`, verrouillé par `tests/test_kv_keys_parity.py`
-  (deux runtimes = deux tables, mais toute divergence de nom/gabarit fait échouer le test).
-- **`ebm_explain.py`** : moteur d'analyse EBM glass-box unifié, registre déclaratif `LEVELS`
-  aux rôles explicites : "player" = explication du modèle servi (features agrégées,
-  drivers publiés par le sync), "game" = modèle d'explication du jeu-type dia_chall
-  (re-entraîné dans le DAG, JAMAIS servi pour le rang). Shape functions exactes avec
-  seuils de bascule (`shape_summary`, cœur [p5, p95]), contributions par terme,
-  cross-check SHAP-sur-arbres xgb+rf (`crosscheck`), décomposition exacte d'un joueur
-  (`explain_player_row` + `top_drivers`). Bibliothèque pure : 0 écriture disque, import
-  shap différé (le sync ne charge pas ce runtime pour rien). Consommée par le CLI
-  `03_data_analyse/shap_analysis.py --level {player,game}` et par `sync_cloudflare.py`
-  (drivers per-player sous `shap:{slug}:drivers`).
+Détail par fichier (`riotlib.py`, `positioning.py`, `game_journal.py`,
+`champion_profiles.py`, `ml_features.py`, `ranks.py`, `cli.py`, `kv_keys.py`,
+`ebm_explain.py`) : **`src/core/CLAUDE.md`**. À retenir au niveau projet :
+`ranks.py` est la source unique des rangs/cibles (déplacer la frontière de rang
+se fait ICI, pas dans les ~11 scripts qui la consommaient avant) ; `positioning.py`
+sépare mécaniquement `COACHING_SAFE` (14 features → ML + coaching) de `ML_ONLY`
+(3 proxys vision, jamais prescrits) ; `game_journal.py` ne restitue que l'info
+que le joueur avait (aucun proxy `ML_ONLY`).
 
 ### Modules `collection/`
 
@@ -414,88 +364,54 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   `core/ebm_explain.py` : ranking + shape functions exactes avec seuils de bascule,
   interactions par paires au niveau game, cross-check SHAP-sur-arbres, visuels et
   diagnostics LOWESS via `plotter.py` ; drivers Spadzze au niveau game uniquement).
-- **`04_coaching/`** : narration LLM (Ollama Cloud, structured output).
-  `payload.py` (gold perso+réf → payload déterministe, **safe-only** : positioning ⊂
-  COACHING_SAFE, profondeur `descriptive_only` ; **échantillon qualitatif borné** :
-  `_game_review_sample` produit `none` / `unbalanced` (1 review, une seule issue représentée) /
-  `balanced` (≤ 2 victoires + 2 défaites), dédup par `match_id`, scope résolu par
-  `rl.filter_scope` — `meta` distingue `n_game_reviews_available*` de `n_game_reviews_used*`,
-  cette parité n'est PAS un winrate), `prompt.py` (system asymétrie + benchmark-relatif,
-  FR ; **le texte des prompts vit dans `shared/prompts/*.txt`**, `prompt.py` ne fait que le lire
-  et stripper le newline final, exactement comme le Worker via `web/cf/src/generated/shared.ts` :
-  un seul texte pour les deux runtimes), `schema.py` (Pydantic : `Review` 1-3 forces / 3 erreurs /
-  2 habitudes / 1 focus / confidence, **preuve chiffrée par point** — forcer exactement 3 forces
-  poussait au remplissage, cause du tag feedback « trop-vague » ; `GameReview` 0-2 forces / 1-3
-  erreurs `GameInsight` — **`cause` obligatoire (POURQUOI : mécanisme de mort / comportement) +
-  horodatage mm:ss dans l'evidence, sur forces ET erreurs** (réponse feedback « je sais pas
-  pourquoi je suis mort ») ; pas de habits sur 1 game ; `Feedback`/`FeedbackItem`.
-  `review_json_schema()`/`game_review_json_schema()` renvoient désormais le schéma **strict**
-  (inliné : `$defs`/`$ref` résolus, sans `title`/`description`, `additionalProperties: false`,
-  contrainte mm:ss portée par un `pattern` du schéma plutôt que par un validateur seul) : c'est
-  ce schéma, sérialisé une fois, que consomme aussi le Worker. `schema_version_of` +
-  `REVIEW_SCHEMA_VERSION`/`GAME_REVIEW_SCHEMA_VERSION` = empreinte sha256 du schéma, au même
-  titre que `prompt.version_of` pour le prompt),
-  `grounding.py` (vérifications d'ancrage, 0 réseau), `counterfactual.py` (tests
-  contrefactuels, 1 appel par perturbation),
-  `llm_client.py` (client `https://ollama.com/api/chat`, `OLLAMA_API_KEY`, `format`=JSON-schema,
-  défaut `kimi-k2.6` ; `generate` renvoie `Generation(data, usage)` = sortie + télémétrie),
-  `coach.py` (CLI : payload→prompt→client→validation→affiche+persiste),
-  `feedback.py` (CLI `annotate`/`summary` : boucle d'éval par-insight).
-  **Traçabilité des runs** : chaque review persistée porte un bloc `run`
-  (`prompt_version` = empreinte sha256 du system prompt via `prompt.version_of`, donc
-  impossible à oublier de bumper ; **`schema_version`** = même empreinte côté schéma via
-  `schema_version_of`, présent dans les deux runtimes ; `latency_ms`/`total_tokens` cumulés
-  **retries de schéma inclus** ; `schema_retries` ; `cost_usd` = `None` tant que
-  `llm_client.PRICE_PER_MTOK` est vide, Ollama Cloud étant facturé à l'abonnement). Sans ce
-  bloc, une variation du taux d'utilité n'est attribuable ni au prompt ni au modèle.
-  ⚠️ Les empreintes de prompt (`PROMPT_VERSION`/`GAME_PROMPT_VERSION`) sont figées par
-  `tests/test_shared_contract.py` : `web/cf/src/coaching_context.ts` compare le
-  `prompt_version` d'une review persistée à la version courante pour la classer
-  `ready`/`stale` côté web, donc un hash qui bougerait sans le vouloir périmerait
-  silencieusement cette classification.
-  **Chemin par-game** : `payload.build_game` (journal `game_journal` + repères référentiel à issue
-  égale ; recalls enrichis d'items résolus {nom, coût} via `champion_profiles.load_items` — plus
-  d'`item_ids` bruts côté LLM ; bloc `context` = comp botlane/jungle/mid + `lane_pattern`/
-  `gank_exposure` via `derive_context`), `prompt.SYSTEM_GAME` (règle matchup basée sur ce
-  `context` + règle de gold relatif au prochain achat de chaque recall), `coach.py --game [latest|MATCH_ID]` (records `kind: "game"` +
-  `match_id`), `coach.py --game-batch [N]` (défaut 10 : reviews par-game des N dernières games ADC
-  pas encore reviewées, dédup par `match_id`, poursuit sur échec, bilan final).
-  **Chemin par-game côté web** : `payload.build_game_bundle` sérialise ces payloads (clé KV
-  `coaching:{slug}:game-payloads`, `payload_hash` + `benchmark_scope` = champion sinon rôle
-  sinon global) ; `web/cf/src/game_coach.ts` relit l'entrée demandée, réutilise une review
-  existante sans appel LLM et ne régénère que sur `force`. Les motifs d'indisponibilité
-  publiés (`raw_missing`/`benchmark_missing`/`not_eligible`) sont dérivés du **type**
-  d'exception (`RawMissing`/`BenchmarkMissing`/`GameNotEligible`), jamais du texte du message.
-  ⚠️ Les trois chemins qui consomment du LLM côté site (`/api/coach`, `/api/coach/game`,
-  `/api/chat`) sont derrière `auth.ts` (`COACH_AUTH_PASSWORD`), et sérialisés par joueur par
-  le Durable Object `CoachGate` (verrou tenu jusqu'à la fermeture réelle du flux SSE, sinon
-  deux générations concurrentes écrivent le même JSONL). Le client Ollama du Worker
-  streame (`stream: true`) : sans streaming, une génération > 125 s finit en HTTP 524, Ollama
-  Cloud étant lui-même derrière Cloudflare.
-  `feedback.py annotate --pending` : itère en série toutes les reviews sans feedback. `summary` :
-  taux par section + top tags + par modèle + tendance + verbatims `tag_notes` + bloc `Objectif
-  par-game` (`objective_stats` : % mistakes utiles sur les reviews `kind: "game"`). Le champ
-  `note` est aussi exposé côté web (`web/frontend/`, textarea sous chaque item noté, `POST /api/feedback`).
-  **Éval automatique (0 humain, 0 annotation)** : `grounding.py` (les chiffres et
-  horodatages cités existent-ils dans le payload ? + violations d'asymétrie) et
-  `counterfactual.py` (le coach LIT-il le payload ? on perturbe une dimension, on
-  régénère, on vérifie que la sortie suit). ⚠️ Deux points non négociables : le
-  **cloisonnement par unité** de `grounding` (sans lui, n'importe quel nombre du
-  journal ancre n'importe quelle stat : 30 % de détection au lieu de 91 %) et la
-  **calibration par contrôle négatif** (`ROUNDED_REL=0.01`, mesurée dans
-  `tests/test_grounding.py` — un taux d'ancrage sans mesure de puissance ne veut
-  rien dire). Les sorties contrefactuelles sont persistées dans
-  `data/07_coaching/<player>/eval/`, JAMAIS dans `reviews.jsonl` (ni annotation ni
-  publication : ce ne sont pas des reviews du joueur).
-  **Publication du taux** : `feedback.eval_report` / `summary --json` (rapport machine) côté
-  local ; côté site le Worker le recalcule À LA LECTURE (`web/cf/src/evaluation.ts`,
-  `GET /api/c/<slug>/eval`, affiché en tête de l'onglet Coaching, atteint ou non) — un blob
-  précalculé au sync serait périmé dès la première annotation laissée depuis le web. Seuils
-  (`_OBJECTIVE_N`=10, `_OBJECTIVE_RATE`=0.70) verrouillés entre les deux runtimes par
-  `tests/test_eval_parity.py`. Les reviews/feedbacks locaux rejoignent KV via
-  `sync_cloudflare.py --push-coaching` (fusion par `ts`, jamais d'écrasement).
-  Lancer : `python3 src/04_coaching/coach.py --player spadzze --scope adc [--game|--game-batch N]`,
-  `python3 src/04_coaching/feedback.py annotate --player spadzze [--last|--ts|--pending]`. Aucun réseau.
+- **`04_coaching/`** : narration LLM (Ollama Cloud, structured output). Pipeline,
+  modules (`payload`/`prompt`/`schema`/`llm_client`/`coach`/`feedback`), boucle
+  d'éval (`grounding`/`counterfactual`/`model_ab`) et historique A/B modèles :
+  **`src/04_coaching/README.md`** (documentation détaillée du dossier). Ce qui
+  suit est ce que le README ne couvre pas.
+  - **Prompts/schémas partagés** : le texte des prompts vit dans
+    `shared/prompts/*.txt` (`prompt.py` le lit et strip le newline final,
+    exactement comme le Worker via `web/cf/src/generated/shared.ts` : un seul
+    texte pour les deux runtimes). `review_json_schema()`/`game_review_json_schema()`
+    renvoient le schéma JSON **strict** inliné (`$defs` résolus, pas de
+    `title`/`description`, `additionalProperties: false`) consommé aussi par le
+    Worker. `schema_version_of`/`REVIEW_SCHEMA_VERSION`/`GAME_REVIEW_SCHEMA_VERSION`
+    = empreinte sha256 du schéma, comme `prompt.version_of` pour le prompt.
+    ⚠️ `PROMPT_VERSION`/`GAME_PROMPT_VERSION` sont figées par
+    `tests/test_shared_contract.py` : `web/cf/src/coaching_context.ts` compare
+    le `prompt_version` d'une review à la version courante pour classer
+    `ready`/`stale` côté web — un hash qui bougerait sans le vouloir périmerait
+    silencieusement cette classification.
+  - **Chemin par-game** : `payload.build_game` (journal `game_journal` +
+    repères référentiel à issue égale ; recalls enrichis d'items résolus
+    {nom, coût} via `champion_profiles.load_items` ; bloc `context` = comp
+    botlane/jungle/mid + `lane_pattern`/`gank_exposure` via `derive_context`),
+    `prompt.SYSTEM_GAME` (règle matchup basée sur ce `context` + règle de gold
+    relatif au prochain achat de chaque recall), `coach.py --game
+    [latest|MATCH_ID]` (records `kind: "game"` + `match_id`), `coach.py
+    --game-batch [N]` (défaut 10 : reviews des N dernières games ADC pas
+    encore reviewées, dédup par `match_id`, poursuit sur échec).
+  - **Chemin par-game côté web** : `payload.build_game_bundle` sérialise ces
+    payloads (clé KV `coaching:{slug}:game-payloads`, `payload_hash` +
+    `benchmark_scope` = champion sinon rôle sinon global) ; `web/cf/src/game_coach.ts`
+    relit l'entrée demandée, réutilise une review existante sans appel LLM et
+    ne régénère que sur `force`. Les motifs d'indisponibilité publiés
+    (`raw_missing`/`benchmark_missing`/`not_eligible`) sont dérivés du **type**
+    d'exception (`RawMissing`/`BenchmarkMissing`/`GameNotEligible`), jamais du
+    texte du message. ⚠️ Les trois chemins LLM du site (`/api/coach`,
+    `/api/coach/game`, `/api/chat`) sont derrière `auth.ts`
+    (`COACH_AUTH_PASSWORD`) et sérialisés par joueur par le Durable Object
+    `CoachGate` (verrou tenu jusqu'à la fermeture réelle du flux SSE). Le
+    client Ollama du Worker streame (`stream: true`) : sans streaming, une
+    génération > 125 s finit en HTTP 524 (Ollama Cloud est lui-même derrière
+    Cloudflare).
+  - **Publication du taux d'éval** : recalculé À LA LECTURE côté site
+    (`web/cf/src/evaluation.ts`, `GET /api/c/<slug>/eval`), jamais poussé
+    précalculé (un blob figé au sync serait périmé dès la première annotation
+    laissée depuis le web). Seuils (`_OBJECTIVE_N=10`, `_OBJECTIVE_RATE=0.70`)
+    verrouillés entre les deux runtimes par `tests/test_eval_parity.py`.
+  Lancer : `python3 src/04_coaching/coach.py --player spadzze --scope adc
+  [--game|--game-batch N]`. Aucun réseau côté `grounding`/`feedback`.
 
 Pipeline contexte (0 API) : `champion_profiles` (fetch DDragon one-shot) → `reextract_silver`
 (silver + comp) → compléter `champion_traits.json` via `list_unknown_champions` → `rebuild_gold`
@@ -510,208 +426,66 @@ COACHING_SAFE uniquement).
 Scopes : `all` · `adc` (BOTTOM) · `zeri` (champion). Filtre patch courant, SR (mapId 11),
 ranked solo (queue 420). Spec : `docs/superpowers/specs/`.
 ⚠️ **`docs/superpowers/` (specs et plans) n'est plus versionné** (2026-09-07) : ces documents
-vivent en local, seul `docs/MODEL_CARD.md` reste suivi. Toute référence à une spec dans ce
-fichier pointe donc vers un document absent d'un clone frais ; l'historique git garde les
-versions antérieures à cette date.
+vivent en local, seuls `docs/MODEL_CARD.md` et `docs/PROGRESS.md` restent suivis. Toute
+référence à une spec dans ce fichier pointe donc vers un document absent d'un clone frais ;
+l'historique git garde les versions antérieures à cette date.
 
 ## État d'avancement
 
-- **Analyse ML unifiée (EBM glass-box)** ✅ (2026-09-08) : un moteur unique
-  (`core/ebm_explain.py`, registre `LEVELS` player/game) sert l'analyse des deux niveaux
-  ET la chaîne aval. `make analyse` (dans `make pipeline`) écrit
-  `06_shap/{player/high_elo,game/dia_chall}/`. Le sync publie la décomposition exacte
-  per-player sous `shap:{slug}:drivers` (champ `contribution`, array JSON nu, clé
-  inchangée : le Worker ne bouge pas) et l'onglet « Analyse ML » du site affiche les
-  contributions EBM. Le rang servi reste xgb+rf ; les drivers EBM sont légitimés par le
-  cross-check population (`crosscheck_tree_vs_ebm.json`).
-  ⚠️ **Asymétrie côté publication** : les 3 proxys `ML_ONLY` (`pos_frac_deaths_in_fog`,
-  `pos_avg_unaccounted_enemies`, `pos_overext_x_unaccounted`) nourrissent le MODÈLE mais
-  sont RETIRÉS du payload publié (`sync_cloudflare._is_ml_only`, garde par `assert` sur le
-  payload sortant, pendant de celui de `compare.py`) : l'onglet est lu par le joueur, et
-  lui montrer une barre « morts en fog » lui opposerait une info reconstruite a posteriori
-  qu'il n'avait pas. Ce qui est publié est donc un EXTRAIT (top-20 sur 125 features, proxys
-  retirés) : la somme des barres ne vaut pas le score, c'est assumé. L'onglet porte la
-  mention de lecture descriptive, en particulier pour `map_depth` (marqueur de risque).
-  Cf. spec locale
-  `docs/superpowers/specs/2026-09-08-unified-ebm-analysis-design.md`.
+Historique complet des runs, métriques et decisions (dates, chiffres, specs) :
+`docs/PROGRESS.md`. Résumé de l'état actif ci-dessous.
 
-- **Incrément LLM enrichi validé (cohorte de prompt)** ✅ — 2026-09-07. Lot frais de 10 reviews
-  par-game sous la cohorte `350f7c404b5b` (`kimi-k2.6`), évalué automatiquement AVANT toute
-  annotation : ancrage des nombres **97,2 %** (252 nombres, 92,5 % exacts), des horodatages
-  **99,3 %** (134 horloges), **0 violation d'asymétrie** ; contrefactuels (3 runs,
-  `data/07_coaching/spadzze/eval/counterfactual.json`) sensibilité **1,00**, ancrage 93,1 %.
-  Annotation humaine ensuite : 10/10 reviews, **100 % de `mistakes` utiles** (40 items) contre
-  96,4 % pour la cohorte antérieure `none` (12 reviews). Critère produit (≥ 70 % sur ≥ 10
-  reviews) atteint. ⚠️ Les deux cohortes sont deux populations **observées** : games, payload
-  et prompt ont changé ensemble, l'écart n'est pas attribuable au seul prompt.
-- **Coaching unitaire servi par le site** ✅ — 2026-09-07. `POST /api/coach/game` analyse UNE
-  partie depuis le bundle KV de payloads, `GET /api/c/{slug}/coaching-context` dit quoi
-  analyser (scopes, champion principal, fraîcheur des bilans) et `curation.ts` désigne la
-  partie pédagogiquement utile. Les appels payés sont protégés par mot de passe (`auth.ts`) et
-  sérialisés par joueur par le Durable Object `CoachGate` : c'est la réponse au risque d'une
-  « mise à jour globale » qui aurait régénéré 30 games d'un coup.
-  ⚠️ Déploiement : `npx wrangler secret put COACH_AUTH_PASSWORD` + un `wrangler deploy` pour
-  appliquer la migration `v1-coach-gate` ; sans le binding, l'API répond mais sans verrou.
-- **Migration web Cloudflare** ✅ — 2026-08-31. `web/cf/` sert l'API TypeScript et le frontend
-  sur `https://coaching-lol.jeanvg.fr`, avec lecture/écriture Cloudflare KV et coaching Ollama
-  diffusé en SSE. La collecte Riot et le calcul ML restent locaux puis sont publiés par
-  `sync_cloudflare.py`. L'ancienne app Fly ne reçoit plus de trafic et est inactive ; Fly bloque
-  sa suppression sans ajout de carte bancaire, elle est donc laissée en l'état sans réactiver
-  la facturation. L'historique local disponible a été fusionné dans KV (17 reviews, 5 feedbacks) ;
-  le volume Fly n'a pas été rapatrié davantage, par choix.
-- **Dépôt exécutable après clone** ✅ — 2026-09-04. `make demo` (README en tête) : 0 réseau,
-  0 clé, 49 parties réelles pseudonymisées dans `tests/fixtures/demo/` (3,2 Mo), et la chaîne
-  de PRODUCTION rejouée dessus (`reextract_silver` → `rebuild_gold` → `compare` → `coach
-  --mock-llm` → `grounding`). Seul l'appel modèle est remplacé (`src/04_coaching/mock_llm.py`,
-  substitué à `llm_client.generate` : le reste du chemin — schéma, validation Pydantic,
-  télémétrie, persistance — reste celui de prod, et le mock ne cite que des chiffres du
-  payload pour que `grounding` derrière rende un taux vrai). **Effet CI** : les 7 goldens de
-  parité `payload.py` ↔ `readers.ts` lisaient `data/03_gold/` (gitignoré) et se *skippaient*
-  en CI, donc verts sans rien vérifier ; adossés aux fixtures ils s'exécutent, et ont
-  immédiatement révélé un vrai défaut — `_zone_phase_signals` itérait `set(me) | set(ref)`,
-  donc à delta égal l'ordre dépendait du `PYTHONHASHSEED` (payload non déterministe entre
-  deux runs) alors que le TS partait de clés triées. Corrigé + test de régression.
-- **Phase 1 VALIDÉE** ✅ — positionnement reconstruit sans vision. Insight type :
-  « 1 ennemi = 5/8 de tes morts » >> « meurs moins ».
-- **Phase 1.5 — agrégation multi-games** ✅ — pattern récurrent sur 14-20 games : ~37 % des
-  morts ADC = BOT en early ; l'ennemi ADC signe ~45 % des morts.
-- **Phase 1.6 — référentiels multi-rangs** ✅ — collecte globale ~4454 games / patch 16.13
-  (Diamond, Master, GM, Challenger). `compare.py` et benchmarks contextuels intégrés.
-- **Phase 1.7 — ML & SHAP** 🚧 — pipeline médaillon industrialisé. Classif High-Elo vs Low-Elo
-  (ensemble XGB/RF/EBM). Dataset densifié : 2 ADC/game depuis le raw → ~7 873 rows.
-- **Phase 1.8 — macro-positionnement (timeline, 0 CV)** ✅ — module `positioning` (17 features).
-  ML : AUC **dia_chall 0.655 → 0.724 (+0.069)**, top-3 discriminants EBM tous positionnels.
-  (Chiffres de juillet, sur ~7 873 rows : le rebuild du 2026-09-09 sur 43 000 rows donne
-  0.6312, cf. l'entrée « Per-game rang : ABANDONNÉ ». L'apport des features positionnelles
-  n'a pas été re-mesuré sur la population densifiée.)
-  Coaching : 14 features câblées dans `aggregate`/`compare`. ⚠️ `xgb/rf/ebm_highelo.pkl` à
-  ré-entraîner avant de servir en inférence web — per-game déprécié 2026-07-18, non servi ; le
-  serving utilise les `*_player_highelo.pkl`. **AUC high_elo = 0.589** (frontière Master|GM
-  peu séparable sur features macro, contrairement à dia_chall).
-- **Rang ML estimé (web)** ✅ — onglet Historique de `/c/{slug}` : rang placé par l'ensemble
-  xgb+rf sur les dernières games ADC, calibré par `calibrate_rank.py`. Confiance affichée
-  explicitement (signal faible) — pas de fausse certitude.
-- **Rang ML per-player (constance)** ✅ — `src/core/ml_rank.py` utilise le modèle per-player
-  (features mean/std/p10/p50/p90 + `win_rate`, seuil `MIN_ADC_GAMES=15`), reprenant l'hypothèse
-  validée par `poc/per_player_hypothesis.py` (dispersion/plancher > tendance centrale).
-  **`MIN_PLAYER_GAMES=15`** (relevé 5→15 : à 5 games l'AUC s'effondrait à 0.531, bruit de
-  matchmaking > signal de dispersion ; agrégation sur tout l'historique + `win_rate` corrige).
-  **AUC_cv purgée 0.635** (982 joueurs 491/491, après densification sweet-spot `[15,30[` hors
-  diamond, 2026-07-06 ; dispersion 57.9 % du signal SHAP). Fuite par games partagées ≈ +0.005
-  d'AUC (purge = 8.7 % des games de train, 0 joueur droppé) — l'hypothèse constance tient.
-  **AUC vs N** (`analyze_auc_vs_ngames.py`) : pool fixe ≥50, N=15→0.588, 20→0.619, 25→0.628,
-  **30→0.635 (peak)**, 40→0.624, 50→0.599. Sweet spot ~30 ; au-delà = bruit CV. La config prod
-  (qualify=15, cap=tout l'historique) ≈ le peak — déjà au plateau ; monter le seuil ne gagnerait
-  que ~+0.01-0.02 pour un pool divisé par 2-3. **Plafond ~0.65** sur la frontière master/GM —
-  les leviers sont le pool (densifier), les features, ou la frontière de rang (dia_chall 0.72),
-  pas plus de N ni de joueurs sur cette bande. Historique complet des runs dans
-  `data/05_model/player_metrics.json`.
-- **Régression LP (hybride, apex tiers)** ✅ — 2026-07-07. Pipeline : `fetch_apex_lp.py` →
-  `build_player_lp_dataset.py` (per-player SANS balance-cap, apex seulement, diamond exclu) →
-  `train_player_lp.py` (ensemble xgb/rf/ebm REGRESSORS, random search graine fixe en purged CV,
-  sélection au Spearman pooled OOF, SHAP). Serving hybride : `ml_rank.predict_rank` ajoute
-  `predicted_lp` (moyenne ensemble, ≥0) quand le rang placé est apex et que les `.pkl` LP
-  existent (dégradation propre sinon) ; le placement binaire 4 rangs est inchangé. Drift
-  temporel du label LP (fetch au train vs games jusqu'à ~13 j) = limite connue actée. Spec :
-  `docs/superpowers/specs/2026-07-07-lp-production-design.md`.
-  **Métriques run 2026-07-07** (`data/05_model/player_lp_metrics.json`) : 1148 joueurs
-  (master 703 / challenger 367 / grandmaster 78, 130 droppés sans LP courant). Ensemble OOF
-  purgé : **Spearman pooled = 0.5186** (baseline POC 0.5028, gate passée) ; by_tier challenger
-  0.5995, grandmaster 0.5979, master 0.4103 ; RMSE 517.2 LP. Dispersion = 56.1 % du signal SHAP.
-- **Recherche — transformer séquentiel + SSL** ✅ — 2026-07-18. Branche parallèle
-  `research/sequence-transformer` (0 perturbation du pipeline existant). Transformer à la main
-  (4 couches, d_model=64, masked-mean-pool) sur les séquences d'états par-minute (20-d : ADC ciblé
-  + adverse + diffs gold/cs/xp/level), CV purgé identique au baseline tabulaire (folds
-  joueur-groupés + purge miroir, standardisation per-feature **train-only par fold non
-  négociable**). Étape 1 supervisée vs ensemble tabulaire (RF+EBM) + MLP contrôle ; Étape 2 SSL
-  mask-and-reconstruct (delta mesuré, pretrain par-fold train-only → delta propre, pas d'avantage
-  transductif). Verdict sur `dia_chall` ; `high_elo` (master/GM) null = bruit de label non
-  interprétable (plafond ~0.589 connu). Spec : `docs/superpowers/specs/2026-07-18-sequence-transformer-design.md`.
-  Métriques : `data/05_model/sequence_metrics.json`.
-  **Métriques run 2026-07-18** (`data/05_model/sequence_metrics.json`) : `dia_chall` séquence
-  **AUC 0.645** (±0.008, 42 996 rows) BAT tabular 0.633 / MLP 0.530 → la représentation séquentielle
-  capte un signal que l'agrégat rate sur la frontière séparable (thèse renforcée). `high_elo`
-  séquence 0.546 ≈ tabular 0.554 ≈ bruit (95 378 rows, master/GM peu séparable). SSL
-  `delta_ssl = -0.0195` (≈0) : le prétexte MSE mask-and-reconstruct est faible sur signaux lisses
-  (gold monotone, position continue → quasi-interpolation) — **pas un verdict sur le SSL en
-  général**, un prétexte prédictif (future-event) reste à tester en étape 3. ⚠ **Caveat env Mac** :
-  torch, scikit-learn et xgboost embarquent chacun leur `libomp.dylib` ; deux runtimes OpenMP
-  initialisés dans le même processus → SIGSEGV/deadlock (reproduit : la suite plantait dans
-  `train_sequence_model._train_one_task` après les fits sklearn/xgboost d'un test antérieur).
-  La suite pytest est immunisée par le garde-fou en tête de `tests/conftest.py`
-  (`OMP_NUM_THREADS=1` + `KMP_DUPLICATE_LIB_OK=TRUE`, darwin seulement, avant tout import ; le
-  flag seul NE suffit PAS, vérifié) + canary `tests/test_openmp_coexistence.py`. Les runs
-  manuels restent dans la configuration documentée : baseline tabulaire RF+EBM (xgb exclu) ;
-  en cas de blocage pareil, préfixer `OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE`. Pas
-  d'export `~/.zshrc` (plafonnerait les threads de tous les projets). MPS n'implémente pas le
-  nested-tensor de `src_key_padding_mask` → run CPU (`--device cpu`). 0 API (relit `_read_raw`).
-- **Protocole d'éval gold standard (per-player)** ✅ — 2026-07-18. Split canonique unique
-  `data/04_dataset/split.json` (par joueur, stratifié, graine fixe, 70/15/15, cf.
-  `src/core/dataset_split.py` + `src/01_data_engineering/build_split.py`). Sélection des
-  hyperparamètres en k-fold SUR LE TRAIN, headline sur le TEST held-out ; calibration + test
-  hors du modèle servi (réservée à une future couche calibration/conformal, non encore
-  implémentée).
-  Purge étendue via `purged_train_features` (fold-val ∪ holdout). ⚠ Le headline test est
-  volontairement plus bas que les anciens OOF-à-plat (fin de l'optimisme de sélection + modèle
-  sur ~70 % des joueurs) : c'est la mesure honnête. **FLAW ASSUMÉ (GM)** : ~78 GM au total →
-  calib/test GM petits (~12 chacun), métriques GM bruitées ; remédiation renvoyée à un script
-  ultérieur. Spec : `docs/superpowers/specs/2026-07-18-gold-standard-eval-protocol-design.md`.
-  **Métriques run 2026-07-18** — rang (`player_metrics.json`) : cv_train.auc=0.5912 (n=687,
-  343/344) / test.auc=0.677 (n=147, 73/74) ; split 1345 joueurs (train 942 / calib 202 / test
-  201, 70/15/15 stratifié). LP (`player_lp_metrics.json`) : cv_train.spearman_pooled=0.4931
-  (rmse 535.4, n=805) / test.spearman_pooled=0.5373 (rmse 555.1, n=170) ; by_tier test :
-  challenger 0.6601 (n=55), grandmaster 0.7545 (n=11, bruité), master 0.3634 (n=104).
-- **Per-game rang : ABANDONNÉ (2026-09-08, acté)** : la frontière master/GM est illisible
-  à N=1. Trois mesures, trois populations, même verdict : ensemble tabulaire per-game
-  `high_elo` auc_cv 0.609 (`metrics.json`, n_train 18 734) ; et dans l'étude séquence
-  (95 378 rows) transformer 0.546 ± 0.005 ≈ baseline tabulaire 0.554 ≈ MLP 0.504. La même
-  frontière est lisible au niveau joueur (per-player test held-out 0.688).
-  `calibrate_rank.py` reste déprécié (le rang servi = per-player calibré).
-  `train_ensemble.py --target dia_chall` reste VIVANT avec un rôle réacté (2026-09-08) :
-  modèle d'explication du jeu-type pour l'analyse glass-box, nœud du DAG
-  (`metrics_dia_chall.json`), jamais servi pour le rang.
-  ⚠️ **Le critère de décision qui justifiait ce nœud a cessé de discriminer** (rebuild
-  complet 2026-09-09) : dia_chall auc_cv = **0.6312** (`metrics_dia_chall.json`, n_train
-  43 000 = 25 675 challenger / 17 325 diamond, 41 features), et non les 0.724 mesurés en
-  juillet sur ~7 873 rows. L'écart avec le 0.609 qui a condamné le per-game `high_elo`
-  passe de 0.115 à 0.022. Le protocole CV est INCHANGÉ entre les deux runs : « l'ancien
-  0.724 était optimiste par fuite » est donc écarté, la cause est le changement de
-  population (densification). Ce qui légitime encore ce nœud n'est plus un AUC absolu mais
-  **`ebm_gap_vs_ensemble` = 0.0004** : l'EBM seul égale l'ensemble, donc son explication
-  décrit fidèlement le modèle, indépendamment de la force du signal. Conséquence à tenir :
-  un jeu-type séparable à 0.63 reste faiblement séparable ; les seuils de bascule des shape
-  functions sont **descriptifs**, jamais des cibles à atteindre.
-- **Compte-rendu par-game (axe prioritaire coaching)** ✅ — 2026-07-05. Diagnostic feedback :
-  les tags « trop-vague »/« non-actionnable » venaient du **payload agrégé** (le LLM ne peut pas
-  être plus précis que des médianes) + du schéma forçant 3 forces. Fix : `game_journal` (morts/
-  recalls horodatés + contexte) → `coach.py --game` → `GameReview` (horodatage obligatoire par
-  erreur au niveau schéma). Vérifié bout en bout (kimi-k2.6). **Itération cause (2026-07-08)** :
-  2e signal feedback (« je sais pas pourquoi je suis mort », « aucune idée de pourquoi » sur les
-  forces) → `GameInsight` ajoute un champ `cause` obligatoire (POURQUOI = mécanisme de mort /
-  comportement) sur forces ET erreurs, + `SYSTEM_GAME` restitue le contexte de mort du journal
-  (killer/gank/zone/objectif). Validé : « tu prolonges en lane sans gold à dépenser → exposé aux
-  all-ins 2v2 et ganks (morts à 4:42 par Karma…) ». **Métrique de succès : ≥70 % de mistakes
-  utiles sur ≥10 reviews par-game annotées, 0 rejet « trop-vague ».**
-- **Premier verdict ADC** : laning = LE levier (≈ -10 à -16 CS @14 vs challenger, *toutes*
-  issues) ; mauvaise gestion du retard (gold@20 en lose -1252 vs -322) ; morts = symptôme.
-- Clé **dev** (throttle ~100 req/2min, attentes 429 si saturé) → rate-limiter intégré.
-  `.env` (clé `RIOT_API_ID` ; pas de `RIOT_REGION` → passer `--region euw1`), `data/` ignoré.
+- **Rang servi = per-player** (ensemble xgb+rf+ebm, hypothèse constance sur tout
+  l'historique, `MIN_PLAYER_GAMES=15`), test held-out AUC 0.688. **Per-game rang
+  ABANDONNÉ** (2026-09-08, acté) : frontière master/GM illisible à N=1
+  (`high_elo` per-game auc_cv 0.609 ; transformer séquentiel 0.546 ≈ MLP 0.504).
+  `calibrate_rank.py` reste déprécié.
+- **`train_ensemble.py --target dia_chall`** reste vivant, mais seulement comme
+  modèle d'explication du jeu-type pour l'analyse EBM glass-box (jamais servi
+  pour le rang). ⚠️ Son AUC de référence est **0.6312** (rebuild 2026-09-09,
+  43 000 rows) — **pas 0.724** (chiffre de juillet sur ~7 873 rows, population
+  non comparable, protocole CV inchangé). Ce qui légitime encore ce nœud n'est
+  plus l'AUC mais `ebm_gap_vs_ensemble = 0.0004` (l'EBM seul égale l'ensemble) :
+  les seuils de bascule des shape functions sont **descriptifs**, jamais des
+  cibles.
+- **Analyse ML unifiée (EBM glass-box)** ✅ 2026-09-08 : `core/ebm_explain.py`
+  (registre `LEVELS` player/game) sert les deux niveaux + le sync KV
+  (`shap:{slug}:drivers`). Payload publié = top-20 sur 125 features, proxys
+  `ML_ONLY` retirés par `assert` (asymétrie), `map_depth` en lecture descriptive.
+- **Coaching par-game servi par le site** ✅ 2026-09-07 : `POST /api/coach/game`,
+  verrouillé par le Durable Object `CoachGate`, protégé par mot de passe
+  (`auth.ts`). **Métrique produit atteinte** ✅ 2026-09-07 : ≥70 % de
+  `mistakes` utiles sur ≥10 reviews par-game (100 % obtenu sur la cohorte
+  `350f7c404b5b`, `kimi-k2.6`).
+- **Migration Cloudflare** ✅ 2026-08-31 : `web/cf/` en prod sur
+  `coaching-lol.jeanvg.fr` ; Fly.io inactif (facturation non réactivée).
+- **Dépôt exécutable après clone** ✅ 2026-09-04 : `make demo` (0 réseau/clé,
+  fixtures pseudonymisées, chaîne de prod rejouée avec `mock_llm`).
+- **Régression LP hybride (apex)** ✅ 2026-07-07 : Spearman pooled test 0.5373,
+  servi via `ml_rank.predict_rank`.
+- **Recherche transformer séquentiel + SSL** ✅ 2026-07-18 (branche
+  `research/sequence-transformer`, non servi) : gain net sur `dia_chall`
+  (AUC 0.645 vs tabulaire 0.633), bruit sur `high_elo`. SSL mask-and-reconstruct
+  ≈ 0 gain (prétexte prédictif future-event pas encore testé).
+- **Protocole d'éval gold standard (per-player)** ✅ 2026-07-18 : split
+  canonique unique (`data/04_dataset/split.json`, 70/15/15 stratifié), sélection
+  HP en CV sur train, headline sur test held-out.
+- Phases 1 → 1.8 validées : positionnement reconstruit sans vision, agrégation
+  multi-games (pattern ~37 % morts ADC = BOT early), référentiels multi-rangs
+  (~4454 games / patch 16.13), ML/SHAP industrialisé, macro-positionnement
+  (17 features `positioning`, 14 COACHING_SAFE câblées en coaching).
+- Clé **dev** Riot (throttle ~100 req/2min) → rate-limiter intégré ; clé prod
+  utilisée en pratique.
 
 ### Prochaines étapes
 
-1. ✅ **Ollama branché** — `src/04_coaching/` génère un compte-rendu agrégé (Ollama Cloud,
-   persisté dans `data/07_coaching/`). Modèle défaut `kimi-k2.6` (retenu après A/B, cf.
-   `src/04_coaching/README.md` ; surclassable via `--model`/`OLLAMA_MODEL`).
-   ✅ **Boucle d'éval** — `feedback.py annotate/summary`.
-   ✅ **Compte-rendu par-game** — `coach.py --game`.
-   ✅ **Boucle batch+pending** (2026-07-06) — outillage en place.
-   ✅ **Métrique produit atteinte** (2026-09-07) : 10 reviews par-game annotées sur la cohorte
-   `350f7c404b5b`, 100 % de mistakes utiles (seuil ≥70 % sur ≥10). Le prochain lot doit servir
-   à mesurer les axes du feedback de lecture (recalls jugés, jungle tracking, erreurs
-   découpées et titrées : spec `2026-09-05-coaching-recalls-tracking-categories-design.md`),
-   pas à reconfirmer le seuil. Ensuite **coacher le plancher** — cibler les
-   games du pire décile p10 (insight ML per-player : le rang = le plancher, pas la moyenne) et
-   boucle de focus inter-games (adhérence au `next_focus` mesurée par les features).
+1. **Coaching (axe prioritaire)** : métrique produit atteinte (≥70 % de mistakes
+   utiles sur ≥10 reviews par-game, 2026-09-07). Le prochain lot doit mesurer les
+   axes du feedback de lecture (recalls jugés, jungle tracking, erreurs découpées
+   et titrées : spec `2026-09-05-coaching-recalls-tracking-categories-design.md`),
+   pas reconfirmer le seuil. Ensuite **coacher le plancher** — cibler les games du
+   pire décile p10 (insight ML per-player : le rang = le plancher, pas la
+   moyenne) et boucle de focus inter-games (adhérence au `next_focus`).
 2. **Benchmark Zeri** densifié (sampling champion ciblé) si la slice reste trop fine.
 3. Stabiliser et valider la **robustesse ML/SHAP** (qualité des prescriptions SHAP vs
    heuristiques reste à valider).
