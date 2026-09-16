@@ -1,4 +1,4 @@
-# TODO — Coaching LoL
+# TODO — RiftSense
 
 > État au 2026-09-07. Ce fichier ne conserve que les travaux encore actionnables.
 > Les résultats historiques et fonctionnalités terminées sont documentés dans

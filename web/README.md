@@ -1,4 +1,4 @@
-# web/ — interface web de coaching_lol
+# web/ — interface web de riftsense
 
 Le site de production est un **Cloudflare Worker TypeScript** qui sert dans le même
 déploiement :
@@ -7,7 +7,7 @@ déploiement :
 - le frontend statique (`web/frontend/`) via le binding `ASSETS` ;
 - les données de consultation dans Cloudflare KV (`DATA`).
 
-Production : <https://coaching-lol.jeanvg.fr>
+Production : <https://riftsense.jeanvg.fr>
 
 Les clés restent côté serveur. La collecte Riot, les agrégations et l'entraînement ML
 continuent de tourner localement en Python ; seul le résultat utile au site est synchronisé
@@ -104,12 +104,12 @@ npm run typecheck
 npm run deploy
 ```
 
-Le domaine personnalisé `coaching-lol.jeanvg.fr` est rattaché au Worker dans Cloudflare.
+Le domaine personnalisé `riftsense.jeanvg.fr` est rattaché au Worker dans Cloudflare.
 Après chaque déploiement, vérifier au minimum :
 
 ```bash
-curl https://coaching-lol.jeanvg.fr/api/health
-curl https://coaching-lol.jeanvg.fr/api/accounts
+curl https://riftsense.jeanvg.fr/api/health
+curl https://riftsense.jeanvg.fr/api/accounts
 ```
 
 ## Architecture

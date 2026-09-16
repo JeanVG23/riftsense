@@ -1,6 +1,6 @@
 # Historique détaillé — État d'avancement
 
-> Journal chronologique des runs ML, décisions et métriques du projet Coaching LoL.
+> Journal chronologique des runs ML, décisions et métriques du projet RiftSense.
 > Extrait de CLAUDE.md le 2026-09-16 pour respecter la limite de taille du fichier.
 > Résumé actif (à jour) : voir la section « État d'avancement » de `CLAUDE.md`.
 

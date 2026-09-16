@@ -1,4 +1,4 @@
-# Coaching LoL — Coach IA personnalisé pour League of Legends
+# RiftSense — Coach IA personnalisé pour League of Legends
 
 > Projet en phase d'industrialisation (pipeline ML). Ce document fixe vision, stack,
 > schéma de données et état courant. Rien n'est figé.
@@ -435,6 +435,14 @@ l'historique git garde les versions antérieures à cette date.
 Historique complet des runs, métriques et decisions (dates, chiffres, specs) :
 `docs/PROGRESS.md`. Résumé de l'état actif ci-dessous.
 
+- **Rebranding "Coaching LoL" → "RiftSense"** ✅ (2026-09-16). Un recruteur a fait
+  remarquer que "Coaching LoL" ne rendait pas justice à la profondeur technique du
+  projet (pipeline médaillon, ML, EBM/SHAP, LLM grounded). Renommage du repo GitHub,
+  du domaine (`coaching-lol.jeanvg.fr` → `riftsense.jeanvg.fr`, ancien domaine
+  redirigé), du Worker Cloudflare et du préfixe des clés KV liées au coaching
+  (`coaching:{slug}:*` → `riftsense:{slug}:*`, migration additive). Les entrées
+  datées ci-dessous mentionnant `coaching-lol.jeanvg.fr` décrivent un état passé
+  réel et ne sont pas réécrites.
 - **Rang servi = per-player** (ensemble xgb+rf+ebm, hypothèse constance sur tout
   l'historique, `MIN_PLAYER_GAMES=15`), test held-out AUC 0.688. **Per-game rang
   ABANDONNÉ** (2026-09-08, acté) : frontière master/GM illisible à N=1

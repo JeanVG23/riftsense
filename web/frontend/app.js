@@ -1,4 +1,4 @@
-// coaching_lol — frontend SPA (Alpine). Aucune clé/secret ici : tout passe par /api/*.
+// riftsense — frontend SPA (Alpine). Aucune clé/secret ici : tout passe par /api/*.
 
 const NEG_TAGS = ["asymetrie", "stat-inventee", "profondeur-en-faute",
   "trop-vague", "non-actionnable", "autre"];

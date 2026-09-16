@@ -1,6 +1,6 @@
-# Coaching LoL 🎯 — Coach IA & Pipeline Data/ML pour League of Legends
+# RiftSense 🎯 — Coach IA & Pipeline Data/ML pour League of Legends
 
-[![CI](https://github.com/JeanVG23/coaching_lol/actions/workflows/ci.yml/badge.svg)](https://github.com/JeanVG23/coaching_lol/actions/workflows/ci.yml)
+[![CI](https://github.com/JeanVG23/riftsense/actions/workflows/ci.yml/badge.svg)](https://github.com/JeanVG23/riftsense/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.13+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![Poetry](https://img.shields.io/badge/Poetry-Package%20Manager-60A5FA?style=flat&logo=poetry&logoColor=white)](https://python-poetry.org/)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%2B%20KV-F38020?style=flat&logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
@@ -47,7 +47,7 @@ jamais touché. La chaîne complète est verrouillée par `tests/test_demo.py`.
 
 Les outils d'analyse traditionnels de League of Legends (OP.GG, U.GG, Porofessor) reposent quasi exclusivement sur des **agrégats naïfs** (KDA, CS/min, dégâts bruts, taux de victoire). Ces métriques mènent trop souvent à des conseils creux ou erronés (*« meurs moins »*, *« farme plus »*).
 
-**Coaching LoL** prend le contre-pied :
+**RiftSense** prend le contre-pied :
 1. **Positionnement > Stats brutes** : Une analyse temporelle précise (à partir de la timeline Riot Match-V5) des déplacements, du timing de recall, de la proximité aux objectifs et de l'isolement apporte un signal bien plus déterminant qu'un simple score KDA.
 2. **Respect strict de l'asymétrie d'information** : Le coach ne reproche **JAMAIS** une décision sur la base d'une information que le joueur n'avait pas (fog of war). Les features sont scindées entre métriques fiables pour le coaching (`COACHING_SAFE`) et proxies de vision réservés au ML (`ML_ONLY`).
 3. **Benchmarks comparatifs High-Elo** : Tout diagnostic est contextualisé par rapport à des dizaines de milliers de parties Challenger et Master à issue équivalente (victoire vs défaite, matchup botlane, exposition aux ganks).
@@ -84,7 +84,7 @@ flowchart TD
 ## 📂 Organisation du Dépôt & Médaillon
 
 ```text
-coaching_lol/
+riftsense/
 ├── src/
 │   ├── core/                  # Socle partagé (client Riot, positionnement, journal, features, inférence de rang)
 │   ├── collection/            # Scripts de scraping, densification et sync Cloudflare
@@ -157,8 +157,8 @@ coaching_lol/
 ### 1. Cloner le projet & Installer les dépendances
 
 ```bash
-git clone https://github.com/JeanVG23/coaching_lol.git
-cd coaching_lol
+git clone https://github.com/JeanVG23/riftsense.git
+cd riftsense
 
 # Installer l'environnement Python
 poetry install
@@ -261,7 +261,7 @@ cd web/cf
 npx wrangler dev --remote
 ```
 
-L'application est accessible en local sur `http://localhost:8787` (et déployée en production sur `https://coaching-lol.jeanvg.fr`).
+L'application est accessible en local sur `http://localhost:8787` (et déployée en production sur `https://riftsense.jeanvg.fr`).
 
 > ℹ️ **Note d'architecture** : L'ancien backend Python/FastAPI (`web/backend/`) hérité de l'hébergement Fly.io a été **supprimé** (l'historique git le conserve). Le site et l'API tournent exclusivement sur Cloudflare Worker TypeScript. Les trois modules qui n'étaient pas du serving et qui restent utilisés par la collecte locale ont été déplacés : `ml_rank.py` et `settings.py` dans `src/core/`, `pipeline.py` dans `src/collection/`.
 

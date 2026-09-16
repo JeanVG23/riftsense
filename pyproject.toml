@@ -1,5 +1,5 @@
 [project]
-name = "coaching-lol"
+name = "riftsense"
 version = "0.1.0"
 description = "Coach IA personnalisé pour League of Legends (positionnement > stats brutes)"
 requires-python = ">=3.13,<3.15"
