@@ -264,3 +264,103 @@ def test_recalls_same_timestamp_mixed_none_ids_no_typeerror():
     # Dégradation acceptée : l'undo sans beforeId (None) consomme l'achat
     # sans itemId (None) — l'achat réel 1038 est intact.
     assert r1["items_bought"] == 1
+
+
+ITEMS = {
+    3094: {"name": "Rapid Firecannon", "cost": 2650, "finished": True},
+    6670: {"name": "Noonquiver", "cost": 1300, "finished": False},
+    1055: {"name": "Doran's Blade", "cost": 450, "finished": False},
+}
+
+
+def _cs_pf(cs, gold_total=1000, gold_current=200, x=13000, y=1500, level=5):
+    pf = _pf(gold_total, gold_current, level=level, x=x, y=y)
+    pf["minionsKilled"] = cs
+    pf["jungleMinionsKilled"] = 0
+    return pf
+
+
+def _cs_timeline(events_by_frame=None, my_cs=8, opp_cs=9, support_xy=(13200, 1800)):
+    """13 frames, moi pid 1, ADC ennemi pid 6, support allie pid 2."""
+    events_by_frame = events_by_frame or {}
+    frames = []
+    for minute in range(13):
+        frames.append(_frame(minute * 60000, {
+            1: _cs_pf(my_cs * minute),
+            2: _cs_pf(0, x=support_xy[0], y=support_xy[1]),
+            6: _cs_pf(opp_cs * minute, x=13500, y=2000),
+        }, events_by_frame.get(minute, [])))
+    return _timeline(frames)
+
+
+def test_journal_is_unchanged_without_an_injected_catalog():
+    """Les consommateurs existants ne doivent voir aucune difference."""
+    tl = _cs_timeline({7: [_buy(7 * 60000 + 10000, 1, 3094)]})
+    without = J.game_journal(_match(), tl, ME)
+    recall = without["recalls"][0]
+    assert "outcome" not in recall
+    assert "opponent_spike" not in recall
+    # Le cout en CS ne depend PAS du catalogue : il reste present.
+    assert recall["cs_cost"]["my_cs_gained"] == 16
+
+
+def test_recall_carries_its_cost_benefit_and_enemy_spike():
+    tl = _cs_timeline({
+        7: [_buy(7 * 60000 + 10000, 1, 3094), _buy(7 * 60000 + 12000, 1, 6670)],
+        8: [_buy(8 * 60000, 6, 3094)],          # spike adverse a 8:00
+    })
+    (recall,) = J.game_journal(_match(), tl, ME, items=ITEMS)["recalls"]
+    assert recall["cs_cost"]["window"] == {"from": "7:00", "to": "9:00"}
+    assert recall["outcome"] == {
+        "gold_spent": 3950,
+        "finished_items": [{"name": "Rapid Firecannon", "cost": 2650}],
+        "is_spike": True}
+    assert recall["opponent_spike"] == {"clock": "8:00", "delta_s": 50,
+                                        "items": ["Rapid Firecannon"]}
+
+
+def test_recall_reports_a_death_shortly_after_the_visit():
+    tl = _cs_timeline({
+        7: [_buy(7 * 60000, 1, 1055)],
+        8: [_kill(7 * 60000 + 40000, victim=1, killer=6)],
+    })
+    (recall,) = J.game_journal(_match(), tl, ME, items=ITEMS)["recalls"]
+    assert recall["death_after_visit"] == {"clock": "7:40", "delta_s": 40}
+
+
+def test_death_carries_jungle_signals_and_ally_context():
+    tl = _cs_timeline({
+        6: [_kill(6 * 60000, victim=3, killer=10, x=2000, y=13000)],
+        8: [_kill(8 * 60000 + 30000, victim=1, killer=10, assists=[6],
+                  x=13000, y=1500)],
+    }, support_xy=(2000, 13000))
+    (death,) = J.game_journal(_match(), tl, ME, items=ITEMS)["deaths"]
+    assert death["is_ganked_by_jungle"] is True
+    assert death["jungle_signals"]["champion"] == "LeeSin"
+    assert death["jungle_signals"]["age_s"] == 150
+    assert death["jungle_signals"]["last"]["zone"] == "TOP"
+    assert death["jungle_signals"]["last"]["same_side_as_death"] is False
+    assert death["ally_context"]["support"]["champion"] == "Lulu"
+    assert death["ally_context"]["support"]["zone"] == "TOP"
+    assert death["ally_context"]["beyond_own_outer_turret"] is True
+
+
+def test_ally_context_uses_the_turret_table_state_at_the_death():
+    """Ma tourelle exterieure tombee avant ma mort : plus de frontiere citee."""
+    fall = {"type": "BUILDING_KILL", "timestamp": 7 * 60000, "teamId": 100,
+            "laneType": "BOT_LANE", "towerType": "OUTER_TURRET",
+            "position": {"x": 10504, "y": 1029}}
+    tl = _cs_timeline({7: [fall],
+                       8: [_kill(8 * 60000, victim=1, killer=6, x=13000, y=1500)]})
+    (death,) = J.game_journal(_match(), tl, ME, items=ITEMS)["deaths"]
+    assert "beyond_own_outer_turret" not in death["ally_context"]
+    assert death["ally_context"]["nearest_friendly_turret"]["tier"] == "INNER_TURRET"
+
+
+def test_cs_baseline_excludes_minutes_with_a_recall_or_a_death():
+    """Sans exclusion, la ligne de base integre l'evenement mesure."""
+    tl = _cs_timeline({7: [_buy(7 * 60000, 1, 1055)],
+                       9: [_kill(9 * 60000, victim=1, killer=6)]})
+    journal = J.game_journal(_match(), tl, ME, items=ITEMS)
+    # 8 cs/min propres : la fenetre de 2 min attend 16 cs.
+    assert journal["recalls"][0]["cs_cost"]["expected_cs"] == 16.0

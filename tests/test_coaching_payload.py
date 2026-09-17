@@ -96,10 +96,54 @@ def test_game_review_map_keeps_causes_but_drops_llm_evidence_and_ids():
          "payload": {"meta": {"champion": "Ahri", "win": True}},
          "review": {"mistakes": [{"point": "mid", "cause": "mid cause"}]}},
     ]
-    causes = PL._game_review_causes(reviews, "adc")
+    causes = PL._game_review_sample(reviews, "adc")["causes"]
     assert causes == [{
         "champion": "Jinx", "outcome": "loss", "strengths": [],
         "mistakes": [{"point": "Tu greed tes resets",
                       "cause": "Tu attends trop longtemps"}],
     }]
     assert "1 268" not in json.dumps(causes) and "EUW1_42" not in json.dumps(causes)
+
+
+def _review(ts: str, win: bool, champion: str = "Zeri", role: str = "BOTTOM") -> dict:
+    return {"ts": ts, "kind": "game", "scope": "adc", "match_id": f"m-{ts}",
+            "payload": {"meta": {"champion": champion, "role": role, "win": win}},
+            "review": {"strengths": [], "mistakes": [
+                {"point": f"point-{ts}", "cause": f"cause-{ts}", "evidence": "12:30"}
+            ]}}
+
+
+def test_game_review_sample_modes_counts_and_cap():
+    empty = PL._game_review_sample([], "adc")
+    assert empty == {"mode": "none",
+                     "available": {"total": 0, "wins": 0, "losses": 0},
+                     "used": {"total": 0, "wins": 0, "losses": 0}, "causes": []}
+
+    only_losses = PL._game_review_sample([_review(str(i), False) for i in range(3)], "adc")
+    assert only_losses["mode"] == "unbalanced"
+    assert only_losses["available"] == {"total": 3, "wins": 0, "losses": 3}
+    assert only_losses["used"] == {"total": 1, "wins": 0, "losses": 1}
+
+    mixed = PL._game_review_sample(
+        [_review(f"w{i}", True) for i in range(4)]
+        + [_review(f"l{i}", False) for i in range(5)], "adc")
+    assert mixed["mode"] == "balanced"
+    assert mixed["available"] == {"total": 9, "wins": 4, "losses": 5}
+    assert mixed["used"] == {"total": 4, "wins": 2, "losses": 2}
+
+
+def test_game_review_sample_matches_role_and_champion_scopes():
+    reviews = [_review("1", False, "Zeri"), _review("2", True, "Jinx")]
+    assert PL._game_review_sample(reviews, "adc")["available"]["total"] == 2
+    zeri = PL._game_review_sample(reviews, "ZeRi")
+    assert zeri["available"] == {"total": 1, "wins": 0, "losses": 1}
+    assert zeri["causes"][0]["champion"] == "Zeri"
+
+
+def test_game_review_sample_counts_latest_run_once_per_match():
+    old = _review("2026-09-01", False)
+    new = _review("2026-09-02", False)
+    old["match_id"] = new["match_id"] = "EUW1_42"
+    sample = PL._game_review_sample([old, new], "adc")
+    assert sample["available"] == {"total": 1, "wins": 0, "losses": 1}
+    assert sample["causes"][0]["mistakes"][0]["point"] == "point-2026-09-02"

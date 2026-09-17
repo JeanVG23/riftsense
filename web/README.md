@@ -1,4 +1,4 @@
-# web/ — interface web de coaching_lol
+# web/ — interface web de riftsense
 
 Le site de production est un **Cloudflare Worker TypeScript** qui sert dans le même
 déploiement :
@@ -7,7 +7,7 @@ déploiement :
 - le frontend statique (`web/frontend/`) via le binding `ASSETS` ;
 - les données de consultation dans Cloudflare KV (`DATA`).
 
-Production : <https://coaching-lol.jeanvg.fr>
+Production : <https://riftsense.jeanvg.fr>
 
 Les clés restent côté serveur. La collecte Riot, les agrégations et l'entraînement ML
 continuent de tourner localement en Python ; seul le résultat utile au site est synchronisé
@@ -59,7 +59,10 @@ variables dans `.env`, elle s'arrête avant tout appel à Riot.
 
 Le script de synchronisation seul reste utile pour republier les fichiers locaux sans
 interroger Riot. Il fusionne les données locales avec celles déjà présentes dans KV et ne
-supprime pas l'historique distant.
+supprime pas l'historique distant. Il reconstruit aussi, depuis le cache raw local, les
+payloads déterministes des 50 parties les plus récentes dans
+`riftsense:{slug}:game-payloads` (20 Mio maximum). Cela ne provoque ni appel Riot ni appel
+LLM ; `--skip-game-payloads` permet de sauter cette reconstruction lors d'un diagnostic.
 
 ```bash
 poetry run python src/collection/sync_cloudflare.py --dry-run
@@ -73,13 +76,24 @@ Variables requises dans `.env` ou dans l'environnement :
 - `CF_ACCOUNT_ID` — identifiant du compte Cloudflare ;
 - `CF_NAMESPACE_ID` — namespace lié au binding `DATA`.
 
-Le secret `OLLAMA_API_KEY` de production se configure avec Wrangler et ne doit pas être
-placé dans le dépôt :
+Les secrets de production se configurent avec Wrangler et ne doivent pas être
+placés dans le dépôt :
 
 ```bash
 cd web/cf
 npx wrangler secret put OLLAMA_API_KEY
+npx wrangler secret put COACH_AUTH_PASSWORD
 ```
+
+Le mot de passe `COACH_AUTH_PASSWORD` protège les appels LLM (`/api/coach`, `/api/coach/game`,
+`/api/chat`) contre les abus de visiteurs publics : sans ce mot de passe, les boutons de
+régénération et le chat interactif restent verrouillés sur le site web. En local avec `wrangler dev`,
+ce secret peut être défini dans `web/cf/.dev.vars` (ex. `COACH_AUTH_PASSWORD=dev-secret`).
+
+Les générations globales et unitaires passent par le Durable Object `COACH_GATE`, nommé
+par joueur. Il conserve le verrou jusqu'à la fermeture du flux SSE et empêche deux appels
+Ollama concurrents d'écraser le même JSONL. La migration SQLite déclarée dans
+`wrangler.toml` est appliquée par le déploiement Wrangler.
 
 ## Déployer
 
@@ -90,12 +104,12 @@ npm run typecheck
 npm run deploy
 ```
 
-Le domaine personnalisé `coaching-lol.jeanvg.fr` est rattaché au Worker dans Cloudflare.
+Le domaine personnalisé `riftsense.jeanvg.fr` est rattaché au Worker dans Cloudflare.
 Après chaque déploiement, vérifier au minimum :
 
 ```bash
-curl https://coaching-lol.jeanvg.fr/api/health
-curl https://coaching-lol.jeanvg.fr/api/accounts
+curl https://riftsense.jeanvg.fr/api/health
+curl https://riftsense.jeanvg.fr/api/accounts
 ```
 
 ## Architecture
@@ -103,10 +117,12 @@ curl https://coaching-lol.jeanvg.fr/api/accounts
 ```text
 web/
   cf/
-    src/index.ts        # routeur Worker, CORS, erreurs et assets
-    src/kv.ts           # accès typé à Cloudflare KV
-    src/coach.ts        # coaching en Server-Sent Events
-    src/llm.ts          # client Ollama Cloud avec retries
+    src/index.ts        # routeur Worker, erreurs et assets
+    src/readers.ts      # accès typé à Cloudflare KV
+    src/coach.ts        # coaching global en Server-Sent Events
+    src/game_coach.ts   # coaching unitaire à la demande
+    src/coach_gate.ts   # verrou Durable Object par joueur
+    src/llm_client.ts   # client Ollama Cloud avec retries
     src/schema.ts       # validation des entrées/sorties
     wrangler.toml       # Worker, assets et binding DATA
   frontend/
@@ -122,6 +138,7 @@ Flux de données :
 Riot + pipeline Python local -> sync_cloudflare.py -> Cloudflare KV
                                                     -> Worker API -> navigateur
 navigateur -> POST /api/coach -> Worker -> Ollama Cloud -> événements SSE
+navigateur -> POST /api/coach/game -> payload KV -> Ollama Cloud -> review versionnée
 ```
 
 ## Endpoints de production
@@ -134,8 +151,13 @@ navigateur -> POST /api/coach -> Worker -> Ollama Cloud -> événements SSE
   15 parties ADC ;
 - `GET /api/c/{slug}/reviews` — historique des coachings ; `?kind=aggregate|game` renvoie une
   page légère, et `GET /api/c/{slug}/reviews/{ts}` charge le détail d'une partie ;
+- `GET /api/c/{slug}/coaching-context` — scopes disponibles, champion principal, matchs
+  analysables, recommandations pédagogiques et fraîcheur des bilans ;
 - `GET /api/c/{slug}/shap` — profil SHAP local ;
 - `POST /api/coach` — génération Ollama diffusée en SSE ;
+- `POST /api/coach/game` — génération d'une seule partie depuis son payload KV ; sans
+  `force`, une review existante est relue sans nouvel appel, et `force=true` conserve
+  l'ancienne version ;
 - `POST /api/feedback` — annotation des conseils, limitée à 30 envois par heure et par IP ; les
   requêtes de navigateur provenant d'une autre origine sont refusées.
 
@@ -158,8 +180,10 @@ pas jugé important.
 - `/c/{slug}` affiche historique, rang, estimation ML, coaching, feedback et SHAP ;
 - `/readme` explique les recommandations et leurs benchmarks challenger ;
 - l'authentification reste reportée : le site est publiquement accessible ;
-- le coaching reste agrégé sur N parties ; le compte-rendu par partie et la CV restent des
-  évolutions séparées.
+- le coaching global reste fondé sur les agrégats déterministes ; les causes issues des
+  analyses unitaires ne servent qu'en enrichissement qualitatif borné et transparent ;
+- chaque partie dont le journal local a été synchronisé peut être analysée explicitement
+  depuis l'historique, sans batch automatique.
 
 La conception fonctionnelle détaillée est conservée dans
 `docs/superpowers/specs/2026-07-01-web-app-design.md`.

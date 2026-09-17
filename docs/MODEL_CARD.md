@@ -1,7 +1,7 @@
-# Model card — Coaching LoL
+# Model card — RiftSense
 
 > Documente les modèles **réellement servis** en production sur
-> `https://coaching-lol.jeanvg.fr`, leur protocole d'évaluation et leurs limites.
+> `https://riftsense.jeanvg.fr`, leur protocole d'évaluation et leurs limites.
 > Chiffres extraits de `data/05_model/*.json` (artefacts de run, pas de recopie manuelle).
 > Dernière mise à jour : 2026-09-04. Runs de référence : 2026-07-07 (LP) et 2026-07-18 (rang).
 

@@ -45,9 +45,9 @@
     "wards_placed_early": 4
    },
    "death_gold_state": {
-    "behind": 0.5556,
-    "ahead": 0.2519,
-    "even": 0.1926
+    "behind": 0.4296,
+    "even": 0.3852,
+    "ahead": 0.1852
    },
    "by_zone": {
     "BOT": 0.3704,
@@ -146,9 +146,9 @@
     "wards_placed_early": 4.0
    },
    "death_gold_state": {
-    "ahead": 0.439,
-    "behind": 0.3902,
-    "even": 0.1707
+    "ahead": 0.3415,
+    "behind": 0.3415,
+    "even": 0.3171
    },
    "by_zone": {
     "BOT": 0.5366,
@@ -239,9 +239,9 @@
     "wards_placed_early": 4
    },
    "death_gold_state": {
-    "behind": 0.6277,
-    "even": 0.2021,
-    "ahead": 0.1702
+    "behind": 0.4681,
+    "even": 0.4149,
+    "ahead": 0.117
    },
    "by_zone": {
     "MID": 0.4149,
@@ -342,9 +342,9 @@
       "wards_placed_early": 4.0
      },
      "death_gold_state": {
-      "behind": 0.3704,
-      "even": 0.3333,
-      "ahead": 0.2963
+      "even": 0.5556,
+      "behind": 0.2963,
+      "ahead": 0.1481
      },
      "by_zone": {
       "JUNGLE/RIVER": 0.4074,
@@ -435,9 +435,9 @@
       "wards_placed_early": 4.0
      },
      "death_gold_state": {
-      "behind": 0.7193,
-      "ahead": 0.1754,
-      "even": 0.1053
+      "behind": 0.614,
+      "even": 0.2281,
+      "ahead": 0.1579
      },
      "by_zone": {
       "MID": 0.3684,
@@ -536,9 +536,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.4706,
-      "ahead": 0.3137,
-      "even": 0.2157
+      "even": 0.4706,
+      "behind": 0.2941,
+      "ahead": 0.2353
      },
      "by_zone": {
       "MID": 0.4118,
@@ -633,9 +633,9 @@
       "wards_placed_early": 4.0
      },
      "death_gold_state": {
-      "behind": 0.5179,
-      "ahead": 0.25,
-      "even": 0.2321
+      "even": 0.4643,
+      "behind": 0.3214,
+      "ahead": 0.2143
      },
      "by_zone": {
       "BOT": 0.3929,
@@ -734,9 +734,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.6667,
-      "ahead": 0.1944,
-      "even": 0.1389
+      "behind": 0.5833,
+      "even": 0.2778,
+      "ahead": 0.1389
      },
      "by_zone": {
       "MID": 0.4722,
@@ -827,9 +827,9 @@
       "wards_placed_early": 4.0
      },
      "death_gold_state": {
-      "behind": 0.5116,
-      "ahead": 0.3023,
-      "even": 0.186
+      "behind": 0.4419,
+      "even": 0.3721,
+      "ahead": 0.186
      },
      "by_zone": {
       "BOT": 0.4419,
@@ -931,9 +931,9 @@
     "wards_placed_early": 4.0
    },
    "death_gold_state": {
-    "behind": 0.5018,
-    "ahead": 0.3369,
-    "even": 0.1613
+    "behind": 0.3835,
+    "even": 0.3477,
+    "ahead": 0.2688
    },
    "by_zone": {
     "BOT": 0.4337,
@@ -1038,9 +1038,9 @@
     "wards_placed_early": 4
    },
    "death_gold_state": {
-    "ahead": 0.4298,
-    "behind": 0.4132,
-    "even": 0.157
+    "even": 0.3967,
+    "ahead": 0.3306,
+    "behind": 0.2727
    },
    "by_zone": {
     "BOT": 0.438,
@@ -1143,9 +1143,9 @@
     "wards_placed_early": 4
    },
    "death_gold_state": {
-    "behind": 0.5696,
-    "ahead": 0.2658,
-    "even": 0.1646
+    "behind": 0.4684,
+    "even": 0.3101,
+    "ahead": 0.2215
    },
    "by_zone": {
     "BOT": 0.4304,
@@ -1250,9 +1250,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.6514,
-      "ahead": 0.2294,
-      "even": 0.1193
+      "behind": 0.4862,
+      "even": 0.367,
+      "ahead": 0.1468
      },
      "by_zone": {
       "BOT": 0.4954,
@@ -1355,9 +1355,9 @@
       "wards_placed_early": 4.0
      },
      "death_gold_state": {
-      "behind": 0.4312,
-      "ahead": 0.3578,
-      "even": 0.211
+      "behind": 0.367,
+      "even": 0.3394,
+      "ahead": 0.2936
      },
      "by_zone": {
       "BOT": 0.4128,
@@ -1456,9 +1456,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.44,
-      "ahead": 0.42,
-      "even": 0.14
+      "ahead": 0.36,
+      "even": 0.36,
+      "behind": 0.28
      },
      "by_zone": {
       "BOT": 0.36,
@@ -1645,9 +1645,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.5655,
-      "ahead": 0.2897,
-      "even": 0.1448
+      "behind": 0.4483,
+      "even": 0.331,
+      "ahead": 0.2207
      },
      "by_zone": {
       "BOT": 0.4414,
@@ -1748,9 +1748,9 @@
       "wards_placed_early": 5
      },
      "death_gold_state": {
-      "ahead": 0.4412,
-      "behind": 0.4118,
-      "even": 0.1471
+      "ahead": 0.3529,
+      "behind": 0.3235,
+      "even": 0.3235
      },
      "by_zone": {
       "BOT": 0.3824,
@@ -1847,9 +1847,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.449,
-      "ahead": 0.3673,
-      "even": 0.1837
+      "even": 0.3776,
+      "behind": 0.3163,
+      "ahead": 0.3061
      },
      "by_zone": {
       "BOT": 0.4388,
@@ -2013,7 +2013,17 @@
      "you": 8.55,
      "ref": 6.32
     }
-   }
+   },
+   "qualitative_mode": "none",
+   "n_game_reviews_available": 0,
+   "n_game_reviews_available_wins": 0,
+   "n_game_reviews_available_losses": 0,
+   "n_game_reviews_used": 0,
+   "n_game_reviews_used_wins": 0,
+   "n_game_reviews_used_losses": 0,
+   "n_game_reviews_wins": 0,
+   "n_game_reviews_losses": 0,
+   "unbalanced_causes": false
   },
   "signals": [
    {
@@ -2263,29 +2273,29 @@
     "group": "death_gold_state",
     "key": "ahead",
     "label": "morts en avance",
-    "you": 0.1702,
-    "ref": 0.2658,
-    "delta": -0.0956,
+    "you": 0.117,
+    "ref": 0.2215,
+    "delta": -0.1045,
     "unit": "pct",
-    "notable": false
+    "notable": true
    },
    {
     "group": "death_gold_state",
     "key": "even",
     "label": "morts à égalité",
-    "you": 0.2021,
-    "ref": 0.1646,
-    "delta": 0.0375,
+    "you": 0.4149,
+    "ref": 0.3101,
+    "delta": 0.1048,
     "unit": "pct",
-    "notable": false
+    "notable": true
    },
    {
     "group": "death_gold_state",
     "key": "behind",
     "label": "morts en retard",
-    "you": 0.6277,
-    "ref": 0.5696,
-    "delta": 0.0581,
+    "you": 0.4681,
+    "ref": 0.4684,
+    "delta": -0.0003,
     "unit": "pct",
     "notable": false
    }

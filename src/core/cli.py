@@ -6,8 +6,6 @@
 module ne cherche pas à le remplacer, seulement à supprimer la recopie sur les
 scripts déjà écrits dans ce style.
 
-Note : `src/collection/live_capture.py` garde sa propre copie — contrainte
-assumée « copiable seul sur une machine sans le reste du repo ».
 """
 from __future__ import annotations
 

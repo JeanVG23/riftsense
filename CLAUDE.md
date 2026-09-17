@@ -1,4 +1,4 @@
-# Coaching LoL — Coach IA personnalisé pour League of Legends
+# RiftSense — Coach IA personnalisé pour League of Legends
 
 > Projet en phase d'industrialisation (pipeline ML). Ce document fixe vision, stack,
 > schéma de données et état courant. Rien n'est figé.
@@ -19,19 +19,19 @@ au lieu de « place-toi ici »). On capture le **positionnement et les déplacem
 3. **Centré sur soi.** Une frame/minute suffit pour un avis sur l'équipe ; pour soi on veut
    une granularité plus fine (cooldowns, sorts loupés…).
 4. **Le LLM ne voit pas la vidéo brute.** Il reçoit un **journal structuré** d'événements
-   et d'états déjà extraits. L'extraction (API Riot + vision) fait le travail ; le LLM raconte.
+   et d'états déjà extraits. L'extraction (API Riot) fait le travail ; le LLM raconte.
 5. **D'abord le journal fiable, ensuite le coaching.**
-6. **Riot-first, CV-for-the-gaps.** API Riot = source principale ; CV = combler les trous.
+6. **Riot-first.** API Riot post-game = source active ; capture live / CV = hors périmètre actuel.
 
-## Source de données : Riot-first, CV-for-the-gaps
+## Source de données : Riot-first
 
-La vision n'est PAS la source principale. L'API Riot donne gratuitement, sans OCR :
+Le projet actuel utilise une seule source : l'API Riot **post-game**, sans OCR ni capture locale.
 
 - **Match-V5 + Timeline** (post-game) : positions x/y de tous les champions toutes les 60 s,
   gold/XP/items par joueur, et tous les events discrets (kills, objectifs, wards, level-ups,
   ordre de skill, achats). La **timeline** est le joyau.
-- **Live Client Data API** (`https://127.0.0.1:2999`, pendant la game) : abilities, runes,
-  items, gold, level, scoreboard, feed d'events en temps réel.
+
+La capture live et la CV sont un projet séparé, hors périmètre actuel.
 
 ### Accès API (clé prod « Coach_LoL_LLMs », 39 méthodes)
 
@@ -41,48 +41,41 @@ Clé de production (limites généreuses, pas d'expiration 24 h) → backoff pol
 |-----|-------------|------|---------|
 | account-v1 | `accounts/by-riot-id/{gameName}/{tagLine}` | Riot ID → `puuid` (porte d'entrée) | **régional** |
 | match-v5 | `matches/by-puuid/{puuid}/ids`, `matches/{id}`, **`matches/{id}/timeline`** | Cœur du MVP | **régional** |
-| match-v5 | `matches/by-puuid/{puuid}/replays` | Bonus Phase 2 (pont .rofl) | régional |
 | league-v4 | `entries/by-puuid/{puuid}` | Elo/LP (rend summoner-v4 inutile) | **plateforme** |
 | lol-challenges-v1 | `player-data/{puuid}`, `challenges/percentiles` | Bonus benchmarking profil | plateforme |
 | champion-mastery-v4 | `champion-masteries/by-puuid/{puuid}` | Profilage (main vs pick), Phase 2 | plateforme |
-| spectator-v5 | `active-games/by-summoner/{puuid}` | Live uniquement, Phase 2 | plateforme |
 
 **Piège routing** : account-v1 + match-v5 = régional (`europe`/`americas`/`asia`) ;
-league-v4 / mastery / spectator = plateforme (`euw1`…).
+league-v4 / mastery = plateforme (`euw1`…).
 **Hors scope** : summoner-v4, clash-v1, tournament-*, lol-status-v4, champion-v3.
-
-### Ce que la CV doit combler (phase 2 seulement)
-
-Uniquement ce que Riot ne donne pas : cooldowns exacts, skillshots loupés/touchés,
-micro-positionnement entre frames 60 s, zone de caméra.
 
 ### Les deux niveaux d'information (CRITIQUE pour l'asymétrie)
 
-- **« Ce que je savais »** — Live Client Data API : ne renvoie **que ce que le joueur voit**
-  (fog of war respecté natif). → **Seule** base autorisée pour reprocher/juger une décision.
-- **« Ce qui s'est réellement passé »** — Match Timeline post-game : info complète (positions
-  ennemies même invisibles). → Sert uniquement à **labelliser a posteriori**. Ne JAMAIS le
-  présenter au LLM comme une connaissance qu'avait le joueur.
+- **« Ce qui peut être prescrit »** — uniquement les features exactes et vérifiables depuis
+  la timeline (`COACHING_SAFE`), jamais un proxy statistique présenté comme un reproche.
+- **« Ce qui reste statistique »** — `ML_ONLY` (proxys flous) sert le modèle, mais n'est jamais
+  injecté comme conseil actionnable.
+- **« Ce qui sert à labelliser »** — la timeline complète et les benchmarks servent à comparer
+  et labelliser après coup ; ils ne sont jamais présentés au LLM comme une connaissance
+  que le joueur avait au moment T.
 
 ## Stack cible
 
-Langage principal : **Python** (écosystème vision/ML). Lancer depuis la racine, dans
+Langage principal : **Python** (écosystème ML). Lancer depuis la racine, dans
 l'environnement Poetry (`poetry shell` ou préfixer `poetry run`) :
 `python3 src/<dossier>/<script>.py` — chaque script insère `src/core/` dans `sys.path` avant
 `import riotlib` (convention flat-import, pas de package Python dans `src/`).
 
 | Brique | Techno |
 |--------|--------|
-| Données de jeu | API Riot : Match-V5 + Timeline, Live Client Data API |
-| Extraction frames/vidéo (phase 2) | FFmpeg, OpenCV, NumPy, Tesseract/EasyOCR |
-| Détection minimap (tardif) | YOLO-like (Ultralytics/supervision) ou template matching + règles |
+| Données de jeu | API Riot : Match-V5 + Timeline |
 | Validation schémas | Pydantic |
 | Stockage | Parquet/JSONL en local ; Cloudflare KV pour les données web publiées |
 | Analytics local | DuckDB |
 | Extraction structurée | Ollama local ou Cloud, structured output JSON (schéma imposé, T° basse) |
 | Synthèse narration | Petit modèle local pour l'extraction ; modèle plus gros (API) pour la narration nuancée |
 
-**À éviter (sur-ingénierie)** : CV tant que le MVP timeline n'est pas validé ; scraping
+**À éviter (sur-ingénierie)** : capture live / CV ; scraping
 YouTube ; gros fine-tuning de LLM ; modèle supervisé d'erreurs sans dataset labellisé
 (heuristiques déterministes d'abord) ; Postgres (DuckDB suffit) ; full video understanding.
 
@@ -90,11 +83,10 @@ YouTube ; gros fine-tuning de LLM ; modèle supervisé d'erreurs sans dataset la
 
 - **Phase 1 — Coach 100 % API, zéro vision (MVP)** ✅ : N dernières games via Match-V5 →
   features macro/positionnement → Ollama → compte-rendu. Valider « le coach est-il utile ? »
-  avant d'investir dans le pipeline CV. Si le coach timeline est bon, on sait où mettre la
-  CV. S'il est mauvais, le problème vient des features, pas de la vision.
-- **Phase 2 — CV pour les trous** : vision ciblée sur ce qui manque (cooldowns, skillshots,
-  micro-position, caméra). Piste : rejouer la game depuis les **fichiers replay (.rofl)** en
-  mode spectateur (Live Client API + caméra disponibles, sans impacter la game live).
+  avant d'investir dans un autre projet. S'il est mauvais, le problème vient des features,
+  pas de la source de données.
+- **Phase 2 — capture live / CV** : **hors périmètre actuel** (projet séparé ; aucune
+  intégration, aucun code de capture).
 - **Phase 3 — ML / spécialisation (si justifié)** : heuristiques → ML supervisé seulement
   une fois des labels accumulés. Pas de fine-tuning avant d'en prouver le besoin.
 
@@ -115,10 +107,9 @@ ne fait que raconter ce que les features ont conclu. Investir là.
 Principe : **pas « une ligne = une game »**. Au moins 4 tables/fichiers logiques.
 
 - **`games`** — métadonnées globales : patch, champion, rôle, durée, résultat, side, elo.
-- **`states_timeline`** — états échantillonnés : `game_id`, `timestamp_ms`, `my_hp_pct`,
-  `my_mana_pct`, `q_cd`…`r_cd`, `flash_cd`, `tp_cd`, `visible_enemy_count`,
-  `visible_on_minimap_*`, `camera_zone`, `gold_unspent`, `wave_state_estimate`.
-  (Positions/gold/level viennent de la timeline Riot ; HP/mana/cooldowns/caméra = CV phase 2.)
+- **`states_timeline`** — états échantillonnés depuis la timeline Riot : `game_id`,
+  `timestamp_ms`, positions x/y, gold/XP/level/items, wards et événements discrets.
+  Aucun champ HP/mana/cooldown/caméra : ce besoin appartient au projet séparé capture live / CV.
 - **`events`** — événements discrets : `game_id`, `timestamp_ms`, `event_type`,
   `actor` (self/ally/enemy_visible), `zone`, `confidence`, `payload_json`.
 - **`reviews`** — labels et résumés : erreurs détectées, bons moves, scores
@@ -126,7 +117,7 @@ Principe : **pas « une ligne = une game »**. Au moins 4 tables/fichiers logiqu
 
 ## Pipeline de résumé
 
-1. Récupération (Riot API phase 1 ; + extraction CV phase 2).
+1. Récupération via l'API Riot post-game.
 2. Conversion en événements et états structurés.
 3. Agrégation en **features haut niveau** benchmarkées challenger, ex. : « 3 pushes sans
    vision en side lane », « 2 recalls tardifs avant drake (challengers : -350 g plus tôt) »,
@@ -140,8 +131,6 @@ Principe : **pas « une ligne = une game »**. Au moins 4 tables/fichiers logiqu
 
 - **Coach champ select** — picks/bans et matchups.
 - **Coach in-game / fin de game** — axe principal : journal agrégé + compte-rendu.
-- **Overlay de lecture d'écran** — lit l'écran → données → LLM, garantissant l'asymétrie.
-  (ToS Riot : overlay en lecture seule, aucune automatisation d'input.)
 
 ## Évaluation
 
@@ -152,7 +141,7 @@ absolues du LLM.
 ## Architecture du code (médaillon, numérotée pour l'ordre du pipeline)
 
 Code dans `src/`, données dans `data/` (couches numérotées). `src/` rangé par rôle (pas de
-vrac à la racine) : `core/` (libs partagées), `collection/` (appels API Riot / Live Client),
+vrac à la racine) : `core/` (libs partagées), `collection/` (appels API Riot),
 `pipeline_ops/` (maintenance médaillon, 0 appel API), `reporting/` (livrable heuristique
 pré-ML), `experiments/` (spikes historiques), puis `01_data_engineering` → `04_coaching`
 (pipeline ML). `tests/` (pytest) couvrent la dérivation déterministe + extraction comp +
@@ -161,8 +150,8 @@ agrégation contextuelle. Lancer : `poetry run pytest tests/`.
 ```
 src/
   core/           riotlib.py, positioning.py, champion_profiles.py, game_journal.py, ml_features.py,
-                  ranks.py, cli.py, kv_keys.py, dataset_split.py, ml_rank.py, settings.py
-  collection/     build_referential.py, aggregate_games.py, live_capture.py, sync_cloudflare.py,
+                  ranks.py, cli.py, kv_keys.py, dataset_split.py, ml_rank.py, ebm_explain.py, settings.py
+  collection/     build_referential.py, aggregate_games.py, sync_cloudflare.py,
                   refresh_cloudflare.py, pipeline.py, densify_targets.py, densify_sweet_spot.py,
                   densify_players.py, fetch_apex_lp.py
   pipeline_ops/   reextract_silver.py, rebuild_gold.py, compress_raw.py,
@@ -176,7 +165,7 @@ src/
                         lp_metrics.py, audit_leakage.py, poc/per_player_hypothesis.py,
                         sequence_model.py, sequence_data.py, train_sequence_model.py,
                         pretrain_sequence_model.py, cv_common.py
-  03_data_analyse/      shap_analysis.py, plot_custom_shap.py
+  03_data_analyse/      shap_analysis.py, plotter.py
   04_coaching/          payload.py, prompt.py, schema.py, llm_client.py, coach.py, feedback.py,
                         grounding.py, counterfactual.py
 data/
@@ -188,12 +177,21 @@ data/
   04_dataset/     adc_dataset.parquet, densify_targets.json, datasets per-player/LP
   05_model/       modèles ML + metrics (xgb_highelo.pkl, player_metrics.json, player_lp_metrics.json,
                   rank_calibration.json, auc_vs_ngames.{json,png})
-  06_shap/        SHAP/EBM outputs
+  06_shap/        player/high_elo/ + game/dia_chall/ : analyse EBM glass-box unifiée
+                  (ebm_shape_functions.json = seuils de bascule, ebm_ranking, cross-check
+                  SHAP-arbres vs EBM, diagnostics LOWESS, visuels)
   07_coaching/<player>/reviews.jsonl + feedback.jsonl
 web/
   cf/             Worker TypeScript de production : API, assets, KV, Ollama SSE
                   (src/http.ts = réponses d'erreur + pagination partagées)
+                  src/auth.ts = mot de passe COACH_AUTH_PASSWORD + cookie HMAC (30 j)
+                  src/coach_gate.ts = Durable Object de verrou, une instance par joueur
+                  src/game_coach.ts = coaching d'UNE partie (POST /api/coach/game)
+                  src/coaching_context.ts = scopes, champion principal, fraîcheur des bilans
+                  src/curation.ts = désignation de la partie pédagogiquement utile
   frontend/       SPA statique servie par le Worker
+shared/         prompts/*.txt (source de vérité, lue par prompt.py ET par le Worker)
+                + schemas/*.json (générés depuis Pydantic)
 config/           accounts.json (ignoré, données perso) + accounts.example.json (gabarit)
 ```
 ⚠️ `web/backend/` (FastAPI, ère Fly.io) a été SUPPRIMÉ le 2026-09-04. Les trois modules
@@ -212,67 +210,29 @@ Renommer un dossier data SANS mettre à jour le code → le code recrée l'ancie
 
 ### Modules `core/`
 
-- **`riotlib.py`** — socle (helpers de chemins médaillon `silver_games`/`gold_base`/
-  `gold_aggregate`/`silver_roots` + `KIND_REF`/`KIND_PERSONAL` — ⚠️ résolus depuis `DATA` À
-  L'APPEL, les tests substituant `rl.DATA` ; primitives publiques `participant_id`/`find_pid`/
-  `frames_by_minute`/`iter_events`/`cs_of` ; `MatchCache` = travail par-match partagé par
-  `extract_all_games`) : `RiotClient` (routing régional account/match vs plateforme league ;
-  rate-limiter ~1.3s/appel ; `entries_by_puuid` = rang courant via league-v4, frais pour le
-  coach web), helpers (`approx_zone`, `phase_of`, `patch_of`), `get_match_timeline` (cache raw
-  compressé zstd), `extract_game` (silver + benchmark de lane + sous-objet `comp` des 6 champions
-  botlane + sous-objet `position` via `positioning`), `aggregate`/`write_gold` (gold, facettes
-  win/loss + dimension `by_lane_context` + bloc `positioning` = médianes des 14 features
-  COACHING_SAFE via `_fmedian`, sans arrondi entier), chemins médaillon. Importe `champion_profiles`.
-- **`positioning.py`** — features macro-positionnement depuis la timeline (0 CV, module pur).
-  `positioning_features` → 17 scalaires nichés sous `record["position"]`. Manifeste d'asymétrie
-  mécanique : `COACHING_SAFE` (14 exactes → ML + coaching) vs `ML_ONLY` (3 proxys vision →
-  jamais prescrits). ⚠️ **Profondeur** (`avg/max_map_depth`) : sens contre-intuitif (valeur haute
-  → diamond, rang INFÉRIEUR) → marqueur de risque, jamais à prescrire.
-- **`game_journal.py`** — journal structuré d'UNE game depuis match+timeline raw (0 CV). Morts
-  et recalls **horodatés** (clock mm:ss) avec contexte : zone/phase, gold-state vs adversaire,
-  **gold non dépensé**, killer/gank, **objectif up/imminent** (timers v1 en tête de module :
-  drake 5:00/+5:00, baron 25:00/+6:00 — ajuster par patch ; Elder/Atakhan ignorés). Recalls =
-  clusters d'`ITEM_PURCHASED` (inclut resets après mort, `gold_before` = plancher frame précédente),
-  **`item_ids`** par recall (achats bruts, `ITEM_UNDO` honoré = retiré, `ITEM_SOLD` ignoré v1).
-  **Asymétrie** : uniquement de l'info que le joueur avait — aucun proxy ML_ONLY.
-  **Conséquences post-mort** (chaîne causale, 2026-07-18) : chaque mort porte un bloc
-  `consequences` calculé mécaniquement — objectifs (`ELITE_MONSTER_KILL` ennemi) et
-  bâtiments (`BUILDING_KILL`, ⚠️ `teamId` = équipe qui PERD) pris dans les
-  `CONSEQUENCE_WINDOW_S=60` s post-mort, + `team_gold_swing_90s` (écart de gold
-  d'équipe avant vs ~90 s après). Clé omise si fenêtre vide. `SYSTEM_GAME` impose de
-  restituer la chaîne (« mort → Baron perdu → -1 840 g ») en formulation corrélationnelle.
-- **`champion_profiles.py`** — identité champion : `champion_vector` (Data Dragon + table curée,
-  résolution casse-insensible), `derive_context(comp)` → `lane_pattern`
-  (poke/all_in/scaling/mixed/unknown) et `gank_exposure` (low/med/high/unknown). `fetch_ddragon`
-  (one-shot, idempotent). Champion inconnu → `unknown`, jamais d'erreur. `fetch_ddragon_items`/
-  `load_items` — même pattern one-shot pour le catalogue d'items Data Dragon (`item.json` →
-  `data/00_static/ddragon/<version>/`, `{id: {name, cost}}`).
-- **`ml_features.py`** — FEATURES canonique (partagé train/serve) + `aggregate_player_features`
-  (mean/std/p10/p50/p90 dérivés de la table unique `AGG_FUNCS` + `win_rate`) + `resolve_rank`
-  (mode, tie-break rang le plus bas). Réexporte `RANK_ORD` depuis `ranks`.
-- **`ranks.py`** — source unique des rangs et des cibles binaires (`RANKS`, `RANK_ORD`,
-  `HIGH_ELO`, `APEX`, `COLLECT_ORDER`, `TARGETS` = `high_elo`/`dia_chall`). Stdlib-only pour
-  rester importable par la collecte. ⚠️ La frontière de rang est un paramètre de recherche
-  actif : la déplacer se fait ICI, ces constantes étaient recopiées dans ~11 scripts.
-- **`cli.py`** — `arg`/`flag`/`int_arg`/`csv_arg` : parseur argv des scripts de collecte
-  (recopié à l'identique dans 7 fichiers). `live_capture.py` garde sa copie (stdlib-only assumé).
-- **`kv_keys.py`** — gabarits des clés Cloudflare KV côté Python (`key("gold", slug=…, scope=…)`).
-  Miroir de `KEYS` dans `web/cf/src/readers.ts`, verrouillé par `tests/test_kv_keys_parity.py`
-  (deux runtimes = deux tables, mais toute divergence de nom/gabarit fait échouer le test).
+Détail par fichier (`riotlib.py`, `positioning.py`, `game_journal.py`,
+`champion_profiles.py`, `ml_features.py`, `ranks.py`, `cli.py`, `kv_keys.py`,
+`ebm_explain.py`) : **`src/core/CLAUDE.md`**. À retenir au niveau projet :
+`ranks.py` est la source unique des rangs/cibles (déplacer la frontière de rang
+se fait ICI, pas dans les ~11 scripts qui la consommaient avant) ; `positioning.py`
+sépare mécaniquement `COACHING_SAFE` (14 features → ML + coaching) de `ML_ONLY`
+(3 proxys vision, jamais prescrits) ; `game_journal.py` ne restitue que l'info
+que le joueur avait (aucun proxy `ML_ONLY`).
 
 ### Modules `collection/`
 
 - **`build_referential.py`** — collecte les benchmarks par rang (league-v4/-exp-v4).
   `python3 src/collection/build_referential.py --region euw1 [--rank R] [--players N]`.
 - **`aggregate_games.py`** — pipeline perso : N games → silver + gold (all/adc/zeri).
-- **`live_capture.py`** — capture Live Client Data API pendant une game ; zéro dépendance hors
-  stdlib (copiable seul sur une machine sans le reste du repo).
 - **`sync_cloudflare.py`** — publication des agrégats, rangs, prédictions ML, SHAP, reviews et
   feedbacks locaux vers Cloudflare KV. Fusionne l'historique distant et supporte `--dry-run`.
   `--seed-reviews` n'amorce les reviews que si la clé est absente ; `--push-coaching` fusionne
   reviews + annotations locales dans KV par `ts` (`merge_jsonl` : la ligne distante écrite
   depuis le site survit, la ligne locale gagne sur un `ts` commun) — sans lui, les annotations
-  CLI resteraient invisibles du taux publié.
+  CLI resteraient invisibles du taux publié. Publie aussi le **bundle de payloads unitaires**
+  (`payload.build_game_bundle`, 50 parties les plus récentes, garde-fou 20 Mio,
+  `--skip-game-payloads` pour sauter l'étape) : le Worker n'a pas accès au raw Riot, donc le
+  coaching par-game du site ne peut exister que si ce bundle est construit localement.
 - **`densify_targets.py`** — sélection **chirurgicale** des joueurs à densifier vers le sweet
   spot ~30 games/joueur (cf. `analyze_auc_vs_ngames.py`). 0 API : relit `adc_dataset.parquet`
   (comptage par joueur sur le référentiel double-ADC), cible la bande `[--min-games, --threshold[`,
@@ -296,6 +256,10 @@ dépendances déclaré dans le `Makefile`. Chaque étape dépend des artefacts q
 code qui la produit (`src/core/*.py` en bloc), donc toucher `positioning.py` périme silver →
 gold → datasets → modèles. `make plan` répond « qu'est-ce qui est périmé ? » en déléguant à
 `make -n` (la seule réponse honnête). `make graph` affiche le DAG.
+`make analyse` (inclus dans `make pipeline`) régénère l'analyse EBM glass-box des deux
+niveaux via `core/ebm_explain.py` : le niveau player explique le modèle servi, le niveau
+game re-entraîne d'abord le modèle d'explication du jeu-type
+(`train_ensemble.py --target dia_chall`, jamais servi pour le rang).
 ⚠️ **Les étapes réseau ne sont JAMAIS des dépendances** : `collect` (Riot), `lp-label`
 (fetch_apex_lp) et `sync`/`sync-push` (Cloudflare) sont des cibles explicites, et
 `tests/test_pipeline_graph.py` échoue si l'une d'elles devient un prérequis de `pipeline`.
@@ -332,6 +296,12 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   portent, parce qu'un joueur nommé « Aatrox » ferait réécrire le `championName` de toutes
   les games par un remplacement global. `audit()` relit ce qui a été écrit et échoue sur
   survivance ; `tests/test_demo.py` rejoue ce contrôle à chaque run.
+- **`generate_shared.py`** : sérialise les artefacts partagés entre les deux runtimes,
+  `shared/prompts/*.txt` + les schémas Pydantic -> `shared/schemas/*.json` et
+  `web/cf/src/generated/shared.ts` (committé, pour que `wrangler deploy` ne dépende
+  d'aucun runtime Python). `make generate-shared`. La parité est vérifiée par
+  `tests/test_shared_contract.py`, qui compare le fichier généré sur disque à ce que
+  le générateur produit : un prompt modifié sans régénération échoue en CI.
 
 ### Modules `reporting/` et `experiments/`
 
@@ -377,61 +347,58 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   `calibrate_player_rank.py`, `lp_metrics.py` (Spearman pooled/by-tier + RMSE, garde anti-NaN
   `_safe_spearman`), `audit_leakage.py` (diagnostic OOF/AUC), `poc/per_player_hypothesis.py`
   (hypothèse constance, repris en prod par `src/core/ml_rank.py`).
-- **`03_data_analyse/`** : `shap_analysis.py` (SHAP global + Spadzze + cross-check EBM :
-  direction par feature via `explain_local`, interactions par paires via `explain_global`) et
-  `plot_custom_shap.py`.
-- **`04_coaching/`** : narration LLM (Ollama Cloud, structured output).
-  `payload.py` (gold perso+réf → payload déterministe, **safe-only** : positioning ⊂
-  COACHING_SAFE, profondeur `descriptive_only`), `prompt.py` (system asymétrie + benchmark-relatif,
-  FR), `schema.py` (Pydantic : `Review` 1-3 forces / 3 erreurs / 2 habitudes / 1 focus / confidence,
-  **preuve chiffrée par point** — forcer exactement 3 forces poussait au remplissage, cause du tag
-  feedback « trop-vague » ; `GameReview` 0-2 forces / 1-3 erreurs `GameInsight` — **`cause`
-  obligatoire (POURQUOI : mécanisme de mort / comportement) + horodatage mm:ss dans l'evidence,
-  sur forces ET erreurs** (réponse feedback « je sais pas pourquoi je suis mort ») ;
-  pas de habits sur 1 game ; `Feedback`/`FeedbackItem`),
-  `grounding.py` (vérifications d'ancrage, 0 réseau), `counterfactual.py` (tests
-  contrefactuels, 1 appel par perturbation),
-  `llm_client.py` (client `https://ollama.com/api/chat`, `OLLAMA_API_KEY`, `format`=JSON-schema,
-  défaut `kimi-k2.6` ; `generate` renvoie `Generation(data, usage)` = sortie + télémétrie),
-  `coach.py` (CLI : payload→prompt→client→validation→affiche+persiste),
-  `feedback.py` (CLI `annotate`/`summary` : boucle d'éval par-insight).
-  **Traçabilité des runs** : chaque review persistée porte un bloc `run`
-  (`prompt_version` = empreinte sha256 du system prompt via `prompt.version_of`, donc
-  impossible à oublier de bumper ; `latency_ms`/`total_tokens` cumulés **retries de schéma
-  inclus** ; `schema_retries` ; `cost_usd` = `None` tant que `llm_client.PRICE_PER_MTOK`
-  est vide, Ollama Cloud étant facturé à l'abonnement). Sans ce bloc, une variation du
-  taux d'utilité n'est attribuable ni au prompt ni au modèle.
-  **Chemin par-game** : `payload.build_game` (journal `game_journal` + repères référentiel à issue
-  égale ; recalls enrichis d'items résolus {nom, coût} via `champion_profiles.load_items` — plus
-  d'`item_ids` bruts côté LLM ; bloc `context` = comp botlane/jungle/mid + `lane_pattern`/
-  `gank_exposure` via `derive_context`), `prompt.SYSTEM_GAME` (règle matchup basée sur ce
-  `context` + règle de gold relatif au prochain achat de chaque recall), `coach.py --game [latest|MATCH_ID]` (records `kind: "game"` +
-  `match_id`), `coach.py --game-batch [N]` (défaut 10 : reviews par-game des N dernières games ADC
-  pas encore reviewées, dédup par `match_id`, poursuit sur échec, bilan final).
-  `feedback.py annotate --pending` : itère en série toutes les reviews sans feedback. `summary` :
-  taux par section + top tags + par modèle + tendance + verbatims `tag_notes` + bloc `Objectif
-  par-game` (`objective_stats` : % mistakes utiles sur les reviews `kind: "game"`). Le champ
-  `note` est aussi exposé côté web (`web/frontend/`, textarea sous chaque item noté, `POST /api/feedback`).
-  **Éval automatique (0 humain, 0 annotation)** : `grounding.py` (les chiffres et
-  horodatages cités existent-ils dans le payload ? + violations d'asymétrie) et
-  `counterfactual.py` (le coach LIT-il le payload ? on perturbe une dimension, on
-  régénère, on vérifie que la sortie suit). ⚠️ Deux points non négociables : le
-  **cloisonnement par unité** de `grounding` (sans lui, n'importe quel nombre du
-  journal ancre n'importe quelle stat : 30 % de détection au lieu de 91 %) et la
-  **calibration par contrôle négatif** (`ROUNDED_REL=0.01`, mesurée dans
-  `tests/test_grounding.py` — un taux d'ancrage sans mesure de puissance ne veut
-  rien dire). Les sorties contrefactuelles sont persistées dans
-  `data/07_coaching/<player>/eval/`, JAMAIS dans `reviews.jsonl` (ni annotation ni
-  publication : ce ne sont pas des reviews du joueur).
-  **Publication du taux** : `feedback.eval_report` / `summary --json` (rapport machine) côté
-  local ; côté site le Worker le recalcule À LA LECTURE (`web/cf/src/evaluation.ts`,
-  `GET /api/c/<slug>/eval`, affiché en tête de l'onglet Coaching, atteint ou non) — un blob
-  précalculé au sync serait périmé dès la première annotation laissée depuis le web. Seuils
-  (`_OBJECTIVE_N`=10, `_OBJECTIVE_RATE`=0.70) verrouillés entre les deux runtimes par
-  `tests/test_eval_parity.py`. Les reviews/feedbacks locaux rejoignent KV via
-  `sync_cloudflare.py --push-coaching` (fusion par `ts`, jamais d'écrasement).
-  Lancer : `python3 src/04_coaching/coach.py --player spadzze --scope adc [--game|--game-batch N]`,
-  `python3 src/04_coaching/feedback.py annotate --player spadzze [--last|--ts|--pending]`. Aucun réseau.
+- **`03_data_analyse/`** : `shap_analysis.py` (CLI fine `--level {player,game}` sur le moteur
+  `core/ebm_explain.py` : ranking + shape functions exactes avec seuils de bascule,
+  interactions par paires au niveau game, cross-check SHAP-sur-arbres, visuels et
+  diagnostics LOWESS via `plotter.py` ; drivers Spadzze au niveau game uniquement).
+- **`04_coaching/`** : narration LLM (Ollama Cloud, structured output). Pipeline,
+  modules (`payload`/`prompt`/`schema`/`llm_client`/`coach`/`feedback`), boucle
+  d'éval (`grounding`/`counterfactual`/`model_ab`) et historique A/B modèles :
+  **`src/04_coaching/README.md`** (documentation détaillée du dossier). Ce qui
+  suit est ce que le README ne couvre pas.
+  - **Prompts/schémas partagés** : le texte des prompts vit dans
+    `shared/prompts/*.txt` (`prompt.py` le lit et strip le newline final,
+    exactement comme le Worker via `web/cf/src/generated/shared.ts` : un seul
+    texte pour les deux runtimes). `review_json_schema()`/`game_review_json_schema()`
+    renvoient le schéma JSON **strict** inliné (`$defs` résolus, pas de
+    `title`/`description`, `additionalProperties: false`) consommé aussi par le
+    Worker. `schema_version_of`/`REVIEW_SCHEMA_VERSION`/`GAME_REVIEW_SCHEMA_VERSION`
+    = empreinte sha256 du schéma, comme `prompt.version_of` pour le prompt.
+    ⚠️ `PROMPT_VERSION`/`GAME_PROMPT_VERSION` sont figées par
+    `tests/test_shared_contract.py` : `web/cf/src/coaching_context.ts` compare
+    le `prompt_version` d'une review à la version courante pour classer
+    `ready`/`stale` côté web — un hash qui bougerait sans le vouloir périmerait
+    silencieusement cette classification.
+  - **Chemin par-game** : `payload.build_game` (journal `game_journal` +
+    repères référentiel à issue égale ; recalls enrichis d'items résolus
+    {nom, coût} via `champion_profiles.load_items` ; bloc `context` = comp
+    botlane/jungle/mid + `lane_pattern`/`gank_exposure` via `derive_context`),
+    `prompt.SYSTEM_GAME` (règle matchup basée sur ce `context` + règle de gold
+    relatif au prochain achat de chaque recall), `coach.py --game
+    [latest|MATCH_ID]` (records `kind: "game"` + `match_id`), `coach.py
+    --game-batch [N]` (défaut 10 : reviews des N dernières games ADC pas
+    encore reviewées, dédup par `match_id`, poursuit sur échec).
+  - **Chemin par-game côté web** : `payload.build_game_bundle` sérialise ces
+    payloads (clé KV `riftsense:{slug}:game-payloads`, `payload_hash` +
+    `benchmark_scope` = champion sinon rôle sinon global) ; `web/cf/src/game_coach.ts`
+    relit l'entrée demandée, réutilise une review existante sans appel LLM et
+    ne régénère que sur `force`. Les motifs d'indisponibilité publiés
+    (`raw_missing`/`benchmark_missing`/`not_eligible`) sont dérivés du **type**
+    d'exception (`RawMissing`/`BenchmarkMissing`/`GameNotEligible`), jamais du
+    texte du message. ⚠️ Les trois chemins LLM du site (`/api/coach`,
+    `/api/coach/game`, `/api/chat`) sont derrière `auth.ts`
+    (`COACH_AUTH_PASSWORD`) et sérialisés par joueur par le Durable Object
+    `CoachGate` (verrou tenu jusqu'à la fermeture réelle du flux SSE). Le
+    client Ollama du Worker streame (`stream: true`) : sans streaming, une
+    génération > 125 s finit en HTTP 524 (Ollama Cloud est lui-même derrière
+    Cloudflare).
+  - **Publication du taux d'éval** : recalculé À LA LECTURE côté site
+    (`web/cf/src/evaluation.ts`, `GET /api/c/<slug>/eval`), jamais poussé
+    précalculé (un blob figé au sync serait périmé dès la première annotation
+    laissée depuis le web). Seuils (`_OBJECTIVE_N=10`, `_OBJECTIVE_RATE=0.70`)
+    verrouillés entre les deux runtimes par `tests/test_eval_parity.py`.
+  Lancer : `python3 src/04_coaching/coach.py --player spadzze --scope adc
+  [--game|--game-batch N]`. Aucun réseau côté `grounding`/`feedback`.
 
 Pipeline contexte (0 API) : `champion_profiles` (fetch DDragon one-shot) → `reextract_silver`
 (silver + comp) → compléter `champion_traits.json` via `list_unknown_champions` → `rebuild_gold`
@@ -445,150 +412,79 @@ Features clés : **facettes win/loss** (neutralise le biais d'issue), **benchmar
 COACHING_SAFE uniquement).
 Scopes : `all` · `adc` (BOTTOM) · `zeri` (champion). Filtre patch courant, SR (mapId 11),
 ranked solo (queue 420). Spec : `docs/superpowers/specs/`.
+⚠️ **`docs/superpowers/` (specs et plans) n'est plus versionné** (2026-09-07) : ces documents
+vivent en local, seuls `docs/MODEL_CARD.md` et `docs/PROGRESS.md` restent suivis. Toute
+référence à une spec dans ce fichier pointe donc vers un document absent d'un clone frais ;
+l'historique git garde les versions antérieures à cette date.
 
 ## État d'avancement
 
-- **Migration web Cloudflare** ✅ — 2026-08-31. `web/cf/` sert l'API TypeScript et le frontend
-  sur `https://coaching-lol.jeanvg.fr`, avec lecture/écriture Cloudflare KV et coaching Ollama
-  diffusé en SSE. La collecte Riot et le calcul ML restent locaux puis sont publiés par
-  `sync_cloudflare.py`. L'ancienne app Fly ne reçoit plus de trafic et est inactive ; Fly bloque
-  sa suppression sans ajout de carte bancaire, elle est donc laissée en l'état sans réactiver
-  la facturation. L'historique local disponible a été fusionné dans KV (17 reviews, 5 feedbacks) ;
-  le volume Fly n'a pas été rapatrié davantage, par choix.
-- **Dépôt exécutable après clone** ✅ — 2026-09-04. `make demo` (README en tête) : 0 réseau,
-  0 clé, 49 parties réelles pseudonymisées dans `tests/fixtures/demo/` (3,2 Mo), et la chaîne
-  de PRODUCTION rejouée dessus (`reextract_silver` → `rebuild_gold` → `compare` → `coach
-  --mock-llm` → `grounding`). Seul l'appel modèle est remplacé (`src/04_coaching/mock_llm.py`,
-  substitué à `llm_client.generate` : le reste du chemin — schéma, validation Pydantic,
-  télémétrie, persistance — reste celui de prod, et le mock ne cite que des chiffres du
-  payload pour que `grounding` derrière rende un taux vrai). **Effet CI** : les 7 goldens de
-  parité `payload.py` ↔ `readers.ts` lisaient `data/03_gold/` (gitignoré) et se *skippaient*
-  en CI, donc verts sans rien vérifier ; adossés aux fixtures ils s'exécutent, et ont
-  immédiatement révélé un vrai défaut — `_zone_phase_signals` itérait `set(me) | set(ref)`,
-  donc à delta égal l'ordre dépendait du `PYTHONHASHSEED` (payload non déterministe entre
-  deux runs) alors que le TS partait de clés triées. Corrigé + test de régression.
-- **Phase 1 VALIDÉE** ✅ — positionnement reconstruit sans vision. Insight type :
-  « 1 ennemi = 5/8 de tes morts » >> « meurs moins ».
-- **Phase 1.5 — agrégation multi-games** ✅ — pattern récurrent sur 14-20 games : ~37 % des
-  morts ADC = BOT en early ; l'ennemi ADC signe ~45 % des morts.
-- **Phase 1.6 — référentiels multi-rangs** ✅ — collecte globale ~4454 games / patch 16.13
-  (Diamond, Master, GM, Challenger). `compare.py` et benchmarks contextuels intégrés.
-- **Phase 1.7 — ML & SHAP** 🚧 — pipeline médaillon industrialisé. Classif High-Elo vs Low-Elo
-  (ensemble XGB/RF/EBM). Dataset densifié : 2 ADC/game depuis le raw → ~7 873 rows.
-- **Phase 1.8 — macro-positionnement (timeline, 0 CV)** ✅ — module `positioning` (17 features).
-  ML : AUC **dia_chall 0.655 → 0.724 (+0.069)**, top-3 discriminants EBM tous positionnels.
-  Coaching : 14 features câblées dans `aggregate`/`compare`. ⚠️ `xgb/rf/ebm_highelo.pkl` à
-  ré-entraîner avant de servir en inférence web — per-game déprécié 2026-07-18, non servi ; le
-  serving utilise les `*_player_highelo.pkl`. **AUC high_elo = 0.589** (frontière Master|GM
-  peu séparable sur features macro, contrairement à dia_chall).
-- **Rang ML estimé (web)** ✅ — onglet Historique de `/c/{slug}` : rang placé par l'ensemble
-  xgb+rf sur les dernières games ADC, calibré par `calibrate_rank.py`. Confiance affichée
-  explicitement (signal faible) — pas de fausse certitude.
-- **Rang ML per-player (constance)** ✅ — `src/core/ml_rank.py` utilise le modèle per-player
-  (features mean/std/p10/p50/p90 + `win_rate`, seuil `MIN_ADC_GAMES=15`), reprenant l'hypothèse
-  validée par `poc/per_player_hypothesis.py` (dispersion/plancher > tendance centrale).
-  **`MIN_PLAYER_GAMES=15`** (relevé 5→15 : à 5 games l'AUC s'effondrait à 0.531, bruit de
-  matchmaking > signal de dispersion ; agrégation sur tout l'historique + `win_rate` corrige).
-  **AUC_cv purgée 0.635** (982 joueurs 491/491, après densification sweet-spot `[15,30[` hors
-  diamond, 2026-07-06 ; dispersion 57.9 % du signal SHAP). Fuite par games partagées ≈ +0.005
-  d'AUC (purge = 8.7 % des games de train, 0 joueur droppé) — l'hypothèse constance tient.
-  **AUC vs N** (`analyze_auc_vs_ngames.py`) : pool fixe ≥50, N=15→0.588, 20→0.619, 25→0.628,
-  **30→0.635 (peak)**, 40→0.624, 50→0.599. Sweet spot ~30 ; au-delà = bruit CV. La config prod
-  (qualify=15, cap=tout l'historique) ≈ le peak — déjà au plateau ; monter le seuil ne gagnerait
-  que ~+0.01-0.02 pour un pool divisé par 2-3. **Plafond ~0.65** sur la frontière master/GM —
-  les leviers sont le pool (densifier), les features, ou la frontière de rang (dia_chall 0.72),
-  pas plus de N ni de joueurs sur cette bande. Historique complet des runs dans
-  `data/05_model/player_metrics.json`.
-- **Régression LP (hybride, apex tiers)** ✅ — 2026-07-07. Pipeline : `fetch_apex_lp.py` →
-  `build_player_lp_dataset.py` (per-player SANS balance-cap, apex seulement, diamond exclu) →
-  `train_player_lp.py` (ensemble xgb/rf/ebm REGRESSORS, random search graine fixe en purged CV,
-  sélection au Spearman pooled OOF, SHAP). Serving hybride : `ml_rank.predict_rank` ajoute
-  `predicted_lp` (moyenne ensemble, ≥0) quand le rang placé est apex et que les `.pkl` LP
-  existent (dégradation propre sinon) ; le placement binaire 4 rangs est inchangé. Drift
-  temporel du label LP (fetch au train vs games jusqu'à ~13 j) = limite connue actée. Spec :
-  `docs/superpowers/specs/2026-07-07-lp-production-design.md`.
-  **Métriques run 2026-07-07** (`data/05_model/player_lp_metrics.json`) : 1148 joueurs
-  (master 703 / challenger 367 / grandmaster 78, 130 droppés sans LP courant). Ensemble OOF
-  purgé : **Spearman pooled = 0.5186** (baseline POC 0.5028, gate passée) ; by_tier challenger
-  0.5995, grandmaster 0.5979, master 0.4103 ; RMSE 517.2 LP. Dispersion = 56.1 % du signal SHAP.
-- **Recherche — transformer séquentiel + SSL** ✅ — 2026-07-18. Branche parallèle
-  `research/sequence-transformer` (0 perturbation du pipeline existant). Transformer à la main
-  (4 couches, d_model=64, masked-mean-pool) sur les séquences d'états par-minute (20-d : ADC ciblé
-  + adverse + diffs gold/cs/xp/level), CV purgé identique au baseline tabulaire (folds
-  joueur-groupés + purge miroir, standardisation per-feature **train-only par fold non
-  négociable**). Étape 1 supervisée vs ensemble tabulaire (RF+EBM) + MLP contrôle ; Étape 2 SSL
-  mask-and-reconstruct (delta mesuré, pretrain par-fold train-only → delta propre, pas d'avantage
-  transductif). Verdict sur `dia_chall` ; `high_elo` (master/GM) null = bruit de label non
-  interprétable (plafond ~0.589 connu). Spec : `docs/superpowers/specs/2026-07-18-sequence-transformer-design.md`.
-  Métriques : `data/05_model/sequence_metrics.json`.
-  **Métriques run 2026-07-18** (`data/05_model/sequence_metrics.json`) : `dia_chall` séquence
-  **AUC 0.645** (±0.008, 42 996 rows) BAT tabular 0.633 / MLP 0.530 → la représentation séquentielle
-  capte un signal que l'agrégat rate sur la frontière séparable (thèse renforcée). `high_elo`
-  séquence 0.546 ≈ tabular 0.554 ≈ bruit (95 378 rows, master/GM peu séparable). SSL
-  `delta_ssl = -0.0195` (≈0) : le prétexte MSE mask-and-reconstruct est faible sur signaux lisses
-  (gold monotone, position continue → quasi-interpolation) — **pas un verdict sur le SSL en
-  général**, un prétexte prédictif (future-event) reste à tester en étape 3. ⚠ **Caveat env Mac** :
-  torch, scikit-learn et xgboost embarquent chacun leur `libomp.dylib` ; deux runtimes OpenMP
-  initialisés dans le même processus → SIGSEGV/deadlock (reproduit : la suite plantait dans
-  `train_sequence_model._train_one_task` après les fits sklearn/xgboost d'un test antérieur).
-  La suite pytest est immunisée par le garde-fou en tête de `tests/conftest.py`
-  (`OMP_NUM_THREADS=1` + `KMP_DUPLICATE_LIB_OK=TRUE`, darwin seulement, avant tout import ; le
-  flag seul NE suffit PAS, vérifié) + canary `tests/test_openmp_coexistence.py`. Les runs
-  manuels restent dans la configuration documentée : baseline tabulaire RF+EBM (xgb exclu) ;
-  en cas de blocage pareil, préfixer `OMP_NUM_THREADS=1 KMP_DUPLICATE_LIB_OK=TRUE`. Pas
-  d'export `~/.zshrc` (plafonnerait les threads de tous les projets). MPS n'implémente pas le
-  nested-tensor de `src_key_padding_mask` → run CPU (`--device cpu`). 0 API (relit `_read_raw`).
-- **Protocole d'éval gold standard (per-player)** ✅ — 2026-07-18. Split canonique unique
-  `data/04_dataset/split.json` (par joueur, stratifié, graine fixe, 70/15/15, cf.
-  `src/core/dataset_split.py` + `src/01_data_engineering/build_split.py`). Sélection des
-  hyperparamètres en k-fold SUR LE TRAIN, headline sur le TEST held-out ; calibration + test
-  hors du modèle servi (réservée à une future couche calibration/conformal, non encore
-  implémentée).
-  Purge étendue via `purged_train_features` (fold-val ∪ holdout). ⚠ Le headline test est
-  volontairement plus bas que les anciens OOF-à-plat (fin de l'optimisme de sélection + modèle
-  sur ~70 % des joueurs) : c'est la mesure honnête. **FLAW ASSUMÉ (GM)** : ~78 GM au total →
-  calib/test GM petits (~12 chacun), métriques GM bruitées ; remédiation renvoyée à un script
-  ultérieur. Spec : `docs/superpowers/specs/2026-07-18-gold-standard-eval-protocol-design.md`.
-  **Métriques run 2026-07-18** — rang (`player_metrics.json`) : cv_train.auc=0.5912 (n=687,
-  343/344) / test.auc=0.677 (n=147, 73/74) ; split 1345 joueurs (train 942 / calib 202 / test
-  201, 70/15/15 stratifié). LP (`player_lp_metrics.json`) : cv_train.spearman_pooled=0.4931
-  (rmse 535.4, n=805) / test.spearman_pooled=0.5373 (rmse 555.1, n=170) ; by_tier test :
-  challenger 0.6601 (n=55), grandmaster 0.7545 (n=11, bruité), master 0.3634 (n=104).
-- **Per-game DÉPRÉCIÉ** — 2026-07-18. `train_ensemble.py` / `calibrate_rank.py` arrêtés (non
-  servis, AUC ~0.63/0.59 trop aléatoire) ; code et artefacts conservés pour l'historique.
-- **Compte-rendu par-game (axe prioritaire coaching)** ✅ — 2026-07-05. Diagnostic feedback :
-  les tags « trop-vague »/« non-actionnable » venaient du **payload agrégé** (le LLM ne peut pas
-  être plus précis que des médianes) + du schéma forçant 3 forces. Fix : `game_journal` (morts/
-  recalls horodatés + contexte) → `coach.py --game` → `GameReview` (horodatage obligatoire par
-  erreur au niveau schéma). Vérifié bout en bout (kimi-k2.6). **Itération cause (2026-07-08)** :
-  2e signal feedback (« je sais pas pourquoi je suis mort », « aucune idée de pourquoi » sur les
-  forces) → `GameInsight` ajoute un champ `cause` obligatoire (POURQUOI = mécanisme de mort /
-  comportement) sur forces ET erreurs, + `SYSTEM_GAME` restitue le contexte de mort du journal
-  (killer/gank/zone/objectif). Validé : « tu prolonges en lane sans gold à dépenser → exposé aux
-  all-ins 2v2 et ganks (morts à 4:42 par Karma…) ». **Métrique de succès : ≥70 % de mistakes
-  utiles sur ≥10 reviews par-game annotées, 0 rejet « trop-vague ».**
-- **Premier verdict ADC** : laning = LE levier (≈ -10 à -16 CS @14 vs challenger, *toutes*
-  issues) ; mauvaise gestion du retard (gold@20 en lose -1252 vs -322) ; morts = symptôme.
-- Clé **dev** (throttle ~100 req/2min, attentes 429 si saturé) → rate-limiter intégré.
-  `.env` (clé `RIOT_API_ID` ; pas de `RIOT_REGION` → passer `--region euw1`), `data/` ignoré.
+Historique complet des runs, métriques et decisions (dates, chiffres, specs) :
+`docs/PROGRESS.md`. Résumé de l'état actif ci-dessous.
+
+- **Rebranding "Coaching LoL" → "RiftSense"** ✅ (2026-09-16). Un recruteur a fait
+  remarquer que "Coaching LoL" ne rendait pas justice à la profondeur technique du
+  projet (pipeline médaillon, ML, EBM/SHAP, LLM grounded). Renommage du repo GitHub,
+  du domaine (`coaching-lol.jeanvg.fr` → `riftsense.jeanvg.fr`, ancien domaine
+  redirigé), du Worker Cloudflare et du préfixe des clés KV liées au coaching
+  (`coaching:{slug}:*` → `riftsense:{slug}:*`, migration additive). Les entrées
+  datées ci-dessous mentionnant `coaching-lol.jeanvg.fr` décrivent un état passé
+  réel et ne sont pas réécrites.
+- **Rang servi = per-player** (ensemble xgb+rf+ebm, hypothèse constance sur tout
+  l'historique, `MIN_PLAYER_GAMES=15`), test held-out AUC 0.688. **Per-game rang
+  ABANDONNÉ** (2026-09-08, acté) : frontière master/GM illisible à N=1
+  (`high_elo` per-game auc_cv 0.609 ; transformer séquentiel 0.546 ≈ MLP 0.504).
+  `calibrate_rank.py` reste déprécié.
+- **`train_ensemble.py --target dia_chall`** reste vivant, mais seulement comme
+  modèle d'explication du jeu-type pour l'analyse EBM glass-box (jamais servi
+  pour le rang). ⚠️ Son AUC de référence est **0.6312** (rebuild 2026-09-09,
+  43 000 rows) — **pas 0.724** (chiffre de juillet sur ~7 873 rows, population
+  non comparable, protocole CV inchangé). Ce qui légitime encore ce nœud n'est
+  plus l'AUC mais `ebm_gap_vs_ensemble = 0.0004` (l'EBM seul égale l'ensemble) :
+  les seuils de bascule des shape functions sont **descriptifs**, jamais des
+  cibles.
+- **Analyse ML unifiée (EBM glass-box)** ✅ 2026-09-08 : `core/ebm_explain.py`
+  (registre `LEVELS` player/game) sert les deux niveaux + le sync KV
+  (`shap:{slug}:drivers`). Payload publié = top-20 sur 125 features, proxys
+  `ML_ONLY` retirés par `assert` (asymétrie), `map_depth` en lecture descriptive.
+- **Coaching par-game servi par le site** ✅ 2026-09-07 : `POST /api/coach/game`,
+  verrouillé par le Durable Object `CoachGate`, protégé par mot de passe
+  (`auth.ts`). **Métrique produit atteinte** ✅ 2026-09-07 : ≥70 % de
+  `mistakes` utiles sur ≥10 reviews par-game (100 % obtenu sur la cohorte
+  `350f7c404b5b`, `kimi-k2.6`).
+- **Migration Cloudflare** ✅ 2026-08-31 : `web/cf/` en prod sur
+  `coaching-lol.jeanvg.fr` ; Fly.io inactif (facturation non réactivée).
+- **Dépôt exécutable après clone** ✅ 2026-09-04 : `make demo` (0 réseau/clé,
+  fixtures pseudonymisées, chaîne de prod rejouée avec `mock_llm`).
+- **Régression LP hybride (apex)** ✅ 2026-07-07 : Spearman pooled test 0.5373,
+  servi via `ml_rank.predict_rank`.
+- **Recherche transformer séquentiel + SSL** ✅ 2026-07-18 (branche
+  `research/sequence-transformer`, non servi) : gain net sur `dia_chall`
+  (AUC 0.645 vs tabulaire 0.633), bruit sur `high_elo`. SSL mask-and-reconstruct
+  ≈ 0 gain (prétexte prédictif future-event pas encore testé).
+- **Protocole d'éval gold standard (per-player)** ✅ 2026-07-18 : split
+  canonique unique (`data/04_dataset/split.json`, 70/15/15 stratifié), sélection
+  HP en CV sur train, headline sur test held-out.
+- Phases 1 → 1.8 validées : positionnement reconstruit sans vision, agrégation
+  multi-games (pattern ~37 % morts ADC = BOT early), référentiels multi-rangs
+  (~4454 games / patch 16.13), ML/SHAP industrialisé, macro-positionnement
+  (17 features `positioning`, 14 COACHING_SAFE câblées en coaching).
+- Clé **dev** Riot (throttle ~100 req/2min) → rate-limiter intégré ; clé prod
+  utilisée en pratique.
 
 ### Prochaines étapes
 
-1. ✅ **Ollama branché** — `src/04_coaching/` génère un compte-rendu agrégé (Ollama Cloud,
-   persisté dans `data/07_coaching/`). Modèle défaut `kimi-k2.6` (retenu après A/B, cf.
-   `src/04_coaching/README.md` ; surclassable via `--model`/`OLLAMA_MODEL`).
-   ✅ **Boucle d'éval** — `feedback.py annotate/summary`.
-   ✅ **Compte-rendu par-game** — `coach.py --game`.
-   ✅ **Boucle batch+pending** (2026-07-06) — outillage en place. Il reste à **annoter
-   effectivement ≥10 reviews par-game** (métrique ≥70 % de mistakes utiles). L'approche C
-   (génération auto post-game) reste à suivre. Ensuite **coacher le plancher** — cibler les
-   games du pire décile p10 (insight ML per-player : le rang = le plancher, pas la moyenne) et
-   boucle de focus inter-games (adhérence au `next_focus` mesurée par les features).
+1. **Coaching (axe prioritaire)** : métrique produit atteinte (≥70 % de mistakes
+   utiles sur ≥10 reviews par-game, 2026-09-07). Le prochain lot doit mesurer les
+   axes du feedback de lecture (recalls jugés, jungle tracking, erreurs découpées
+   et titrées : spec `2026-09-05-coaching-recalls-tracking-categories-design.md`),
+   pas reconfirmer le seuil. Ensuite **coacher le plancher** — cibler les games du
+   pire décile p10 (insight ML per-player : le rang = le plancher, pas la
+   moyenne) et boucle de focus inter-games (adhérence au `next_focus`).
 2. **Benchmark Zeri** densifié (sampling champion ciblé) si la slice reste trop fine.
 3. Stabiliser et valider la **robustesse ML/SHAP** (qualité des prescriptions SHAP vs
    heuristiques reste à valider).
 4. Poursuivre l'industrialisation : modèles Pydantic et flux consolidé.
-5. Phase 2 (CV / Live Client) seulement si le coach démontre sa valeur.
 
 ## Notes de développement
 

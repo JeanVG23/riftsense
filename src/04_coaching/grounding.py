@@ -30,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))  # accès src/core/
 
 import feedback as feedback_mod
+import game_journal
 
 # --- extraction des nombres cités --------------------------------------------
 
@@ -51,15 +52,103 @@ CLOCK_NEAR_S = 30         # horodatage voisin d'un événement réel
 def cited_numbers(text: str) -> list[tuple[str, float, str]]:
     """[(brut, valeur, unité)] du texte, horloges exclues."""
     stripped = _CLOCK_RE.sub(" ", text)
+    matches = list(_NUM_RE.finditer(stripped))
+    if not matches:
+        return []
+    # Les états d'unité ne servent qu'aux nombres SANS mot d'unité collé, soit
+    # une minorité des textes : ils sont construits à la première demande, et
+    # parcourus par un curseur unique (les nombres arrivent par position
+    # croissante, un re-balayage depuis le début serait quadratique).
+    states, cursor, current = None, 0, None
     out = []
-    for m in _NUM_RE.finditer(stripped):
+    for m in matches:
         raw = m.group(0)
         try:
             value = float(raw.translate(_SPACES).replace(",", "."))
         except ValueError:
             continue
-        out.append((raw, value, unit_of_citation(stripped[m.end():m.end() + 8])))
+        unit = unit_of_citation(stripped[m.end():m.end() + 8])
+        if unit == ANY:
+            # Sans mot d'unité collé au nombre : les blocs `damage` et
+            # `consequences` sont souvent cités bruts, le mot-clé désignant
+            # dégâts/gold arrivant AVANT le nombre plutôt qu'après (« dégâts
+            # Baron 1043, Ahri 591 », « team_gold_swing_90s -7737 »), parfois
+            # à des dizaines de caractères (une énumération). Le curseur sur
+            # `_unit_states` retient le dernier mot-clé rencontré DANS LA MÊME
+            # PHRASE, sans limite de distance arbitraire mais borné à la clause
+            # en cours (`_BREAK_RE`) : le nombre devient spécifiquement `dmg`
+            # ou `g`, jamais les deux à la fois, et jamais au-delà d'un point/
+            # point-virgule. C'est ce qui évite la collision qu'un simple
+            # ajout de `dmg`+`g` au repli générique ANY recréait (un dégât
+            # inventé tombant par coïncidence près d'un gold sans rapport) :
+            # sans mot-clé dans la phrase, le nombre reste ANY.
+            if states is None:
+                states = _unit_states(stripped, [mm.span() for mm in matches])
+            while cursor < len(states) and states[cursor][0] <= m.start():
+                current = states[cursor][1]
+                cursor += 1
+            unit = current or ANY
+        out.append((raw, value, unit))
     return out
+
+
+# Mots-clés d'unité cherchés dans la phrase courante : bornés aux deux
+# familles concernées (dégâts, écart de gold d'équipe), et purgés des faux-amis
+# ambigus. « dommage » a été RETIRÉ : en français courant c'est d'abord une
+# interjection (« Dommage, tu perds la lane... ») et non le concept de jeu, ce
+# qui aurait fait déclencher `dmg` sur la seule foi d'une exclamation. « gold »
+# seul a été resserré en « gold_swing » : le mot-clé bare matchait aussi
+# `gold_state` (dénombrement, pas un montant) et aurait fait dériver l'état
+# vers `g` pour tout nombre qui suit dans la même phrase.
+_UNIT_TRIGGERS = (
+    (("dégât", "degat", "damage", "dmg", "inflige", "subis"), "dmg"),
+    (("gold_swing",), "g"),
+)
+_TRIGGER_UNIT = {kw: unit for keywords, unit in _UNIT_TRIGGERS for kw in keywords}
+# Alternation la plus longue d'abord : un mot-clé préfixe d'un autre ne doit pas
+# gagner à sa place.
+_TRIGGER_RE = re.compile(
+    "|".join(re.escape(kw) for kw in sorted(_TRIGGER_UNIT, key=len, reverse=True)),
+    re.I)
+# Point/point-virgule : fin de phrase, remise à zéro INCONDITIONNELLE.
+# Virgule : remise à zéro par défaut (une clause introduit un sujet différent,
+# cf. relecture tour 3 : « Tu subis 1230 de dégâts..., ta CS tombe à 45 » ne
+# doit PAS laisser « dégâts » gouverner la CS ni l'XP d'une clause suivante).
+# SEULE exception : la virgule qui enchaîne une énumération « (Nom) Valeur »
+# (ex. « dégâts Baron 1043, Ahri 591, Syndra 599 » ou « 609 auto + 1 099
+# sorts ») telle que le payload la fournit (`damage.top_sources`) — dans CE cas
+# précis, et uniquement celui-là, le mot-clé précédent continue de s'appliquer
+# à travers la virgule. Un nom propre (« Ahri ») est optionnel : un chiffre nu
+# juste après la virgule (sans verbe ni nouveau sujet) reste une énumération.
+_ENUM_CONTINUATION_RE = re.compile(r"^(?:[A-ZÀ-Ý][\wÀ-ÿ']*\s+)?\d")
+_BREAK_RE = re.compile(r"[.;,]")
+
+
+def _unit_states(stripped: str,
+                 number_spans: list[tuple[int, int]]) -> list[tuple[int, str | None]]:
+    """[(position, unité en vigueur À PARTIR de cette position)], triée. L'unité
+    change à chaque mot-clé `_UNIT_TRIGGERS` et se réinitialise à `None` à
+    chaque limite de phrase ou de clause, pour qu'un mot-clé ne « fuie » jamais
+    vers une clause suivante sans rapport.
+
+    `number_spans` sont les bornes déjà repérées par `_NUM_RE` chez l'appelant :
+    une virgule DÉCIMALE (« 46,7 ») tombe À L'INTÉRIEUR de l'une d'elles et
+    n'est pas une limite de clause, sous peine de couper une énumération en
+    plein milieu d'un pourcentage."""
+    events: list[tuple[int, str | None]] = [
+        (m.start(), _TRIGGER_UNIT[m.group(0).lower()])
+        for m in _TRIGGER_RE.finditer(stripped)
+    ]
+    for m in _BREAK_RE.finditer(stripped):
+        pos = m.start()
+        if m.group(0) == "," and (
+            any(start <= pos < end for start, end in number_spans)
+            or _ENUM_CONTINUATION_RE.match(stripped[m.end():m.end() + 24].lstrip())
+        ):
+            continue
+        events.append((pos, None))
+    events.sort(key=lambda e: e[0])
+    return [(0, None)] + events
 
 
 def cited_clocks(text: str) -> list[str]:
@@ -80,8 +169,10 @@ ANY = "any"
 # Unité déduite du nom de champ. Ordre significatif : le premier motif gagne.
 _KEY_UNITS = (
     (("damage", "_dmg"), "dmg"),
-    (("gold", "gd10", "gd14", "gd20", "cost", "price"), "g"),
+    # `cs_` avant `cost` : `cs_cost` (fenêtre de mesure de CS perdus, task 8)
+    # porte les deux sous-chaînes, et son unité est des CS, pas du gold.
     (("csd", "cs_", "creep"), "cs"),
+    (("gold", "gd10", "gd14", "gd20", "cost", "price"), "g"),
     (("delta_s", "dead_time", "duration_s", "_seconds"), "s"),
     (("minute", "duration_min"), "min"),
     (("depth", "dist"), "u"),
@@ -97,10 +188,23 @@ _IGNORED_KEYS = ("t_ms",)
 _UNGROUNDED_SUBTREES = ("game_review_causes", "axes")
 
 
+
+# Suffixe de nom de champ portant une unité. Les motifs de `_KEY_UNITS` sont des
+# SOUS-CHAÎNES ; certains champs ne les matchent pas (`age_s`,
+# `away_from_my_zone_s` retombaient dans le seau des dénombrements, et une
+# citation « 40 s » passait pour non ancrée). Un suffixe est sûr là où une
+# sous-chaîne ne l'est pas : `t_ms` finit par `ms`, `precision_cs` par `cs`,
+# aucun des deux ne matche `_s`.
+_KEY_SUFFIX_UNITS = (("_s", "s"),)
+
+
 def _unit_of(key: str) -> str | None:
     low = key.lower()
     for patterns, unit in _KEY_UNITS:
         if any(pattern in low for pattern in patterns):
+            return unit
+    for suffix, unit in _KEY_SUFFIX_UNITS:
+        if low.endswith(suffix):
             return unit
     return None
 
@@ -187,24 +291,77 @@ def _add_derived(payload: dict, out: dict[str, set[float]]) -> None:
                 out["min"].add(float(int(minutes) + (1 if int(seconds) else 0)))
 
 
+# Constantes de FENÊTRE DE FEATURE des blocs `consequences` (définies dans
+# `game_journal.py`, jamais une valeur du payload). `team_gold_swing_90s` porte
+# sa fenêtre dans le NOM de la clé (« _90s »), pas dans une valeur citable : un
+# coach qui écrit « swing mesuré sur 90 secondes » décrit la DÉFINITION de la
+# feature, pas un chiffre du journal. Chacune n'est ajoutée QUE si le bloc
+# qu'elle définit est réellement présent dans CE payload :
+# sinon un payload sans `consequences` citerait légitiment « 90 s » sans
+# qu'aucune feature de ce nom n'y existe. PAS de règle générique qui ancrerait
+# tout nombre trouvé dans un nom de clé (la porte ouverte que le cloisonnement
+# par unité interdit) : seules ces deux constantes précises, nommément listées.
+_FEATURE_WINDOWS = (
+    (game_journal.GOLD_SWING_KEY, game_journal.GOLD_SWING_WINDOW_S),
+    ("objectives_lost", game_journal.CONSEQUENCE_WINDOW_S),
+    ("buildings_lost", game_journal.CONSEQUENCE_WINDOW_S),
+)
+
+
 def payload_index(payload: dict) -> dict[str, set[float]]:
     """{unité: valeurs citables}. `ANY` reste le repli des citations sans unité
     explicite, et porte en plus les nombres des NOMS de métriques (`@14`)."""
     out: dict[str, set[float]] = {unit: set() for unit in UNITS}
     _walk(payload, "", out)
     _add_derived(payload, out)
+    # Une seule collecte des textes/noms de clés : elle sert à la fois aux
+    # nombres portés par les noms de métriques et à la présence des marqueurs
+    # de `_FEATURE_WINDOWS` (un parcours récursif par marqueur en plus était du
+    # travail pur perdu).
+    texts = _strings_and_keys(payload)
     names: set[float] = set()
-    for text in _strings_and_keys(payload):
+    for text in texts:
         names.update(abs(value) for _, value, _ in cited_numbers(text))
     out[ANY] = names
+    present = set(texts)
+    for marker, seconds in _FEATURE_WINDOWS:
+        if marker in present:
+            out["s"].add(float(seconds))
     return out
 
 
 def payload_clocks(payload: dict) -> set[str]:
-    journal = payload.get("journal") or {}
-    return {row["clock"] for name in ("deaths", "recalls")
-            for row in (journal.get(name) or [])
-            if isinstance(row, dict) and row.get("clock")}
+    """Horloges disponibles dans TOUT le payload : pas seulement `journal.deaths`
+    et `journal.recalls`, mais aussi les blocs `consequences` enrichis
+    (objectifs et bâtiments perdus après une mort) qui portent chacun leur
+    propre `clock`. Toute clé `clock` du payload est une horloge légitimement
+    citable, où qu'elle se trouve."""
+    out: set[str] = set()
+    _collect_clocks(payload, "", out)
+    return out
+
+
+# Clés portant une horloge. `clock` seule laissait la fenêtre de mesure d'un
+# recall (`{"from": "7:00", "to": "9:00"}`) invisible, donc son horodatage
+# comptait comme inventé. Le motif est le garde-fou : un `from`/`to` étranger
+# aux horloges (un patch, une phase) n'est pas ramassé.
+_CLOCK_KEYS = ("clock", "from", "to")
+_CLOCK_VALUE_RE = re.compile(r"^\d{1,2}:[0-5]\d$")
+
+
+def _collect_clocks(node, key: str, out: set[str]) -> None:
+    if key in _UNGROUNDED_SUBTREES:
+        return
+    if isinstance(node, dict):
+        for clock_key in _CLOCK_KEYS:
+            value = node.get(clock_key)
+            if isinstance(value, str) and _CLOCK_VALUE_RE.match(value):
+                out.add(value)
+        for child_key, child in node.items():
+            _collect_clocks(child, child_key, out)
+    elif isinstance(node, list):
+        for child in node:
+            _collect_clocks(child, key, out)
 
 
 def _clock_seconds(clock: str) -> int:
@@ -246,9 +403,16 @@ def classify_number(value: float, index: dict[str, set[float]],
     available = index.get(unit) or set()
     if unit == ANY:
         # Sans unité : un dénombrement, une minute, une distance, ou le nombre
-        # porté par un nom de métrique (« gd14 », « @20 »). Pas un gold, toujours
-        # cité avec son unité. Une fraction brute (« 0,29 des morts ») reste
-        # rapprochable du bloc de pourcentages.
+        # porté par un nom de métrique (« gd14 », « @20 »). Une fraction brute
+        # (« 0,29 des morts ») reste rapprochable du bloc de pourcentages.
+        # `dmg`/`g` n'y figurent PAS : un nombre réellement sans mot-clé à
+        # proximité (`cited_numbers`/`_unit_states`) reste ici, et ne doit PAS
+        # chercher dans les blocs de dégâts/gold, sous peine de recréer la
+        # collision qu'un ajout précédent avait introduite (un dégât inventé
+        # rapproché par coïncidence d'un gold sans rapport). Les citations de
+        # `dmg`/`g` sans mot d'unité collé sont déjà résolues EN AMONT, dans
+        # `cited_numbers`, à la faveur d'un mot-clé trouvé à proximité : elles
+        # arrivent ici avec `unit == "dmg"` ou `"g"`, jamais `ANY`.
         buckets = ["n", "min", "u", ANY] + (["pct"] if value < 1 else [])
         available = set().union(*(index.get(b) or set() for b in buckets))
     elif unit == "min":
@@ -299,12 +463,18 @@ def asymmetry_violations(review: dict) -> list[str]:
     return out
 
 
+# `title` est examiné au même titre que `point`/`cause`/`evidence` : une
+# étiquette « surextension à répétition » est une prescription fondée sur une
+# feature descriptive, et elle échappait au contrôle.
+_ASYMMETRY_KEYS = ("point", "cause", "evidence", "title")
+
+
 def _texts(node) -> list[str]:
     if isinstance(node, str):
         return [node]
     if isinstance(node, dict):
         return [v for k, v in node.items()
-                if isinstance(v, str) and k in ("point", "cause", "evidence")]
+                if isinstance(v, str) and k in _ASYMMETRY_KEYS]
     if isinstance(node, list):
         return [t for child in node for t in _texts(child)]
     return []
@@ -362,16 +532,23 @@ def score(check: dict) -> dict:
     }
 
 
-def report(player: str, root=None, kind: str | None = None) -> dict:
+def report(player: str, root=None, kind: str | None = None,
+           prompt_version: str | None = None) -> dict:
     records = feedback_mod.list_reviews(player, root)
     if kind:
         records = [r for r in records
                    if (r.get("kind") or "aggregate") == kind]
+    if prompt_version:
+        # Cohorte résolue par `feedback.prompt_cohort` : le sentinelle "none"
+        # (reviews d'avant le bloc `run`) n'est défini qu'à cet endroit-là.
+        records = [r for r in records
+                   if feedback_mod.prompt_cohort(r) == prompt_version]
     checks = [check_review(r) for r in records]
     numbers = [n for c in checks for n in c["numbers"]]
     clocks = [c for check in checks for c in check["clocks"]]
     return {
         "player": player,
+        "prompt_version": prompt_version,
         "n_reviews": len(checks),
         "numbers": {"n": len(numbers),
                     "grounded_rate": _rate(numbers, ("exact", "arrondi")),
@@ -427,11 +604,13 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="grounding.py", description=__doc__)
     ap.add_argument("--player", default="spadzze")
     ap.add_argument("--kind", choices=["game", "aggregate"], default=None)
+    ap.add_argument("--prompt-version", default=None,
+                    help="filtre une cohorte de prompt ('none' = reviews sans run)")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--details", action="store_true",
                     help="liste les chiffres et horodatages non ancrés")
     args = ap.parse_args(argv)
-    rep = report(args.player, kind=args.kind)
+    rep = report(args.player, kind=args.kind, prompt_version=args.prompt_version)
     print(json.dumps(rep, ensure_ascii=False, indent=2) if args.json
           else render(rep, args.details))
     return 0

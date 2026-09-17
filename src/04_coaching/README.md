@@ -3,6 +3,14 @@
 Compte-rendu de coaching agrégé, narré par un LLM (Ollama Cloud, structured output)
 à partir d'un payload déterministe dérivé du diff perso ↔ référentiel.
 
+Le coaching global et le coaching par partie restent séparés : toutes les métriques du
+bilan viennent des parties réelles du scope choisi. Les causes qualitatives sont ajoutées
+ensuite avec un échantillon borné : aucune review (`none`), une seule review lorsque seule
+une issue existe (`unbalanced`), ou un ensemble symétrique de 2 victoires + 2 défaites au
+maximum (`balanced`). Les compteurs `available_*` et `used_*` distinguent toujours le
+corpus disponible de ce qui est réellement envoyé au LLM ; cette parité ne représente pas
+le winrate du joueur.
+
 ## Pipeline
 
 ```
@@ -50,6 +58,15 @@ Chaque review persistée porte sa trace d'exécution :
 
 Sans ce bloc, une variation du taux d'utilité n'est attribuable ni au prompt ni au
 modèle : la boucle d'éval mesure sans savoir ce qu'elle mesure.
+
+### Exécution web d'une partie
+
+`sync_cloudflare.py` construit localement, sans réseau, un bundle de payloads unitaires
+nettoyés à partir du raw Riot déjà en cache. Le Worker ne reçoit jamais le raw :
+`POST /api/coach/game` lit l'entrée demandée, réutilise gratuitement une review existante
+ou, sur régénération explicite, persiste une nouvelle ligne avec
+`run.prompt_version` et `run.payload_hash`. Le verrou Durable Object du site sérialise les
+générations globales et unitaires d'un même joueur.
 
 ---
 

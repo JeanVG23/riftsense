@@ -1,14 +1,21 @@
-import { ACCOUNTS } from "./accounts";
+import { listAccounts } from "./accounts";
 import { apiCoach } from "./coach";
+import { apiGameCoach } from "./game_coach";
+import { CoachGate } from "./coach_gate";
 import { apiChat } from "./chat";
+import { buildCoachingContext } from "./coaching_context";
 import { readEval } from "./evaluation";
 import { apiFeedback } from "./feedback";
+import { apiAuthStatus, apiLogin, apiLogout, isAuthorized } from "./auth";
+import { apiRegister, apiRegisterStatus } from "./register";
+import { IngestQueue } from "./ingest_queue";
 import {
   methodNotAllowed,
   notFound,
   pageParams,
   paginate,
   pagingError,
+  unauthorized,
   unprocessable,
 } from "./http";
 import {
@@ -24,8 +31,28 @@ import {
 export interface Env {
   DATA: KVLike;
   ASSETS: Fetcher;
+  COACH_GATE?: DurableObjectNamespace;
+  INGEST_QUEUE?: DurableObjectNamespace;
   OLLAMA_API_KEY?: string;
   OLLAMA_MODEL?: string;
+  COACH_AUTH_PASSWORD?: string;
+  INGEST_URL?: string;
+  INGEST_SECRET?: string;
+}
+
+export { CoachGate, IngestQueue };
+
+async function gatedCoach(
+  request: Request,
+  env: Env,
+  direct: (request: Request, env: Env) => Promise<Response>,
+): Promise<Response> {
+  const body = await request.clone().json().catch(() => null) as { slug?: unknown } | null;
+  if (!env.COACH_GATE || typeof body?.slug !== "string" || !body.slug) {
+    return direct(request, env);
+  }
+  const id = env.COACH_GATE.idFromName(body.slug);
+  return env.COACH_GATE.get(id).fetch(request);
 }
 
 export default {
@@ -81,8 +108,16 @@ function gameReviewSummary(item: StoredReview): Record<string, unknown> {
 }
 
 async function apiAccounts(env: Env): Promise<Response> {
+  // Seuls les comptes curés sont publiés. Un visiteur qui s'inscrit n'a consenti
+  // à rien d'autre qu'à consulter ses propres parties : lister son Riot ID en
+  // vitrine serait une divulgation de donnée personnelle. Accessoirement, chaque
+  // compte publié coûte deux lectures KV et un parcours complet du JSONL de ses
+  // parties, à chaque chargement de page : la galerie est bornée par la curation,
+  // pas par le nombre d'inscrits.
+  const registry = (await listAccounts(env.DATA))
+    .filter((account) => account.source === "curated");
   // Les comptes sont indépendants : lectures KV en parallèle plutôt qu'en série.
-  const out = await Promise.all(ACCOUNTS.map(async (account) => {
+  const out = await Promise.all(registry.map(async (account) => {
     const [games, reviews] = await Promise.all([
       readGames(env.DATA, account.slug, 1, 1),
       readJsonl<{ ts?: string; kind?: string }>(env.DATA, KEYS.reviews(account.slug)),
@@ -144,14 +179,24 @@ const ACCOUNT_ROUTES: Record<
   feedback: async (env, slug) => Response.json(await readJsonl(env.DATA, KEYS.feedback(slug))),
   shap: async (env, slug) => Response.json(await readShap(env.DATA, slug)),
   eval: async (env, slug) => Response.json(await readEval(env.DATA, slug)),
+  "coaching-context": async (env, slug) =>
+    Response.json(await buildCoachingContext(env.DATA, slug)),
 };
+
+// Rebranding 2026-09-16 : l'ancien domaine est rattaché à CE Worker et y
+// répond 301 permanent : aucun lien déjà partagé (CV, recruteur) ne finit en 404.
+const LEGACY_DOMAIN = "coaching-lol.jeanvg.fr";
+const CANONICAL_ORIGIN = "https://riftsense.jeanvg.fr";
 
 export async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
+  if (url.hostname === LEGACY_DOMAIN) {
+    return Response.redirect(CANONICAL_ORIGIN + url.pathname + url.search, 301);
+  }
   if (url.pathname === "/api/health") {
     return Response.json({
       status: "ok",
-      service: "coaching-lol",
+      service: "riftsense",
       server_time: new Date().toISOString(),
     });
   }
@@ -170,14 +215,43 @@ export async function handle(request: Request, env: Env): Promise<Response> {
     const route = ACCOUNT_ROUTES[tail];
     if (route) return route(env, slug, url.searchParams);
   }
+  if (url.pathname === "/api/auth/login" && request.method === "POST") {
+    return apiLogin(request, env);
+  }
+  if (url.pathname === "/api/auth/logout" && request.method === "POST") {
+    return apiLogout(request);
+  }
+  if (url.pathname === "/api/auth/status" && request.method === "GET") {
+    return apiAuthStatus(request, env);
+  }
   if (url.pathname === "/api/coach" && request.method === "POST") {
-    return apiCoach(request, env);
+    if (!await isAuthorized(request, env)) {
+      return unauthorized("Non autorisé : authentification requise pour générer un coaching");
+    }
+    return gatedCoach(request, env, apiCoach);
+  }
+  if (url.pathname === "/api/coach/game" && request.method === "POST") {
+    if (!await isAuthorized(request, env)) {
+      return unauthorized("Non autorisé : authentification requise pour analyser une partie");
+    }
+    return gatedCoach(request, env, apiGameCoach);
   }
   if (url.pathname === "/api/chat" && request.method === "POST") {
+    if (!await isAuthorized(request, env)) {
+      return unauthorized("Non autorisé : authentification requise pour utiliser le chat");
+    }
     return apiChat(request, env);
   }
   if (url.pathname === "/api/feedback" && request.method === "POST") {
     return apiFeedback(request, env);
+  }
+  if (url.pathname === "/api/register" && request.method === "POST") {
+    return apiRegister(request, env);
+  }
+  const registerStatus = url.pathname.match(/^\/api\/register\/([^/]+)\/status$/);
+  if (registerStatus) {
+    if (request.method !== "GET") return methodNotAllowed();
+    return apiRegisterStatus(env, decodeURIComponent(registerStatus[1]));
   }
   if (url.pathname.startsWith("/api/")) return notFound();
   return env.ASSETS.fetch(request);

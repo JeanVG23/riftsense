@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apiCoach, coachFlow, type CoachParams } from "../src/coach";
 import { KEYS, readJsonl, type KVLike } from "../src/readers";
 import type { Env } from "../src/index";
+import { REVIEW_SCHEMA_VERSION } from "../src/generated/shared";
 
 class MemoryKV implements KVLike {
   store = new Map<string, string>();
@@ -40,6 +41,9 @@ const PARAMS: CoachParams = {
 
 async function seed(): Promise<MemoryKV> {
   const kv = new MemoryKV();
+  await kv.put(KEYS.account("spadzze"), JSON.stringify({
+    slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
+  }));
   await kv.put(KEYS.gold("spadzze", "adc"), JSON.stringify(AGGREGATE(18)));
   await kv.put(KEYS.ref("challenger", "adc"), JSON.stringify(AGGREGATE(400)));
   return kv;
@@ -70,6 +74,8 @@ describe("coachFlow", () => {
     });
     expect(record.review).toEqual(REVIEW);
     expect(record.payload.meta).toBeDefined();
+    expect(record.run.prompt_version).toMatch(/^[a-f0-9]{12}$/);
+    expect(record.run.schema_version).toBe(REVIEW_SCHEMA_VERSION);
     expect(await readJsonl(kv, KEYS.reviews("spadzze"))).toEqual([record]);
   });
 
@@ -126,8 +132,12 @@ describe("coachFlow", () => {
 
 describe("apiCoach", () => {
   function env(apiKey?: string): Env {
+    const kv = new MemoryKV();
+    kv.store.set(KEYS.account("spadzze"), JSON.stringify({
+      slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
+    }));
     return {
-      DATA: new MemoryKV(),
+      DATA: kv,
       ASSETS: { fetch: async () => new Response("spa") },
       OLLAMA_API_KEY: apiKey,
     } as unknown as Env;

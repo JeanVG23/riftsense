@@ -1,0 +1,74 @@
+{
+  "properties": {
+    "strengths": {
+      "items": {
+        "properties": {
+          "point": {
+            "type": "string"
+          },
+          "evidence": {
+            "pattern": "\\d+:\\d\\d",
+            "type": "string"
+          },
+          "cause": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "point",
+          "evidence",
+          "cause"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "maxItems": 2,
+      "type": "array"
+    },
+    "mistakes": {
+      "items": {
+        "properties": {
+          "point": {
+            "type": "string"
+          },
+          "evidence": {
+            "pattern": "\\d+:\\d\\d",
+            "type": "string"
+          },
+          "cause": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "point",
+          "evidence",
+          "cause"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "type": "array"
+    },
+    "next_focus": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    }
+  },
+  "required": [
+    "strengths",
+    "mistakes",
+    "next_focus",
+    "confidence"
+  ],
+  "type": "object",
+  "additionalProperties": false
+}

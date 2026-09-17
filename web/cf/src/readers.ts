@@ -13,10 +13,44 @@ export const KEYS = {
   ref: (rank: string, scope: string) => `ref:${rank}:${scope}`,
   pred: (slug: string) => `pred:${slug}`,
   shap: (slug: string) => `shap:${slug}:drivers`,
-  reviews: (slug: string) => `coaching:${slug}:reviews`,
-  feedback: (slug: string) => `coaching:${slug}:feedback`,
-  chats: (slug: string) => `coaching:${slug}:chats`,
+  reviews: (slug: string) => `riftsense:${slug}:reviews`,
+  feedback: (slug: string) => `riftsense:${slug}:feedback`,
+  chats: (slug: string) => `riftsense:${slug}:chats`,
+  game_payloads: (slug: string) => `riftsense:${slug}:game-payloads`,
+  account: (slug: string) => `account:${slug}`,
+  accounts_index: () => `accounts:index`,
 };
+
+export interface GamePayloadBundle {
+  generated_at: string | null;
+  target: string;
+  max_games: number;
+  items: Record<string, {
+    payload_hash: string;
+    benchmark_scope: string;
+    payload: Record<string, unknown>;
+  }>;
+  unavailable: Array<{ match_id: string; reason: string }>;
+}
+
+export async function readGamePayloadBundle(
+  kv: KVLike,
+  slug: string,
+): Promise<GamePayloadBundle> {
+  const empty: GamePayloadBundle = {
+    generated_at: null, target: "challenger", max_games: 0, items: {}, unavailable: [],
+  };
+  const value = await readJson<Partial<GamePayloadBundle>>(kv, KEYS.game_payloads(slug));
+  if (!value || typeof value.items !== "object" || value.items === null
+      || Array.isArray(value.items)) return empty;
+  return {
+    generated_at: typeof value.generated_at === "string" ? value.generated_at : null,
+    target: typeof value.target === "string" ? value.target : "challenger",
+    max_games: typeof value.max_games === "number" ? value.max_games : 0,
+    items: value.items as GamePayloadBundle["items"],
+    unavailable: Array.isArray(value.unavailable) ? value.unavailable : [],
+  };
+}
 
 export function matchSeq(matchId: string): number {
   const tail = matchId.split("_").pop() ?? "";

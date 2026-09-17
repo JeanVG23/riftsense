@@ -20,9 +20,12 @@ TEMPLATES = {
     "ref": "ref:{rank}:{scope}",
     "pred": "pred:{slug}",
     "shap": "shap:{slug}:drivers",
-    "reviews": "coaching:{slug}:reviews",
-    "feedback": "coaching:{slug}:feedback",
-    "chats": "coaching:{slug}:chats",
+    "reviews": "riftsense:{slug}:reviews",
+    "feedback": "riftsense:{slug}:feedback",
+    "chats": "riftsense:{slug}:chats",
+    "game_payloads": "riftsense:{slug}:game-payloads",
+    "account": "account:{slug}",
+    "accounts_index": "accounts:index",
 }
 
 

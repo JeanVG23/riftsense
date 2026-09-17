@@ -213,6 +213,37 @@ def render_objective(obj: dict) -> str:
             f"(cible ≥{obj['target_rate']:.0%})")
 
 
+def prompt_cohort(review: dict) -> str:
+    """Cohorte de prompt d'UNE review. Les reviews d'avant le bloc `run` n'ont
+    pas de version : elles forment la cohorte "none", qui reste identifiable au
+    lieu d'être diluée dans la moyenne. Définition unique de la cohorte, partagée
+    avec `grounding.report --prompt-version` : le sentinelle ne s'écrit qu'ici."""
+    return (review.get("run") or {}).get("prompt_version") or "none"
+
+
+def cohort_of(reviews: list[dict]) -> dict[str, str]:
+    """ts de review -> cohorte de prompt."""
+    return {r.get("ts"): prompt_cohort(r) for r in reviews if r.get("ts")}
+
+
+def cohort_groups(fbs: list[schema_mod.Feedback],
+                  reviews: list[dict]) -> dict[str, list[schema_mod.Feedback]]:
+    """cohorte -> feedbacks, en UNE passe. Filtrer cohorte par cohorte
+    re-parcourait tout le corpus autant de fois qu'il y a de versions."""
+    cohorts = cohort_of(reviews)
+    groups: dict[str, list[schema_mod.Feedback]] = {v: [] for v in cohorts.values()}
+    for f in fbs:
+        version = cohorts.get(f.ts)
+        if version is not None:
+            groups[version].append(f)
+    return groups
+
+
+def filter_cohort(fbs: list[schema_mod.Feedback], reviews: list[dict],
+                  version: str) -> list[schema_mod.Feedback]:
+    return cohort_groups(fbs, reviews).get(version, [])
+
+
 def eval_report(player: str, root=None) -> dict:
     """Rapport d'éval sérialisable : la métrique de succès du projet + les taux
     par section. Publié tel quel (site, page CV) — le chiffre n'a de valeur que
@@ -221,6 +252,16 @@ def eval_report(player: str, root=None) -> dict:
     reviews = list_reviews(player, root)
     obj = objective_stats(fbs, reviews)
     stats = summarize(fbs)
+    cohorts = {}
+    for version, sub in sorted(cohort_groups(fbs, reviews).items()):
+        sub_obj = objective_stats(sub, reviews)
+        sub_stats = summarize(sub)
+        cohorts[version] = {
+            "n_game_reviews_annotated": sub_obj["n_game_reviews_annotated"],
+            "mistake_useful_rate": sub_obj["mistake_useful_rate"],
+            "n_items": sub_stats.get("n_items", 0),
+            "global_rate": sub_stats.get("global_rate"),
+        }
     return {
         "player": player,
         "n_game_reviews": sum(1 for r in reviews if r.get("kind") == "game"),
@@ -234,6 +275,7 @@ def eval_report(player: str, root=None) -> dict:
         "global_rate": stats.get("global_rate"),
         "by_kind": stats.get("by_kind", {}),
         "top_tags": [{"tag": t, "n": n} for t, n in stats.get("top_tags", [])],
+        "by_prompt_version": cohorts,
     }
 
 
@@ -375,6 +417,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--player", default="spadzze")
     s.add_argument("--tag", default=None, help="filtre par tag")
     s.add_argument("--model", default=None, help="filtre par modèle")
+    s.add_argument("--prompt-version", default=None,
+                   help="restreint à une cohorte de prompt ('none' = sans run)")
     s.add_argument("--json", action="store_true",
                    help="rapport machine (publication site / page CV)")
 
@@ -387,7 +431,10 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(eval_report(args.player), ensure_ascii=False, indent=2))
             return 0
         fbs = load_feedbacks(args.player)
-        objective = objective_stats(fbs, list_reviews(args.player))
+        reviews = list_reviews(args.player)
+        if args.prompt_version:
+            fbs = filter_cohort(fbs, reviews, args.prompt_version)
+        objective = objective_stats(fbs, reviews)
         if args.model:
             fbs = [f for f in fbs if f.model == args.model]
         if args.tag:

@@ -45,9 +45,9 @@
     "wards_placed_early": 4.0
    },
    "death_gold_state": {
-    "behind": 0.5695,
-    "ahead": 0.2318,
-    "even": 0.1987
+    "behind": 0.4503,
+    "even": 0.3841,
+    "ahead": 0.1656
    },
    "by_zone": {
     "MID": 0.3576,
@@ -148,9 +148,9 @@
     "wards_placed_early": 4
    },
    "death_gold_state": {
-    "behind": 0.4737,
-    "ahead": 0.3333,
-    "even": 0.193
+    "behind": 0.4211,
+    "even": 0.3333,
+    "ahead": 0.2456
    },
    "by_zone": {
     "BOT": 0.4386,
@@ -247,9 +247,9 @@
     "wards_placed_early": 4
    },
    "death_gold_state": {
-    "behind": 0.6277,
-    "even": 0.2021,
-    "ahead": 0.1702
+    "behind": 0.4681,
+    "even": 0.4149,
+    "ahead": 0.117
    },
    "by_zone": {
     "MID": 0.4149,
@@ -350,9 +350,9 @@
       "wards_placed_early": 4.0
      },
      "death_gold_state": {
-      "behind": 0.3704,
-      "even": 0.3333,
-      "ahead": 0.2963
+      "even": 0.5556,
+      "behind": 0.2963,
+      "ahead": 0.1481
      },
      "by_zone": {
       "JUNGLE/RIVER": 0.4074,
@@ -443,9 +443,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.5303,
-      "ahead": 0.2424,
-      "even": 0.2273
+      "even": 0.4394,
+      "behind": 0.3788,
+      "ahead": 0.1818
      },
      "by_zone": {
       "MID": 0.4091,
@@ -544,9 +544,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.7069,
-      "ahead": 0.1897,
-      "even": 0.1034
+      "behind": 0.6034,
+      "even": 0.2414,
+      "ahead": 0.1552
      },
      "by_zone": {
       "MID": 0.3621,
@@ -647,9 +647,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.5238,
-      "even": 0.254,
-      "ahead": 0.2222
+      "even": 0.4603,
+      "behind": 0.3492,
+      "ahead": 0.1905
      },
      "by_zone": {
       "BOT": 0.3968,
@@ -748,9 +748,9 @@
       "wards_placed_early": 4.0
      },
      "death_gold_state": {
-      "behind": 0.5577,
-      "ahead": 0.2692,
-      "even": 0.1731
+      "behind": 0.4808,
+      "even": 0.3654,
+      "ahead": 0.1538
      },
      "by_zone": {
       "BOT": 0.3654,
@@ -849,9 +849,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.6667,
-      "ahead": 0.1944,
-      "even": 0.1389
+      "behind": 0.5833,
+      "even": 0.2778,
+      "ahead": 0.1389
      },
      "by_zone": {
       "MID": 0.4722,
@@ -951,9 +951,9 @@
     "wards_placed_early": 5.0
    },
    "death_gold_state": {
-    "behind": 0.4612,
-    "ahead": 0.3215,
-    "even": 0.2173
+    "even": 0.3984,
+    "behind": 0.3562,
+    "ahead": 0.2454
    },
    "by_zone": {
     "MID": 0.3311,
@@ -1058,9 +1058,9 @@
     "wards_placed_early": 5
    },
    "death_gold_state": {
-    "behind": 0.3956,
-    "ahead": 0.3882,
-    "even": 0.2163
+    "even": 0.4362,
+    "ahead": 0.3031,
+    "behind": 0.2606
    },
    "by_zone": {
     "JUNGLE/RIVER": 0.3272,
@@ -1165,9 +1165,9 @@
     "wards_placed_early": 5
    },
    "death_gold_state": {
-    "behind": 0.5049,
-    "ahead": 0.2771,
-    "even": 0.218
+    "behind": 0.42,
+    "even": 0.3732,
+    "ahead": 0.2069
    },
    "by_zone": {
     "MID": 0.3448,
@@ -1274,9 +1274,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.4842,
-      "ahead": 0.3411,
-      "even": 0.1747
+      "even": 0.3853,
+      "behind": 0.3663,
+      "ahead": 0.2484
      },
      "by_zone": {
       "MID": 0.3347,
@@ -1381,9 +1381,9 @@
       "wards_placed_early": 5.0
      },
      "death_gold_state": {
-      "behind": 0.4622,
-      "ahead": 0.2891,
-      "even": 0.2487
+      "even": 0.4084,
+      "behind": 0.3714,
+      "ahead": 0.2202
      },
      "by_zone": {
       "JUNGLE/RIVER": 0.3513,
@@ -1486,9 +1486,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "behind": 0.443,
-      "ahead": 0.3333,
-      "even": 0.2237
+      "even": 0.4123,
+      "behind": 0.3289,
+      "ahead": 0.2588
      },
      "by_zone": {
       "MID": 0.3421,
@@ -1593,9 +1593,9 @@
       "wards_placed_early": 5.0
      },
      "death_gold_state": {
-      "ahead": 0.4545,
-      "behind": 0.3273,
-      "even": 0.2182
+      "ahead": 0.4364,
+      "even": 0.3455,
+      "behind": 0.2182
      },
      "by_zone": {
       "JUNGLE/RIVER": 0.3818,
@@ -1698,9 +1698,9 @@
       "wards_placed_early": 5
      },
      "death_gold_state": {
-      "behind": 0.4958,
-      "ahead": 0.298,
-      "even": 0.2062
+      "behind": 0.3828,
+      "even": 0.3686,
+      "ahead": 0.2486
      },
      "by_zone": {
       "MID": 0.3475,
@@ -1805,9 +1805,9 @@
       "wards_placed_early": 5
      },
      "death_gold_state": {
-      "behind": 0.4014,
-      "ahead": 0.3944,
-      "even": 0.2042
+      "even": 0.3803,
+      "ahead": 0.3169,
+      "behind": 0.3028
      },
      "by_zone": {
       "JUNGLE/RIVER": 0.3803,
@@ -1908,9 +1908,9 @@
       "wards_placed_early": 5
      },
      "death_gold_state": {
-      "behind": 0.4344,
-      "ahead": 0.334,
-      "even": 0.2316
+      "even": 0.4365,
+      "behind": 0.3381,
+      "ahead": 0.2254
      },
      "by_zone": {
       "MID": 0.334,
@@ -2015,9 +2015,9 @@
       "wards_placed_early": 4
      },
      "death_gold_state": {
-      "even": 0.4,
-      "ahead": 0.3333,
-      "behind": 0.2667
+      "even": 0.7333,
+      "behind": 0.2,
+      "ahead": 0.0667
      },
      "by_zone": {
       "TOP": 0.2667,
@@ -2099,7 +2099,17 @@
      "you": 8.55,
      "ref": 6.5
     }
-   }
+   },
+   "qualitative_mode": "none",
+   "n_game_reviews_available": 0,
+   "n_game_reviews_available_wins": 0,
+   "n_game_reviews_available_losses": 0,
+   "n_game_reviews_used": 0,
+   "n_game_reviews_used_wins": 0,
+   "n_game_reviews_used_losses": 0,
+   "n_game_reviews_wins": 0,
+   "n_game_reviews_losses": 0,
+   "unbalanced_causes": false
   },
   "signals": [
    {
@@ -2349,19 +2359,19 @@
     "group": "death_gold_state",
     "key": "ahead",
     "label": "morts en avance",
-    "you": 0.1702,
-    "ref": 0.2771,
-    "delta": -0.1069,
+    "you": 0.117,
+    "ref": 0.2069,
+    "delta": -0.0899,
     "unit": "pct",
-    "notable": true
+    "notable": false
    },
    {
     "group": "death_gold_state",
     "key": "even",
     "label": "morts à égalité",
-    "you": 0.2021,
-    "ref": 0.218,
-    "delta": -0.0159,
+    "you": 0.4149,
+    "ref": 0.3732,
+    "delta": 0.0417,
     "unit": "pct",
     "notable": false
    },
@@ -2369,11 +2379,11 @@
     "group": "death_gold_state",
     "key": "behind",
     "label": "morts en retard",
-    "you": 0.6277,
-    "ref": 0.5049,
-    "delta": 0.1228,
+    "you": 0.4681,
+    "ref": 0.42,
+    "delta": 0.0481,
     "unit": "pct",
-    "notable": true
+    "notable": false
    }
   ],
   "context": {

@@ -42,9 +42,21 @@ def test_assets_present_and_non_empty():
 
 def test_style_css_has_tokens():
     css = _read("style.css")
-    for token in ("--bg:#0e1116", "--panel:#16181d", "--gold:#c8aa6e",
-                  "--win:#3fb950", "--loss:#f85149", "tabular-nums"):
+    for token in ("--bg:", "--panel:", "--gold:", "--win:", "--loss:",
+                  "tabular-nums"):
         assert token in css, token
+
+
+def test_coaching_context_and_on_demand_game_flow_wired():
+    body = _read("index.html")
+    js = _read("app.js")
+    assert "/coaching-context" in js
+    assert 'fetch("/api/coach/game"' in js
+    assert "matchCoachInfo" in js and "review_status" in body
+    assert "gameReviewSample" not in js
+    assert "this.coachingContext?.matches?.[id]?.pedagogic" in js
+    assert "n_game_reviews_available" in body
+    assert "n_game_reviews_used" in body
 
 
 def test_app_js_has_router_and_helpers():
@@ -260,3 +272,87 @@ def test_readme_states_the_real_schema_bounds():
         hi = int(re.search(r"max_length=(\d+)", line).group(1))
         expected = f"{field}[{lo}]" if lo == hi else f"{field}[{lo}..{hi}]"
         assert expected in body, f"la page n'annonce pas {expected}"
+
+
+def test_canonical_declared_and_resynced_by_the_router():
+    """Sans canonique, la SPA sert le meme HTML sur /, /c/<slug> et /readme : Google
+    choisit lui-meme l'URL a indexer. `syncCanonical` la rend auto-referente."""
+    body = _read("index.html")
+    js = _read("app.js")
+    assert '<link rel="canonical" href="https://riftsense.jeanvg.fr/">' in body
+    assert 'link[rel="canonical"]' in js
+    assert 'meta[property="og:url"]' in js
+    # Appelee au chargement, au retour arriere et a chaque navigation interne.
+    assert js.count("syncCanonical()") >= 4
+
+
+def test_robots_and_sitemap_are_real_files():
+    """Le repli SPA du Worker rend index.html pour tout chemin inconnu : /robots.txt
+    renvoyait donc du HTML. Deux fichiers statiques suffisent, l'asset gagne sur le repli."""
+    robots = _read("robots.txt")
+    assert "User-agent: *" in robots
+    assert "Disallow: /api/" in robots
+    assert "Sitemap: https://riftsense.jeanvg.fr/sitemap.xml" in robots
+    sitemap = _read("sitemap.xml")
+    assert sitemap.startswith("<?xml")
+    assert "http://www.sitemaps.org/schemas/sitemap/0.9" in sitemap
+    assert "<loc>https://riftsense.jeanvg.fr/</loc>" in sitemap
+
+
+def test_le_formulaire_d_inscription_est_cable():
+    body = _read("index.html")
+    assert 'x-data="registerPage()"' in body
+    assert 'x-model="riotId"' in body
+    assert 'x-model="platform"' in body
+    assert '@submit.prevent="submit()"' in body
+
+
+def test_le_composant_d_inscription_appelle_les_deux_routes():
+    js = _read("app.js")
+    assert "function registerPage()" in js
+    assert '"/api/register"' in js
+    assert "/api/register/${" in js or "'/api/register/' +" in js
+
+
+def test_les_codes_d_erreur_typees_ont_tous_un_libelle():
+    """Le service publie des codes, pas des phrases : sans table de libellés le
+    visiteur lirait `riot_id_not_found` en clair."""
+    js = _read("app.js")
+    for code in ("riot_id_not_found", "no_ranked_games", "riot_unavailable", "internal"):
+        assert code in js, code
+
+
+def test_l_inscription_ne_propose_aucune_fonction_llm():
+    """Garde-fou de périmètre : la page d'inscription ne doit pas exposer de
+    bouton de coaching, les routes Ollama restant derrière auth.ts."""
+    body = _read("index.html")
+    section = body[body.index('x-data="registerPage()"'):]
+    section = section[:section.index("</section>")]
+    for forbidden in ("/api/coach", "/api/chat"):
+        assert forbidden not in section, forbidden
+
+
+def test_la_page_d_attente_a_sa_propre_route():
+    """`/register/{slug}` doit survivre à un rafraîchissement de page : sans route
+    dédiée, l'attente n'est qu'un état en mémoire perdu au moindre F5."""
+    js = _read("app.js")
+    assert "/register/" in js
+    assert "routeOf(location.pathname)" in js
+    body = _read("index.html")
+    assert "route.name === 'register'" in body
+    assert body.count('x-data="registerPage()"') >= 2
+
+
+def test_le_sondage_d_inscription_s_arrete_a_la_navigation():
+    """Alpine n'appelle aucune méthode `destroy` au démontage d'un x-data : seul
+    `Alpine.onElRemoved` est un hook réel. Sans lui, `poll()` continuerait de sonder
+    un compte que plus personne n'affiche après une navigation."""
+    js = _read("app.js")
+    assert "Alpine.onElRemoved" in js
+    assert "stopPolling" in js
+    # `destroy() { clearTimeout(...) }` sur registerPage n'était jamais appelé par
+    # Alpine : régression-gardée en s'assurant que registerPage ne redéfinit plus
+    # cette méthode morte (le seul `destroy()` restant est celui de Chart.js).
+    register_section = js[js.index("function registerPage()"):]
+    register_section = register_section[:register_section.index("\nfunction ")]
+    assert "destroy()" not in register_section

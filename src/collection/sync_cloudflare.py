@@ -2,8 +2,10 @@
 """Synchronise les données locales et prédictions précalculées vers Workers KV.
 
 Le Worker ne parle jamais à Riot et ne charge aucun modèle ML. Ce script relit les
-couches silver/gold/SHAP locales, calcule le rang via ``src/core/ml_rank.py`` et
-pousse une valeur KV par fichier logique. Les clés ``coaching:*`` restent la
+couches silver/gold locales, calcule le rang via ``src/core/ml_rank.py`` puis les
+drivers EBM via ``src/core/ebm_explain.py`` (sur la même ligne de features que la
+prédiction publiée), et pousse une valeur KV par fichier logique. Les clés
+``riftsense:*`` restent la
 propriété du Worker ; ``--seed-reviews`` ne les amorce que si elles sont absentes.
 """
 from __future__ import annotations
@@ -14,23 +16,19 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
-
-import requests
 
 ROOT = Path(__file__).resolve().parents[2]
-for module_path in (ROOT / "src" / "core",):
+for module_path in (ROOT / "src" / "core", ROOT / "src" / "04_coaching"):
     if str(module_path) not in sys.path:
         sys.path.insert(0, str(module_path))
 
 import riotlib as rl  # noqa: E402
+import positioning as pos  # noqa: E402  (manifeste d'asymétrie : COACHING_SAFE vs ML_ONLY)
+import payload as coaching_payload  # noqa: E402
 from kv_keys import key as kv_key  # noqa: E402
+from kv_client import KV, DryKV, put_json  # noqa: E402
 
 ACCOUNTS_FILE = ROOT / "config" / "accounts.json"
-KV_URL = (
-    "https://api.cloudflare.com/client/v4/accounts/{account}"
-    "/storage/kv/namespaces/{namespace}/values/{key}"
-)
 
 
 def load_accounts() -> list[dict[str, str]]:
@@ -58,72 +56,6 @@ def read_games(slug: str) -> list[dict[str, Any]]:
     """Lit les games silver d'un joueur et les trie par séquence décroissante."""
     path = rl.silver_games(rl.KIND_PERSONAL, slug)
     return parse_games(path.read_text()) if path.exists() else []
-
-
-class KV:
-    """Client REST minimal Workers KV (PUT/GET) et journal des clés poussées."""
-
-    def __init__(self, account: str, namespace: str, token: str):
-        self.account = account
-        self.namespace = namespace
-        self.token = token
-        self.puts: list[str] = []
-
-    def _url(self, key: str) -> str:
-        return KV_URL.format(
-            account=self.account,
-            namespace=self.namespace,
-            key=quote(key, safe=""),
-        )
-
-    def put(self, key: str, value: str) -> None:
-        response = requests.put(
-            self._url(key),
-            data=value.encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Content-Type": "text/plain; charset=utf-8",
-            },
-            timeout=30,
-        )
-        if response.status_code >= 400:
-            raise RuntimeError(
-                f"KV PUT {key} -> HTTP {response.status_code} : {response.text[:200]}"
-            )
-        self.puts.append(key)
-
-    def get(self, key: str) -> str | None:
-        response = requests.get(
-            self._url(key),
-            headers={"Authorization": f"Bearer {self.token}"},
-            timeout=30,
-        )
-        if response.status_code == 200:
-            return response.text
-        if response.status_code == 404:
-            return None
-        raise RuntimeError(
-            f"KV GET {key} -> HTTP {response.status_code} : {response.text[:200]}"
-        )
-
-
-class DryKV(KV):
-    """Journalise les écritures sans accès réseau."""
-
-    def __init__(self):
-        super().__init__("dry-run", "dry-run", "dry-run")
-
-    def put(self, key: str, value: str) -> None:
-        del value
-        self.puts.append(key)
-
-    def get(self, key: str) -> str | None:
-        del key
-        return None
-
-
-def put_json(kv: KV, key: str, value: Any) -> None:
-    kv.put(key, json.dumps(value, ensure_ascii=False))
 
 
 def merge_jsonl(remote: str | None, local: list[dict], id_key: str = "ts") -> str:
@@ -165,8 +97,63 @@ def push_coaching(kv: KV, slug: str) -> None:
         kv.put(key, merge_jsonl(kv.get(key), parse_jsonl(path.read_text())))
 
 
+GAME_PAYLOAD_BUNDLE_MAX_BYTES = 20 * 1024 * 1024
+
+
+# Garde-fou asymétrie côté PUBLICATION. Les features per-player sont nommées
+# `pos_<base>__<stat>` (ml_features.aggregate_player_features), donc un proxy
+# ML_ONLY se reconnaît à son préfixe. Ces 3 proxys de vision alimentent le MODÈLE
+# (ils sont dans FEATURES, c'est voulu) mais l'onglet est lu par le joueur : lui
+# montrer une barre « morts en fog » revient à lui opposer une info que le modèle
+# reconstruit a posteriori et qu'il n'avait pas. compare.py garde le même manifeste
+# par un assert au chargement ; ici la liste des features vient d'un artefact
+# (player_features.json), donc le contrôle est à l'exécution, sur le payload sortant.
+_ML_ONLY_PREFIXES = tuple(f"pos_{name}__" for name in sorted(pos.ML_ONLY))
+
+
+def _is_ml_only(feature: str) -> bool:
+    return feature.startswith(_ML_ONLY_PREFIXES)
+
+
+def _ebm_drivers(bundle: tuple[dict, int] | None, n: int = 20) -> list[dict] | None:
+    """Top-n drivers EBM d'un joueur depuis son agrégat de features, ou None si
+    l'agrégat est indisponible (sous MIN_ADC_GAMES : sémantique de la clé `pred`,
+    pas de mise à jour de la clé) ou si les artefacts d'analyse manquent.
+
+    Le rang servi vient de xgb+rf ; les drivers sont la décomposition exacte de
+    l'EBM per-player (l'additif rend la somme des contributions identique au score,
+    par construction) sur la même ligne de features que la prédiction publiée :
+    l'explication ne peut pas diverger de ce qui est servi. La paire est légitimée
+    au niveau population par le cross-check de l'analyse
+    (06_shap/player/high_elo/crosscheck_tree_vs_ebm.json). Payload = array JSON nu :
+    le Worker (readers.ts readShap) exige Array.isArray.
+
+    Ce qui est publié est un EXTRAIT, pas la décomposition entière : top-n sur 125
+    features, proxys ML_ONLY retirés (cf. _is_ml_only). La somme des barres
+    affichées ne vaut donc pas le score, et c'est assumé : l'onglet répond « quels
+    indicateurs pèsent », pas « refais l'addition »."""
+    if bundle is None:
+        return None
+    try:
+        import ebm_explain  # noqa: E402  (artefacts ML chargés uniquement pour le sync)
+        loaded = ebm_explain.load_level("player")
+    except (FileNotFoundError, OSError) as exc:
+        # Dégradation propre : avant cette clé, un artefact ML absent ne pouvait pas
+        # abattre le sync d'un compte. load_level charge 3 pkl ET un parquet ; un seul
+        # manquant ne doit pas emporter games/gold/reviews avec lui.
+        print(f"  ⚠ drivers EBM ignorés (artefact d'analyse absent : {exc})")
+        return None
+    contribs = ebm_explain.explain_player_row(
+        loaded["models"]["ebm"], bundle[0], loaded["features"])
+    drivers = ebm_explain.top_drivers(
+        [c for c in contribs if not _is_ml_only(c["feature"])], n)
+    assert not any(_is_ml_only(d["feature"]) for d in drivers), \
+        "un proxy ML_ONLY a atteint le payload publié — violation d'asymétrie"
+    return drivers
+
+
 def sync_account(kv: KV, slug: str, *, seed_reviews: bool = False,
-                 coaching: bool = False) -> None:
+                 coaching: bool = False, game_payloads: bool = True) -> None:
     # Une seule lecture du JSONL : le texte brut part tel quel dans KV et sert aussi
     # de source au parse local (il était lu deux fois : read_games + read_text).
     games_file = rl.silver_games(rl.KIND_PERSONAL, slug)
@@ -189,15 +176,26 @@ def sync_account(kv: KV, slug: str, *, seed_reviews: bool = False,
                     json.loads(aggregate.read_text()),
                 )
 
+    if games and game_payloads:
+        bundle = coaching_payload.build_game_bundle(slug, records=games)
+        encoded = json.dumps(bundle, ensure_ascii=False, separators=(",", ":"))
+        if len(encoded.encode("utf-8")) > GAME_PAYLOAD_BUNDLE_MAX_BYTES:
+            raise RuntimeError(
+                f"bundle coaching {slug} > {GAME_PAYLOAD_BUNDLE_MAX_BYTES} octets"
+            )
+        kv.put(kv_key("game_payloads", slug=slug), encoded)
+
     import ml_rank  # noqa: E402  (artefacts ML chargés uniquement pour le sync)
 
     prediction = ml_rank.predict_rank(games[:20])
     if prediction is not None:
         put_json(kv, kv_key("pred", slug=slug), prediction)
-
-    shap = rl.DATA / "06_shap" / f"{slug}_drivers.json"
-    if shap.exists():
-        kv.put(kv_key("shap", slug=slug), shap.read_text())
+        # drivers EBM per-player : décomposition exacte de la prédiction publiée.
+        # La double agrégation (predict_rank l'a déjà calculée en interne) est
+        # acceptée : 20 games, coût négligeable, et predict_rank garde sa shape.
+        drivers = _ebm_drivers(ml_rank.player_aggregate(games[:20]))
+        if drivers is not None:
+            put_json(kv, kv_key("shap", slug=slug), drivers)
 
     if coaching:
         push_coaching(kv, slug)
@@ -238,6 +236,10 @@ def _parser() -> argparse.ArgumentParser:
         help="fusionne reviews + annotations locales dans KV (le site les publie)",
     )
     parser.add_argument("--dry-run", action="store_true", help="journalise sans écrire dans KV")
+    parser.add_argument(
+        "--skip-game-payloads", action="store_true",
+        help="ne construit pas les payloads unitaires depuis le cache raw local",
+    )
     return parser
 
 
@@ -266,7 +268,8 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(f"compte inconnu : {args.slug}")
     for account in accounts:
         sync_account(kv, account["slug"], seed_reviews=args.seed_reviews,
-                     coaching=args.push_coaching)
+                     coaching=args.push_coaching,
+                     game_payloads=not args.skip_game_payloads)
     if not args.skip_ref:
         sync_referential(kv)
 

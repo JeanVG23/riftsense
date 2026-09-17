@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { generateJson, LLMError } from "../src/llm_client";
 
-const OK_BODY = JSON.stringify({
-  message: { content: JSON.stringify({ strengths: [], ok: true }) },
-});
+const OK_BODY = [
+  JSON.stringify({ message: { content: '{"strengths":[],' }, done: false }),
+  JSON.stringify({ message: { content: '"ok":true}' }, done: false }),
+  JSON.stringify({ message: { content: "" }, done: true }),
+].join("\n") + "\n";
 const noSleep = async () => {};
 
 function response(status: number, body: string = OK_BODY): Response {
@@ -36,7 +38,7 @@ describe("generateJson", () => {
   it("contenu non-JSON -> retry puis LLMError après 4 tentatives", async () => {
     const fetchImpl = vi.fn().mockImplementation(async () => response(
       200,
-      JSON.stringify({ message: { content: "{pas du json" } }),
+      JSON.stringify({ message: { content: "{pas du json" }, done: true }) + "\n",
     ));
     await expect(generateJson("m", "s", "u", {}, {
       apiKey: "k", fetchImpl, sleepImpl: noSleep,
@@ -61,7 +63,34 @@ describe("generateJson", () => {
     expect(output).toEqual({ strengths: [], ok: true });
   });
 
-  it("body : format=schema, stream=false, température défaut 0.2", async () => {
+  it("recompose un flux NDJSON même quand les lignes traversent plusieurs chunks", async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('{"message":{"content":"{\\"ok\\":"}}\n'));
+        controller.enqueue(encoder.encode('{"message":{"content":"true}"},"done":true}\n'));
+        controller.close();
+      },
+    });
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(body, { status: 200 }));
+    const output = await generateJson("m", "s", "u", {}, {
+      apiKey: "k", fetchImpl, sleepImpl: noSleep,
+    });
+    expect(output).toEqual({ ok: true });
+  });
+
+  it("retente une erreur Ollama reçue en cours de flux", async () => {
+    const fetchImpl = vi.fn()
+      .mockResolvedValueOnce(response(200, '{"error":"backend overloaded"}\n'))
+      .mockResolvedValueOnce(response(200));
+    const output = await generateJson("m", "s", "u", {}, {
+      apiKey: "k", fetchImpl, sleepImpl: noSleep,
+    });
+    expect(output).toEqual({ strengths: [], ok: true });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("body : format=schema, stream=true, température défaut 0.2", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(response(200));
     await generateJson("kimi-k2.6", "sys", "usr", { type: "object" }, {
       apiKey: "k", fetchImpl, sleepImpl: noSleep,
@@ -74,7 +103,7 @@ describe("generateJson", () => {
       { role: "user", content: "usr" },
     ]);
     expect(body.format).toEqual({ type: "object" });
-    expect(body.stream).toBe(false);
+    expect(body.stream).toBe(true);
     expect(body.options.temperature).toBe(0.2);
   });
 });

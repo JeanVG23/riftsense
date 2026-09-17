@@ -398,3 +398,44 @@ def test_main_summary_shows_objective_block(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "Objectif par-game : 1/10 reviews annotées" in out
     assert "100" in out                          # 1/1 mistake utile
+
+
+def test_eval_report_splits_cohorts_by_prompt_version(tmp_path):
+    root = tmp_path / "07_coaching"
+    (root / "p").mkdir(parents=True)
+    reviews = [
+        {"ts": "t1", "kind": "game", "match_id": "EUW1_1", "model": "kimi-k2.6",
+         "run": {}},
+        {"ts": "t2", "kind": "game", "match_id": "EUW1_2", "model": "kimi-k2.6",
+         "run": {"prompt_version": "350f7c404b5b"}},
+    ]
+    (root / "p" / "reviews.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in reviews) + "\n")
+    feedbacks = [
+        {"ts": "t1", "player": "p", "model": "kimi-k2.6",
+         "rated_at": "2026-09-04T12:00:00",
+         "items": [{"kind": "mistake", "index": 0, "useful": False,
+                    "tag": "trop-vague", "note": None}]},
+        {"ts": "t2", "player": "p", "model": "kimi-k2.6",
+         "rated_at": "2026-09-04T12:00:01",
+         "items": [{"kind": "mistake", "index": 0, "useful": True,
+                    "tag": None, "note": None}]},
+    ]
+    (root / "p" / "feedback.jsonl").write_text(
+        "\n".join(json.dumps(f, ensure_ascii=False) for f in feedbacks) + "\n")
+
+    rep = F.eval_report("p", root=root)
+    cohorts = rep["by_prompt_version"]
+    assert cohorts["none"]["mistake_useful_rate"] == 0.0
+    assert cohorts["350f7c404b5b"]["mistake_useful_rate"] == 1.0
+    assert cohorts["none"]["n_game_reviews_annotated"] == 1
+    # la métrique globale reste celle de l'objectif produit, toutes cohortes
+    assert rep["objective"]["mistake_useful_rate"] == 0.5
+
+
+def test_cohort_of_treats_empty_prompt_version_as_none():
+    """`prompt_version: ""` n'est pas une cohorte distincte : pas de version
+    déclarée, donc "none" comme un `run` absent."""
+    reviews = [{"ts": "t1", "run": {"prompt_version": ""}}]
+    cohorts = F.cohort_of(reviews)
+    assert cohorts["t1"] == "none"

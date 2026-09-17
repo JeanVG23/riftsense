@@ -42,7 +42,7 @@ class CoachValidationError(RuntimeError):
 
 
 def _generate(system: str, user: str, sch: dict, cls, model: str,
-              prompt_version: str, timeout: int = 180):
+              prompt_version: str, schema_version: str, timeout: int = 180):
     """Retourne (review validée, run). `run` = trace d'exécution persistée avec
     la review : sans elle on ne peut ni rejouer une génération, ni attribuer une
     variation du taux d'utilité à un changement de prompt ou de modèle.
@@ -68,21 +68,23 @@ def _generate(system: str, user: str, sch: dict, cls, model: str,
         usage["schema_retries"] = attempt
         usage["cost_usd"] = llm_client.estimate_cost(
             model, total["prompt_tokens"], total["completion_tokens"])
-        return review, {"prompt_version": prompt_version, **usage}
+        return review, {"prompt_version": prompt_version,
+                        "schema_version": schema_version, **usage}
     raise CoachValidationError(last_raw)
 
 
 def generate_review(pl: dict, model: str, timeout: int = 180):
     system, user = prompt_mod.render(pl)
     return _generate(system, user, schema_mod.review_json_schema(),
-                     schema_mod.Review, model, prompt_mod.PROMPT_VERSION, timeout)
+                     schema_mod.Review, model, prompt_mod.PROMPT_VERSION,
+                     schema_mod.REVIEW_SCHEMA_VERSION, timeout)
 
 
 def generate_game_review(pl: dict, model: str, timeout: int = 180):
     system, user = prompt_mod.render_game(pl)
     return _generate(system, user, schema_mod.game_review_json_schema(),
                      schema_mod.GameReview, model, prompt_mod.GAME_PROMPT_VERSION,
-                     timeout)
+                     schema_mod.GAME_REVIEW_SCHEMA_VERSION, timeout)
 
 
 def _indexed_axis(axis: str, review: schema_mod.GameReview) -> tuple[dict, dict]:
@@ -115,6 +117,7 @@ def _combined_run(runs: list[dict]) -> dict:
     for key in ("prompt_tokens", "completion_tokens", "total_tokens", "schema_retries"):
         out[key] = int(out[key])
     out["prompt_version"] = prompt_mod.SPECIALIZED_PROMPT_VERSION
+    out["schema_version"] = schema_mod.GAME_REVIEW_SCHEMA_VERSION
     out["stages"] = runs
     return out
 
@@ -127,7 +130,8 @@ def generate_specialized_game_review(pl: dict, model: str, timeout: int = 180):
         system, user = prompt_mod.render_specialist(pl, axis)
         review, run = _generate(system, user, schema_mod.game_review_json_schema(),
                                 schema_mod.GameReview, model,
-                                prompt_mod.version_of(system), timeout)
+                                prompt_mod.version_of(system),
+                                schema_mod.GAME_REVIEW_SCHEMA_VERSION, timeout)
         return axis, review, run
 
     with ThreadPoolExecutor(max_workers=len(axes)) as pool:
@@ -145,9 +149,11 @@ def generate_specialized_game_review(pl: dict, model: str, timeout: int = 180):
     mistake_ids = [key for key, (kind, _) in lookup.items() if kind == "mistakes"]
     strength_ids = [key for key, (kind, _) in lookup.items() if kind == "strengths"]
     system, user = prompt_mod.render_chief(chief_axes)
+    chief_schema = schema_mod.chief_selection_json_schema(mistake_ids, strength_ids)
     chief, chief_run = _generate(
-        system, user, schema_mod.chief_selection_json_schema(mistake_ids, strength_ids),
-        schema_mod.ChiefSelection, model, prompt_mod.version_of(system), timeout)
+        system, user, chief_schema, schema_mod.ChiefSelection, model,
+        prompt_mod.version_of(system), schema_mod.CHIEF_SELECTION_SCHEMA_VERSION,
+        timeout)
     runs.append({"stage": "chief", **chief_run})
 
     priority_ids = list(dict.fromkeys(chief.priority_mistake_ids))
@@ -194,7 +200,8 @@ def pending_game_matches(records: list[dict], reviews: list[dict],
 
 
 def run_batch(player: str, scope: str, target: str, model: str, n: int,
-              root=None, silver_dir=None, specialized: bool = False) -> int:
+              root=None, silver_dir=None, specialized: bool = False,
+              timeout: int = 180) -> int:
     """Génère jusqu'à n reviews par-game sur les games du scope pas encore
     reviewées (kind=game). Continue sur échec d'une game ; bilan final."""
     silver = Path(silver_dir) if silver_dir is not None else rl.silver_dir()
@@ -221,7 +228,7 @@ def run_batch(player: str, scope: str, target: str, model: str, n: int,
                                         target=target, silver_dir=silver,
                                         records=records, ref=ref)
             generate = generate_specialized_game_review if specialized else generate_game_review
-            review, run = generate(pl, model)
+            review, run = generate(pl, model, timeout=timeout)
         except FileNotFoundError as e:
             print(f"✗ {mid} : {e}", file=sys.stderr)
             failed += 1
@@ -323,6 +330,9 @@ def main() -> int:
     ap.add_argument("--outcome", default="loss", choices=["overall", "win", "loss"])
     ap.add_argument("--target", default="challenger")
     ap.add_argument("--model", default=None)
+    ap.add_argument("--timeout", type=int, default=None,
+                    help="délai d'attente réseau en secondes (défaut 180, "
+                         "surclassable via OLLAMA_TIMEOUT ou .env)")
     grp = ap.add_mutually_exclusive_group()
     grp.add_argument("--game", nargs="?", const="latest", default=None,
                      metavar="MATCH_ID",
@@ -350,10 +360,16 @@ def main() -> int:
     if args.model is None:
         args.model = (os.environ.get("OLLAMA_MODEL")
                       or rl.load_env().get("OLLAMA_MODEL", DEFAULT_MODEL))
+    # Résolution timeout : --timeout CLI > OLLAMA_TIMEOUT (shell env) > .env > défaut 180.
+    # Même motif que la résolution du modèle ci-dessus.
+    if args.timeout is None:
+        args.timeout = int(os.environ.get("OLLAMA_TIMEOUT")
+                           or rl.load_env().get("OLLAMA_TIMEOUT", 180))
 
     if args.game_batch is not None:
         return run_batch(args.player, args.scope, args.target,
-                         args.model, args.game_batch, specialized=args.specialized)
+                         args.model, args.game_batch, specialized=args.specialized,
+                         timeout=args.timeout)
 
     ts = datetime.now().isoformat(timespec="seconds")
     per_game = args.game is not None
@@ -374,7 +390,7 @@ def main() -> int:
     try:
         generate = (generate_specialized_game_review if per_game and args.specialized
                     else generate_game_review if per_game else generate_review)
-        review, run = generate(pl, args.model)
+        review, run = generate(pl, args.model, timeout=args.timeout)
     except llm_client.LLMError as e:
         print(f"✗ appel LLM échoué : {e}", file=sys.stderr)
         return 1

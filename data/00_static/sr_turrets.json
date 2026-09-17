@@ -1,0 +1,156 @@
+[
+  {
+    "team": 100,
+    "lane": "BOT_LANE",
+    "tier": "BASE_TURRET",
+    "x": 4281,
+    "y": 1253
+  },
+  {
+    "team": 100,
+    "lane": "BOT_LANE",
+    "tier": "INNER_TURRET",
+    "x": 6919,
+    "y": 1483
+  },
+  {
+    "team": 100,
+    "lane": "BOT_LANE",
+    "tier": "OUTER_TURRET",
+    "x": 10504,
+    "y": 1029
+  },
+  {
+    "team": 100,
+    "lane": "MID_LANE",
+    "tier": "BASE_TURRET",
+    "x": 3651,
+    "y": 3696
+  },
+  {
+    "team": 100,
+    "lane": "MID_LANE",
+    "tier": "INNER_TURRET",
+    "x": 5048,
+    "y": 4812
+  },
+  {
+    "team": 100,
+    "lane": "MID_LANE",
+    "tier": "NEXUS_TURRET",
+    "x": 1748,
+    "y": 2270
+  },
+  {
+    "team": 100,
+    "lane": "MID_LANE",
+    "tier": "NEXUS_TURRET",
+    "x": 2177,
+    "y": 1807
+  },
+  {
+    "team": 100,
+    "lane": "MID_LANE",
+    "tier": "OUTER_TURRET",
+    "x": 5846,
+    "y": 6396
+  },
+  {
+    "team": 100,
+    "lane": "TOP_LANE",
+    "tier": "BASE_TURRET",
+    "x": 1169,
+    "y": 4287
+  },
+  {
+    "team": 100,
+    "lane": "TOP_LANE",
+    "tier": "INNER_TURRET",
+    "x": 1512,
+    "y": 6699
+  },
+  {
+    "team": 100,
+    "lane": "TOP_LANE",
+    "tier": "OUTER_TURRET",
+    "x": 981,
+    "y": 10441
+  },
+  {
+    "team": 200,
+    "lane": "BOT_LANE",
+    "tier": "BASE_TURRET",
+    "x": 13624,
+    "y": 10572
+  },
+  {
+    "team": 200,
+    "lane": "BOT_LANE",
+    "tier": "INNER_TURRET",
+    "x": 13327,
+    "y": 8226
+  },
+  {
+    "team": 200,
+    "lane": "BOT_LANE",
+    "tier": "OUTER_TURRET",
+    "x": 13866,
+    "y": 4505
+  },
+  {
+    "team": 200,
+    "lane": "MID_LANE",
+    "tier": "BASE_TURRET",
+    "x": 11134,
+    "y": 11207
+  },
+  {
+    "team": 200,
+    "lane": "MID_LANE",
+    "tier": "INNER_TURRET",
+    "x": 9767,
+    "y": 10113
+  },
+  {
+    "team": 200,
+    "lane": "MID_LANE",
+    "tier": "NEXUS_TURRET",
+    "x": 12611,
+    "y": 13084
+  },
+  {
+    "team": 200,
+    "lane": "MID_LANE",
+    "tier": "NEXUS_TURRET",
+    "x": 13052,
+    "y": 12612
+  },
+  {
+    "team": 200,
+    "lane": "MID_LANE",
+    "tier": "OUTER_TURRET",
+    "x": 8955,
+    "y": 8510
+  },
+  {
+    "team": 200,
+    "lane": "TOP_LANE",
+    "tier": "BASE_TURRET",
+    "x": 10481,
+    "y": 13650
+  },
+  {
+    "team": 200,
+    "lane": "TOP_LANE",
+    "tier": "INNER_TURRET",
+    "x": 7943,
+    "y": 13411
+  },
+  {
+    "team": 200,
+    "lane": "TOP_LANE",
+    "tier": "OUTER_TURRET",
+    "x": 4318,
+    "y": 13875
+  }
+]

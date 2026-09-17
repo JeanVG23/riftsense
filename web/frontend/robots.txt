@@ -1,0 +1,7 @@
+# Les routes /api/ ne rendent que du JSON (et certaines coutent un appel LLM) :
+# rien a indexer, tout a explorer inutilement.
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://riftsense.jeanvg.fr/sitemap.xml

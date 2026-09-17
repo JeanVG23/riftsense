@@ -1,0 +1,71 @@
+{
+  "properties": {
+    "strengths": {
+      "items": {
+        "properties": {
+          "point": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "point",
+          "evidence"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "maxItems": 3,
+      "minItems": 1,
+      "type": "array"
+    },
+    "mistakes": {
+      "items": {
+        "properties": {
+          "point": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "point",
+          "evidence"
+        ],
+        "type": "object",
+        "additionalProperties": false
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array"
+    },
+    "habits": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "next_focus": {
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    }
+  },
+  "required": [
+    "strengths",
+    "mistakes",
+    "habits",
+    "next_focus",
+    "confidence"
+  ],
+  "type": "object",
+  "additionalProperties": false
+}

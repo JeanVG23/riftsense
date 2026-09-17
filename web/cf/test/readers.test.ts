@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ACCOUNTS, accountFor } from "../src/accounts";
 import {
   appendJsonl,
   KEYS,
   matchSeq,
   readGames,
+  readGamePayloadBundle,
   readJson,
   readJsonl,
   readPred,
@@ -30,9 +30,23 @@ describe("KEYS", () => {
     expect(KEYS.ref("challenger", "adc")).toBe("ref:challenger:adc");
     expect(KEYS.pred("spadzze")).toBe("pred:spadzze");
     expect(KEYS.shap("spadzze")).toBe("shap:spadzze:drivers");
-    expect(KEYS.reviews("spadzze")).toBe("coaching:spadzze:reviews");
-    expect(KEYS.feedback("spadzze")).toBe("coaching:spadzze:feedback");
-    expect(KEYS.chats("spadzze")).toBe("coaching:spadzze:chats");
+    expect(KEYS.reviews("spadzze")).toBe("riftsense:spadzze:reviews");
+    expect(KEYS.feedback("spadzze")).toBe("riftsense:spadzze:feedback");
+    expect(KEYS.chats("spadzze")).toBe("riftsense:spadzze:chats");
+    expect(KEYS.game_payloads("spadzze")).toBe("riftsense:spadzze:game-payloads");
+  });
+});
+
+describe("readGamePayloadBundle", () => {
+  it("dégrade vers un bundle vide et lit une valeur valide", async () => {
+    const kv = new MemoryKV();
+    expect((await readGamePayloadBundle(kv, "p")).items).toEqual({});
+    await kv.put(KEYS.game_payloads("p"), JSON.stringify({
+      generated_at: "2026-09-06T10:00:00Z", target: "challenger", max_games: 50,
+      items: { m1: { payload_hash: "abc", benchmark_scope: "zeri", payload: { meta: {} } } },
+      unavailable: [],
+    }));
+    expect((await readGamePayloadBundle(kv, "p")).items.m1.payload_hash).toBe("abc");
   });
 });
 
@@ -106,13 +120,5 @@ describe("readJsonl / appendJsonl / readJson", () => {
     expect(await readJson(kv, "x")).toBeNull();
     await kv.put("x", "{\"ok\":true}");
     expect(await readJson(kv, "x")).toEqual({ ok: true });
-  });
-});
-
-describe("accounts", () => {
-  it("compte préconfiguré + lookup", () => {
-    expect(ACCOUNTS).toContainEqual({ slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1" });
-    expect(accountFor("spadzze")?.riot_id).toBe("Spadzze#euw");
-    expect(accountFor("inconnu")).toBeUndefined();
   });
 });

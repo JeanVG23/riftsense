@@ -1,4 +1,4 @@
-import { accountFor } from "./accounts";
+import { readAccount } from "./accounts";
 import { jsonError, notFound, unprocessable } from "./http";
 import { KEYS, readJsonl, upsertJsonl } from "./readers";
 import { NEG_TAGS, validateGameReview, validateReview, type Review } from "./schema";
@@ -60,7 +60,7 @@ export async function apiFeedback(request: Request, env: Env): Promise<Response>
     return unprocessable("requête feedback invalide");
   }
   const slug = body.slug;
-  if (!accountFor(slug)) return notFound("compte inconnu");
+  if (!await readAccount(env.DATA, slug)) return notFound("compte inconnu");
 
   const reviews = await readJsonl<{ ts: string; model: string; kind?: string; review: unknown }>(
     env.DATA,

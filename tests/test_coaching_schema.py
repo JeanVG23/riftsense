@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from pydantic import ValidationError
 
@@ -111,10 +113,36 @@ def test_game_review_json_schema_lengths():
 
 def test_game_review_json_schema_requires_cause():
     # Le champ `cause` doit apparaître dans le JSON-schema imposé au LLM.
-    sch = S.game_review_json_schema()
-    defs = sch["$defs"]
-    assert "cause" in defs["GameInsight"]["properties"]
-    assert "cause" in defs["GameInsight"]["required"]
+    item = S.game_review_json_schema()["properties"]["mistakes"]["items"]
+    assert "cause" in item["properties"]
+    assert "cause" in item["required"]
+
+
+def test_json_schema_is_inlined_and_strict():
+    """Le schéma envoyé à Ollama est celui du Worker : inliné et fermé.
+
+    Le brut Pydantic embarquait les docstrings comme `description` (la note
+    « Réponse au feedback (boucle d'éval, 2026-07-08)… » partait littéralement dans
+    le paramètre `format`) et n'interdisait pas les clés supplémentaires.
+    """
+    for sch in (S.review_json_schema(), S.game_review_json_schema()):
+        blob = json.dumps(sch)
+        assert "$defs" not in sch and "$ref" not in blob
+        assert "title" not in blob and "description" not in blob
+        assert sch["additionalProperties"] is False
+        assert sch["properties"]["mistakes"]["items"]["additionalProperties"] is False
+
+
+def test_game_schema_constrains_evidence_and_cause_at_generation():
+    """La contrainte d'horodatage agit à la génération, pas seulement au retry.
+
+    Portée par le field_validator seule, elle n'était rattrapée qu'après coup, au
+    prix d'un schema_retries.
+    """
+    item = S.game_review_json_schema()["properties"]["mistakes"]["items"]
+    assert item["properties"]["evidence"]["pattern"] == r"\d+:\d\d"
+    assert item["properties"]["cause"]["minLength"] == 1
+    assert S.game_review_json_schema()["properties"]["next_focus"]["minLength"] == 1
 
 
 def test_json_schema_has_fixed_lengths():
@@ -131,3 +159,63 @@ def test_chief_schema_constrains_selection_to_specialist_ids():
     assert props["summary_insight_id"]["enum"] == ["m1", "m2"]
     assert props["priority_mistake_ids"]["items"]["enum"] == ["m1", "m2"]
     assert props["strength_insight_ids"]["items"]["enum"] == ["s1"]
+
+
+def test_strict_preserves_field_named_title():
+    """Un champ nommé `title` ou `description` est un NOM DE CHAMP dans
+    `properties`, pas une métadonnée de schéma : il ne doit pas être dépouillé.
+
+    Reproduction du bug : `walk` supprimait les clés "title"/"description" à
+    toutes les profondeurs, y compris dans la table `properties`, où ces
+    chaînes sont des noms de champs opaques.
+    """
+    from pydantic import BaseModel as _LocalModel
+
+    class _WithTitleField(_LocalModel):
+        title: str
+        description: str
+        point: str
+
+    sch = S._strict(_WithTitleField.model_json_schema())
+    assert set(sch["properties"].keys()) == {"title", "description", "point"}
+    assert set(sch["required"]) == {"title", "description", "point"}
+
+
+def test_check_required_subset_rejects_insatisfiable_schema():
+    """Contrôle de cohérence : `required` doit être un sous-ensemble de
+    `properties`. Un schéma qui viole ça est insatisfiable pour un modèle
+    imposant `additionalProperties: false` (retry en boucle silencieux)."""
+    bad = {"type": "object", "properties": {"a": {"type": "string"}},
+           "required": ["a", "b"], "additionalProperties": False}
+    with pytest.raises(ValueError):
+        S._check_required_subset(bad)
+
+
+def test_check_required_subset_accepts_valid_schema():
+    ok = {"type": "object", "properties": {"a": {"type": "string"}},
+          "required": ["a"], "additionalProperties": False}
+    S._check_required_subset(ok)  # ne lève pas
+
+
+def test_chief_selection_schema_is_strict():
+    """Troisième site d'envoi de schéma au LLM (agents spécialisés) : doit
+    passer par `_strict` comme les deux autres, sinon la docstring de classe
+    part dans le `format` d'Ollama et les objets restent ouverts."""
+    sch = S.chief_selection_json_schema(["m1", "m2"], ["s1"])
+    blob = json.dumps(sch)
+    assert "$defs" not in sch and "$ref" not in blob
+    assert "title" not in blob and "description" not in blob
+    assert sch["additionalProperties"] is False
+
+
+def test_chief_schema_version_is_stable_across_id_sets():
+    """`schema_version` identifie un CONTRAT, pas un appel : les enums d'IDs
+    d'insights varient à chaque game, ils ne doivent donc pas entrer dans le
+    hash, sous peine d'un schema_version par-appel inagrégeable."""
+    sch_a = S.chief_selection_json_schema(["a"], ["b"])
+    sch_b = S.chief_selection_json_schema(["x"], ["y"])
+    # Les schémas envoyés au LLM diffèrent bien (enums différents)...
+    assert sch_a != sch_b
+    # ...mais la version publiée (bloc `run`) reste celle du contrat, fixe.
+    assert S.CHIEF_SELECTION_SCHEMA_VERSION == S.schema_version_of(
+        S._strict(S.ChiefSelection.model_json_schema()))

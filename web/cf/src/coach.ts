@@ -1,10 +1,11 @@
-import { accountFor } from "./accounts";
+import { readAccount } from "./accounts";
 import { generateJson } from "./llm_client";
 import { addGameReviewCauses, buildPayload, type Outcome } from "./payload";
-import { render } from "./prompt";
+import { render, SYSTEM, versionOf } from "./prompt";
 import { jsonError, notFound } from "./http";
 import { appendJsonl, KEYS, readJson, readJsonl, type KVLike } from "./readers";
 import { reviewJsonSchema, validateReview, type Review } from "./schema";
+import { REVIEW_SCHEMA_VERSION } from "./generated/shared";
 import type { Env } from "./index";
 
 export interface CoachParams {
@@ -96,6 +97,10 @@ export async function* coachFlow(
     payload,
     review,
     outcome_focus: params.outcome,
+    run: {
+      prompt_version: await versionOf(SYSTEM),
+      schema_version: REVIEW_SCHEMA_VERSION,
+    },
   };
   try {
     await appendJsonl(deps.kv, KEYS.reviews(params.slug), record);
@@ -115,7 +120,7 @@ export async function apiCoach(request: Request, env: Env): Promise<Response> {
     model?: string;
   } | null;
   const slug = body?.slug ?? "";
-  if (!accountFor(slug)) return notFound("compte inconnu");
+  if (!await readAccount(env.DATA, slug)) return notFound("compte inconnu");
   if (!env.OLLAMA_API_KEY) return jsonError(500, "OLLAMA_API_KEY non configuré");
   const params: CoachParams = {
     slug,

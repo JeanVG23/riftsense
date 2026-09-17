@@ -74,14 +74,18 @@ def perturb_zone_to_top(payload: dict) -> dict:
     return out
 
 
+# Champs de gold non dépensé du journal. UNE seule table pilote la perturbation
+# ET le contrôle : ajouter un champ ici sans toucher au contrôle laisserait le
+# test passer en silence, exactement le faux-vert que ce module doit empêcher.
+_UNSPENT_GOLD_FIELDS = (("deaths", "unspent_gold"), ("recalls", "gold_before"))
+
+
 def perturb_unspent_gold_zero(payload: dict) -> dict:
     out = copy.deepcopy(payload)
-    for death in out["journal"]["deaths"]:
-        if "unspent_gold" in death:
-            death["unspent_gold"] = 0
-    for recall in out["journal"].get("recalls", []):
-        if "gold_before" in recall:
-            recall["gold_before"] = 0
+    for section, field in _UNSPENT_GOLD_FIELDS:
+        for row in out["journal"].get(section) or []:
+            if field in row:
+                row[field] = 0
     return out
 
 
@@ -104,10 +108,28 @@ def zones_mentioned(review: dict) -> set[str]:
     return {zone for zone in ZONES if zone in joined}
 
 
-def max_gold_cited(review: dict) -> float:
-    values = [value for text in _texts(review)
-              for _, value, unit in grounding.cited_numbers(text) if unit == "g"]
-    return max(values) if values else 0.0
+def cited_gold_values(review: dict) -> set[float]:
+    """Toutes les valeurs en `g` citées dans une review (couts d'items, écarts,
+    swings d'équipe... pas seulement le gold non dépensé)."""
+    return {value for text in _texts(review)
+            for _, value, unit in grounding.cited_numbers(text) if unit == "g"}
+
+
+def original_unspent_gold(payload: dict) -> set[float]:
+    """Valeurs de gold non dépensé du payload D'ORIGINE (avant perturbation),
+    au-dessus de `GOLD_FLOOR`. C'est LA cible de `unspent_gold_zero` : le
+    payload enrichi cite désormais aussi des coûts d'items, des écarts de gold
+    et des `team_gold_swing_90s`, tous bien plus grands et non touchés par
+    cette perturbation. Un contrôle basé sur le maximum de tout ce qui est
+    cité en `g` échoue donc à tort dès qu'une de ces valeurs apparaît."""
+    journal = payload.get("journal") or {}
+    values = set()
+    for section, field in _UNSPENT_GOLD_FIELDS:
+        for row in journal.get(section) or []:
+            value = row.get(field)
+            if isinstance(value, (int, float)) and value >= GOLD_FLOOR:
+                values.add(float(value))
+    return values
 
 
 def confidence(review: dict) -> float:
@@ -117,24 +139,30 @@ def confidence(review: dict) -> float:
 
 # --- attentes -----------------------------------------------------------------
 
-def check_no_deaths(base: dict, new: dict) -> dict:
+def check_no_deaths(base: dict, new: dict, _payload: dict) -> dict:
     return {"expected": "confidence en baisse (journal pauvre)",
             "observed": f"{confidence(base):.2f} -> {confidence(new):.2f}",
             "passed": confidence(new) < confidence(base)}
 
 
-def check_zone_to_top(base: dict, new: dict) -> dict:
+def check_zone_to_top(base: dict, new: dict, _payload: dict) -> dict:
     before, after = zones_mentioned(base), zones_mentioned(new)
     return {"expected": "les zones citées suivent le journal (morts en TOP)",
             "observed": f"{sorted(before) or '∅'} -> {sorted(after) or '∅'}",
             "passed": "TOP" in after}
 
 
-def check_unspent_gold_zero(base: dict, new: dict) -> dict:
-    before, after = max_gold_cited(base), max_gold_cited(new)
-    return {"expected": f"plus de gold non dépensé cité au-dessus de {GOLD_FLOOR} g",
-            "observed": f"max cité {before:.0f} g -> {after:.0f} g",
-            "passed": after < max(GOLD_FLOOR, before)}
+def check_unspent_gold_zero(base: dict, new: dict, payload: dict) -> dict:
+    """`payload` est le payload D'ORIGINE (avant perturbation) : seules ses
+    valeurs de gold non dépensé comptent, pas le maximum de tout ce qui est
+    cité en `g` (couts d'items, écarts, `team_gold_swing_90s`...)."""
+    original = original_unspent_gold(payload)
+    recited = original & cited_gold_values(new)
+    return {"expected": "aucune valeur de gold non dépensé d'origine "
+                        f"(>= {GOLD_FLOOR} g) encore citée",
+            "observed": f"valeurs d'origine {sorted(original) or '∅'} ; "
+                       f"encore citées après {sorted(recited) or '∅'}",
+            "passed": not recited}
 
 
 GEN_TIMEOUT_S = 600
@@ -171,7 +199,7 @@ def run_one(record: dict, name: str, model: str, generate=None) -> dict:
     payload = apply_fn(record["payload"])
     review, run = generate(payload, model)
     new = review.model_dump() if hasattr(review, "model_dump") else review
-    verdict = check_fn(record["review"], new)
+    verdict = check_fn(record["review"], new, record["payload"])
     check = grounding.check_review({"payload": payload, "review": new})
     return {"match_id": record.get("match_id"), "baseline_ts": record.get("ts"),
             "perturbation": name, "label": label, "model": model,

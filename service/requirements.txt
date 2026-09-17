@@ -1,0 +1,5 @@
+flask>=3.1
+gunicorn>=23.0
+requests>=2.32
+zstandard>=0.23
+boto3>=1.35

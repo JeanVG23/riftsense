@@ -1,4 +1,4 @@
-name = "coaching-lol"
+name = "riftsense"
 main = "src/index.ts"
 compatibility_date = "2026-08-30"
 
@@ -6,7 +6,30 @@ compatibility_date = "2026-08-30"
 directory = "../frontend"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = true
+
+# URL du service d'ingestion Cloud Run, sous forme déterministe (nom du service,
+# numéro de projet, région) : à confronter à la sortie de `gcloud run deploy`
+# lors du premier déploiement.
+[vars]
+INGEST_URL = "https://ingest-394340542914.europe-west1.run.app"
 
 [[kv_namespaces]]
 binding = "DATA"
 id = "a7ea0d5fcf0449f9a4fef23e9dda5496"
+
+[[durable_objects.bindings]]
+name = "COACH_GATE"
+class_name = "CoachGate"
+
+[[durable_objects.bindings]]
+name = "INGEST_QUEUE"
+class_name = "IngestQueue"
+
+[[migrations]]
+tag = "v1-coach-gate"
+new_sqlite_classes = ["CoachGate"]
+
+[[migrations]]
+tag = "v2-ingest-queue"
+new_sqlite_classes = ["IngestQueue"]

@@ -31,6 +31,17 @@ def test_generate_review_validates(monkeypatch):
     assert run["total_tokens"] == 1200 and run["schema_retries"] == 0
 
 
+def test_run_block_carries_schema_version(monkeypatch):
+    """Sans schema_version, une variation du taux d'utilite due a un durcissement
+    du schema serait indiscernable d'une variation de prompt ou de modele."""
+    monkeypatch.setattr(C.llm_client, "generate", lambda *a, **k: _gen(_review_dict()))
+    _, run = C.generate_review({"meta": {"player": "x", "scope": "adc",
+                                         "target": "challenger",
+                                         "outcome_focus": "loss", "n_games_me": 1}}, "m")
+    assert run["schema_version"] == S.REVIEW_SCHEMA_VERSION
+    assert run["prompt_version"] == C.prompt_mod.PROMPT_VERSION
+
+
 def test_generate_review_retries_then_raises(monkeypatch):
     calls = {"n": 0}
 
@@ -297,6 +308,47 @@ def test_main_game_and_game_batch_mutually_exclusive(monkeypatch, capsys):
     with pytest.raises(SystemExit) as e:
         C.main()
     assert e.value.code == 2                     # erreur argparse
+
+
+def test_run_batch_passes_timeout_to_generate(tmp_path, monkeypatch):
+    """Le timeout résolu doit atteindre l'appel réseau dans --game-batch : c'est
+    le chemin qui échouait en prod (441,6 s mesurées vs défaut 180 s)."""
+    root, silver = _batch_env(tmp_path, reviewed=())
+    seen = {}
+
+    def fake_generate(model, system, user, sch, timeout=180):
+        seen["timeout"] = timeout
+        return _gen(_game_review_dict())
+
+    monkeypatch.setattr(C.payload_mod, "build_game",
+                        lambda player, match_id=None, **kw: _game_payload())
+    monkeypatch.setattr(C.llm_client, "generate", fake_generate)
+    rc = C.run_batch("spadzze", "adc", "challenger", "m", 1,
+                     root=root, silver_dir=silver, timeout=450)
+    assert rc == 0
+    assert seen["timeout"] == 450
+
+
+def test_main_timeout_from_flag_then_env_then_dotenv_then_default(monkeypatch, tmp_path):
+    """Résolution --timeout > OLLAMA_TIMEOUT (shell) > .env > défaut 180,
+    calquée sur la résolution du modèle."""
+    monkeypatch.setattr(C.sys, "argv",
+                        ["coach.py", "--player", "x", "--scope", "adc", "--timeout", "500"])
+    monkeypatch.delenv("OLLAMA_TIMEOUT", raising=False)
+    monkeypatch.setattr(C.rl, "load_env", lambda: {})
+    monkeypatch.setattr(C.payload_mod, "build",
+                        lambda *a, **k: {"meta": {"scope": "adc", "target": "challenger",
+                                                  "outcome_focus": "loss", "n_games_me": 1}})
+    seen = {}
+
+    def fake_gen(model, system, user, sch, timeout=180):
+        seen["timeout"] = timeout
+        return _gen(_review_dict())
+
+    monkeypatch.setattr(C.llm_client, "generate", fake_gen)
+    monkeypatch.setattr(C, "persist", lambda *a, **k: tmp_path / "reviews.jsonl")
+    assert C.main() == 0
+    assert seen["timeout"] == 500                 # --timeout honoré
 
 
 def test_run_batch_validation_error_saves_failed_under_root(tmp_path, monkeypatch):

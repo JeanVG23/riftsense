@@ -11,6 +11,11 @@ export interface BuildArgs {
 
 type JsonRecord = Record<string, any>;
 
+export const ROLE_SCOPES: Record<string, string | null> = {
+  all: null, top: "TOP", jungle: "JUNGLE", mid: "MIDDLE",
+  adc: "BOTTOM", support: "UTILITY",
+};
+
 const LANE_SIGNALS = ["gd10", "gd14", "gd20", "csd10", "csd14"];
 const LANE_LABELS: Record<string, string> = {
   gd10: "gold diff @10",
@@ -210,6 +215,17 @@ export function buildPayload(
     winrate_me: me.winrate,
     low_sample: me.n_games < LOW_SAMPLE_THRESHOLD,
     deaths_per_game: deathsPerGame,
+    qualitative_mode: "none",
+    n_game_reviews_available: 0,
+    n_game_reviews_available_wins: 0,
+    n_game_reviews_available_losses: 0,
+    n_game_reviews_used: 0,
+    n_game_reviews_used_wins: 0,
+    n_game_reviews_used_losses: 0,
+    // Alias historiques, conservés pendant la migration du frontend.
+    n_game_reviews_wins: 0,
+    n_game_reviews_losses: 0,
+    unbalanced_causes: false,
   };
   const signals = [
     ...laneSignals(meFocus, refFocus),
@@ -225,18 +241,35 @@ export function buildPayload(
   return { meta, signals, context };
 }
 
-/** Map : garde uniquement les causes qualitatives des 20 dernières reviews game. */
-export function addGameReviewCauses(
-  payload: JsonRecord,
+export function reviewMatchesScope(record: JsonRecord, scope: string): boolean {
+  const wanted = scope.toLowerCase();
+  if (wanted === "all") return true;
+  const meta = record.payload?.meta ?? {};
+  if (wanted in ROLE_SCOPES) {
+    const role = ROLE_SCOPES[wanted];
+    return (role !== null && meta.role === role)
+      || String(record.scope ?? meta.scope ?? "").toLowerCase() === wanted;
+  }
+  return String(meta.champion ?? "").toLowerCase() === wanted;
+}
+
+/** Sélection qualitative bornée avec compteurs disponibles et réellement utilisés. */
+export function gameReviewSample(
   reviews: JsonRecord[],
   scope: string,
-  limit = 20,
+  maxPerOutcome = 2,
 ): JsonRecord {
-  const mapped = reviews.filter((record) => {
-    const meta = record.payload?.meta ?? {};
-    return record.kind === "game"
-      && (scope === "all" || (record.scope ?? meta.scope) === scope);
-  }).sort((left, right) => String(right.ts ?? "").localeCompare(String(left.ts ?? "")))
+  if (maxPerOutcome < 1) throw new Error("maxPerOutcome doit être >= 1");
+  const mappedRows = reviews.filter((record) => {
+    return record.kind === "game" && reviewMatchesScope(record, scope);
+  }).sort((left, right) => {
+    const byTs = String(right.ts ?? "").localeCompare(String(left.ts ?? ""));
+    if (byTs !== 0) return byTs;
+    const leftMeta = left.payload?.meta ?? {};
+    const rightMeta = right.payload?.meta ?? {};
+    return String(right.match_id ?? rightMeta.match_id ?? "")
+      .localeCompare(String(left.match_id ?? leftMeta.match_id ?? ""));
+  })
     .map((record) => {
       const meta = record.payload?.meta ?? {};
       const qualitative = (section: "strengths" | "mistakes") =>
@@ -246,17 +279,83 @@ export function addGameReviewCauses(
             && insight.cause.trim() !== "")
           .map((insight: JsonRecord) => ({ point: insight.point, cause: insight.cause }));
       return {
+        ts: record.ts ?? "",
+        match_id: record.match_id ?? meta.match_id ?? "",
         champion: meta.champion ?? null,
         outcome: meta.win ? "win" : "loss",
         strengths: qualitative("strengths"),
         mistakes: qualitative("mistakes"),
       };
-    }).filter((row) => row.strengths.length > 0 || row.mistakes.length > 0)
-    .slice(0, limit);
-  if (mapped.length === 0) return payload;
+    }).filter((row) => row.strengths.length > 0 || row.mistakes.length > 0);
+
+  const seenMatches = new Set<string>();
+  const mapped = mappedRows.filter((row) => {
+    const identity = row.match_id || `legacy:${row.ts}`;
+    if (seenMatches.has(identity)) return false;
+    seenMatches.add(identity);
+    return true;
+  });
+
+  const wins = mapped.filter((r) => r.outcome === "win");
+  const losses = mapped.filter((r) => r.outcome === "loss");
+
+  let selected: typeof mapped;
+  let mode: "none" | "unbalanced" | "balanced";
+  if (mapped.length === 0) {
+    mode = "none";
+    selected = [];
+  } else if (wins.length > 0 && losses.length > 0) {
+    mode = "balanced";
+    const takeEach = Math.min(wins.length, losses.length, maxPerOutcome);
+    const selectedWins = wins.slice(0, takeEach);
+    const selectedLosses = losses.slice(0, takeEach);
+    selected = [...selectedWins, ...selectedLosses].sort((a, b) =>
+      String(b.ts).localeCompare(String(a.ts))
+        || String(b.match_id).localeCompare(String(a.match_id))
+    );
+  } else {
+    mode = "unbalanced";
+    selected = mapped.slice(0, 1);
+  }
+
+  const cleaned = selected.map(({ ts: _ts, match_id: _matchId, ...rest }) => rest);
+  const usedWins = cleaned.filter((row) => row.outcome === "win").length;
   return {
-    ...payload,
-    meta: { ...payload.meta, n_game_reviews_used: mapped.length },
-    game_review_causes: mapped,
+    mode,
+    available: { total: mapped.length, wins: wins.length, losses: losses.length },
+    used: { total: cleaned.length, wins: usedWins, losses: cleaned.length - usedWins },
+    causes: cleaned,
   };
+}
+
+/** Ajoute au payload l'échantillon qualitatif régulé et ses compteurs explicites. */
+export function addGameReviewCauses(
+  payload: JsonRecord,
+  reviews: JsonRecord[],
+  scope: string,
+  maxPerOutcome = 2,
+): JsonRecord {
+  const sample = gameReviewSample(reviews, scope, maxPerOutcome);
+  const available = sample.available;
+  const used = sample.used;
+
+  const result: JsonRecord = {
+    ...payload,
+    meta: {
+      ...payload.meta,
+      qualitative_mode: sample.mode,
+      n_game_reviews_available: available.total,
+      n_game_reviews_available_wins: available.wins,
+      n_game_reviews_available_losses: available.losses,
+      n_game_reviews_used: used.total,
+      n_game_reviews_used_wins: used.wins,
+      n_game_reviews_used_losses: used.losses,
+      // Compatibilité temporaire avec l'UI et les anciens payloads.
+      n_game_reviews_wins: available.wins,
+      n_game_reviews_losses: available.losses,
+      unbalanced_causes: sample.mode === "unbalanced",
+    },
+  };
+  if (sample.causes.length > 0) result.game_review_causes = sample.causes;
+  return result;
 }
