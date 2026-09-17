@@ -3,12 +3,6 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-<<<<<<< HEAD
-  <title>Coach LoL — analyse de parties</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="alternate icon" type="image/png" href="/favicon.png">
-  <link rel="apple-touch-icon" href="/favicon-128.png">
-=======
   <title>RiftSense : analyse de parties</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="alternate icon" type="image/png" href="/favicon.png">
@@ -17,7 +11,6 @@
        sans elle Google doit deviner laquelle indexer. `app.js` la réécrit à chaque
        navigation (pushState) pour qu'elle désigne toujours l'URL courante. -->
   <link rel="canonical" href="https://riftsense.jeanvg.fr/">
->>>>>>> feat/rename-riftsense
   <meta name="description" content="Un coach League of Legends qui analyse une partie réelle : morts, retours en base et timers d'objectifs horodatés, comparés à un référentiel challenger.">
   <!-- Aperçu de lien : la page est une SPA sans rendu serveur, un partage sur LinkedIn
        ou par courriel n'affichait qu'une coquille vide sans ces balises statiques. -->
@@ -415,12 +408,8 @@
                     <template x-if="g.lane && g.lane.opponent">
                       <div class="gr-matchup" title="Adversaire de lane direct">
                         <span class="gr-vs">VS</span>
-<<<<<<< HEAD
-                        <img class="gr-opp-icon" :src="champIcon(g.lane.opponent)" :alt="g.lane.opponent" loading="lazy">
-=======
                         <img class="gr-opp-icon" :src="champIcon(g.lane.opponent, g.patch)" :alt="g.lane.opponent"
                              @error="iconFallback($event, g.lane.opponent)" loading="lazy">
->>>>>>> feat/rename-riftsense
                         <span class="gr-opp-name" x-text="g.lane.opponent"></span>
                       </div>
                     </template>
@@ -429,15 +418,11 @@
                     <span class="gr-queue-badge" x-text="queueLabel(g.queue)"></span>
                     <span x-show="g.lane && g.lane.gd14 != null" class="gr-diff" :class="g.lane.gd14 >= 0 ? 'diff-pos' : 'diff-neg'"
                           x-text="(g.lane.gd14 >= 0 ? '+' : '') + g.lane.gd14 + 'g à 14m'"></span>
-<<<<<<< HEAD
-                    <span class="gr-badge-coach" x-show="hasReview(g.match_id)">✦ Coaching LLM prêt</span>
-=======
                     <span class="gr-badge-coach" x-show="hasReview(g.match_id)"
                           x-text="matchCoachInfo(g.match_id)?.review_status === 'stale' ? '✦ Coaching LLM à régénérer' : '✦ Coaching LLM prêt'"></span>
                     <span class="gr-badge-pedagogic" x-show="!hasReview(g.match_id) && pedagogicTarget(g)"
                           :class="'badge-' + pedagogicTarget(g)?.kind"
                           :title="pedagogicTarget(g)?.hint" x-text="pedagogicTarget(g)?.badge"></span>
->>>>>>> feat/rename-riftsense
                   </div>
                 </div>
                 <div class="gr-kda num"><span class="gr-label">KDA</span><span x-text="kda(g)"></span></div>
@@ -457,20 +442,6 @@
                     <span class="gd-meta-tag" x-text="queueLabel(g.queue)"></span>
                     <template x-if="hasReview(g.match_id)">
                       <span class="gd-coach-status ready">
-<<<<<<< HEAD
-                        <span class="pulse-dot"></span> Analyse LLM disponible pour ce match
-                      </span>
-                    </template>
-                    <template x-if="!hasReview(g.match_id)">
-                      <span class="gd-coach-status empty">
-                        ◌ Non analysée individuellement
-                      </span>
-                    </template>
-                  </div>
-                  <button type="button" class="btn-coach-shortcut" @click.stop="goToGameReview(g.match_id)">
-                    <span class="coach-icon">🎯</span>
-                    <span class="coach-txt" x-text="hasReview(g.match_id) ? 'Voir l\'analyse coaching LLM →' : 'Accéder au coaching IA →'"></span>
-=======
                         <span class="pulse-dot"></span>
                         <span x-text="matchCoachInfo(g.match_id)?.review_status === 'stale' ? 'Analyse LLM existante (ancienne version)' : 'Analyse LLM disponible pour ce match'"></span>
                       </span>
@@ -494,7 +465,6 @@
                           @click.stop="genGameCoach(g, true)" :disabled="coachBusy()"
                           title="Cette action effectue un nouvel appel Ollama">
                     <span x-text="isAuthenticated ? 'Régénérer' : '🔒 Régénérer'"></span>
->>>>>>> feat/rename-riftsense
                   </button>
                 </div>
 
@@ -510,12 +480,8 @@
                       <!-- Matchup confrontation -->
                       <div class="gd-matchup-box" x-show="g.lane && g.lane.opponent">
                         <div class="gd-matchup-side self">
-<<<<<<< HEAD
-                          <img class="gd-mini-icon" :src="champIcon(g)" :alt="g.champion">
-=======
                           <img class="gd-mini-icon" :src="champIcon(g)" :alt="g.champion"
                                @error="iconFallback($event, g.champion)">
->>>>>>> feat/rename-riftsense
                           <div>
                             <strong x-text="g.champion"></strong>
                             <span class="faint">Toi</span>
@@ -523,12 +489,8 @@
                         </div>
                         <span class="gd-matchup-vs">VS</span>
                         <div class="gd-matchup-side opp">
-<<<<<<< HEAD
-                          <img class="gd-mini-icon" :src="champIcon(g.lane?.opponent)" :alt="g.lane?.opponent">
-=======
                           <img class="gd-mini-icon" :src="champIcon(g.lane?.opponent, g.patch)" :alt="g.lane?.opponent"
                                @error="iconFallback($event, g.lane?.opponent)">
->>>>>>> feat/rename-riftsense
                           <div>
                             <strong x-text="g.lane?.opponent"></strong>
                             <span class="faint">Adversaire direct</span>
@@ -678,12 +640,8 @@
                           <div class="gd-team-players">
                             <template x-for="p in teamCompAllies(g)" :key="p.role + p.champ">
                               <div class="gd-player-row" :class="p.isSelf ? 'is-self' : ''">
-<<<<<<< HEAD
-                                <img class="gd-mini-icon" :src="champIcon(p.champ)" :alt="p.champ" loading="lazy">
-=======
                                 <img class="gd-mini-icon" :src="champIcon(p.champ, g.patch)" :alt="p.champ"
                                      @error="iconFallback($event, p.champ)" loading="lazy">
->>>>>>> feat/rename-riftsense
                                 <span class="gd-role-badge" x-text="p.roleName"></span>
                                 <span class="gd-pname" x-text="p.champ"></span>
                                 <span class="gd-self-badge" x-show="p.isSelf">Toi</span>
@@ -699,12 +657,8 @@
                           <div class="gd-team-players">
                             <template x-for="p in teamCompEnemies(g)" :key="p.role + p.champ">
                               <div class="gd-player-row">
-<<<<<<< HEAD
-                                <img class="gd-mini-icon" :src="champIcon(p.champ)" :alt="p.champ" loading="lazy">
-=======
                                 <img class="gd-mini-icon" :src="champIcon(p.champ, g.patch)" :alt="p.champ"
                                      @error="iconFallback($event, p.champ)" loading="lazy">
->>>>>>> feat/rename-riftsense
                                 <span class="gd-role-badge" x-text="p.roleName"></span>
                                 <span class="gd-pname" x-text="p.champ"></span>
                               </div>
@@ -781,12 +735,8 @@
                               <span class="gd-combat-type-badge" :class="'badge-' + ev.type"
                                     x-text="ev.type === 'kill' ? 'KILL' : (ev.type === 'death' ? 'MORT' : 'ASSIST')"></span>
                               <div class="gd-combat-target">
-<<<<<<< HEAD
-                                <img class="gd-mini-icon" :src="champIcon(ev.champ)" :alt="ev.champ || 'Inconnu'" loading="lazy">
-=======
                                 <img class="gd-mini-icon" :src="champIcon(ev.champ, g.patch)" :alt="ev.champ || 'Inconnu'"
                                      @error="iconFallback($event, ev.champ)" loading="lazy">
->>>>>>> feat/rename-riftsense
                                 <div class="gd-combat-names">
                                   <span class="gd-combat-champ" x-text="ev.champ"></span>
                                   <span class="gd-combat-sub faint" x-show="ev.type === 'assist' && ev.killer_champ" x-text="'par ' + ev.killer_champ"></span>

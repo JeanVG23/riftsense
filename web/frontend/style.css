@@ -1234,8 +1234,6 @@ h3 { font-size: 14px; font-weight: 650; }
   font-weight: 700;
   letter-spacing: .02em;
 }
-<<<<<<< HEAD
-=======
 .gr-badge-pedagogic {
   display: inline-flex;
   align-items: center;
@@ -1283,7 +1281,6 @@ h3 { font-size: 14px; font-weight: 650; }
   border: 1px solid rgba(16, 185, 129, 0.4);
   color: #6ee7b7;
 }
->>>>>>> feat/rename-riftsense
 
 /* Volet de détails de la partie (style OP.GG / U.GG) */
 .game-details-panel {
@@ -3231,11 +3228,8 @@ h3 { font-size: 14px; font-weight: 650; }
   .profile-hero { align-items: stretch; flex-direction: column; }
   .profile-stats { width: 100%; }
   .gd-grid { grid-template-columns: 1fr; }
-<<<<<<< HEAD
-=======
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
   .footer-col-brand { grid-column: 1 / -1; padding-right: 0; }
->>>>>>> feat/rename-riftsense
 }
 
 @media (max-width: 640px) {
