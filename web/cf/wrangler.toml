@@ -3,7 +3,6 @@ main = "src/index.ts"
 compatibility_date = "2026-08-30"
 
 [assets]
-directory = "../frontend"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 run_worker_first = true
@@ -12,7 +11,7 @@ run_worker_first = true
 # numéro de projet, région) : à confronter à la sortie de `gcloud run deploy`
 # lors du premier déploiement.
 [vars]
-INGEST_URL = "https://ingest-394340542914.europe-west1.run.app"
+INGEST_URL = "https://riftsense-ingest-394340542914.europe-west1.run.app"
 
 [[kv_namespaces]]
 binding = "DATA"

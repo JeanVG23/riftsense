@@ -37,6 +37,7 @@ frames/
 web/cf/node_modules/
 web/cf/.dev.vars
 web/cf/.wrangler/
+web/cf/dist/
 .demo/
 
 # Documentation de conception (specs, plans) : hors git, hors CI.

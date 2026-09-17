@@ -4,7 +4,8 @@ Le site de production est un **Cloudflare Worker TypeScript** qui sert dans le m
 déploiement :
 
 - l'API sous `/api/*` (`web/cf/src/`) ;
-- le frontend statique (`web/frontend/`) via le binding `ASSETS` ;
+- le frontend Vite (`web/cf/client/`, assets publics dans `web/cf/public/`) via
+  le binding `ASSETS` ;
 - les données de consultation dans Cloudflare KV (`DATA`).
 
 Production : <https://riftsense.jeanvg.fr>
@@ -18,14 +19,12 @@ vers KV.
 ```bash
 cd web/cf
 npm install
-npx wrangler dev
+npm run dev
 ```
 
-Pour lire les vraies données KV pendant un test local :
-
-```bash
-npx wrangler dev --remote
-```
+Le plugin Vite Cloudflare lance le frontend et le Worker dans le même runtime de
+développement, avec HMR. Les bindings restent locaux par défaut afin qu'un test
+de feedback ou d'inscription ne modifie pas les données de production.
 
 Commandes de validation :
 
@@ -87,7 +86,7 @@ npx wrangler secret put COACH_AUTH_PASSWORD
 
 Le mot de passe `COACH_AUTH_PASSWORD` protège les appels LLM (`/api/coach`, `/api/coach/game`,
 `/api/chat`) contre les abus de visiteurs publics : sans ce mot de passe, les boutons de
-régénération et le chat interactif restent verrouillés sur le site web. En local avec `wrangler dev`,
+régénération et le chat interactif restent verrouillés sur le site web. En local avec `npm run dev`,
 ce secret peut être défini dans `web/cf/.dev.vars` (ex. `COACH_AUTH_PASSWORD=dev-secret`).
 
 Les générations globales et unitaires passent par le Durable Object `COACH_GATE`, nommé
@@ -101,6 +100,7 @@ Ollama concurrents d'écraser le même JSONL. La migration SQLite déclarée dan
 cd web/cf
 npm test
 npm run typecheck
+npm run build
 npm run deploy
 ```
 
@@ -116,8 +116,19 @@ curl https://riftsense.jeanvg.fr/api/accounts
 
 ```text
 web/
-  cf/
-    src/index.ts        # routeur Worker, erreurs et assets
+  cf/                 # paquet Vite + Worker unique
+    client/
+      main.ts         # point d'entrée de la SPA Vue
+      App.vue         # shell, navigation et pied de page
+      pages/          # accueil, compte et méthodologie
+      auth.ts         # jeton et événements d'authentification partagés
+      router.ts       # routes et historique centralisés avec Vue Router
+      style.css       # thème global existant
+      components/     # profil, auth, historique et coaching Vue + tests Vitest
+    public/           # favicons, aperçu social, robots et sitemap
+    index.html        # entrée Vite / shell SEO
+    vite.config.ts    # Vue + plugin Cloudflare officiel
+    src/index.ts      # routeur Worker, erreurs et assets
     src/readers.ts      # accès typé à Cloudflare KV
     src/coach.ts        # coaching global en Server-Sent Events
     src/game_coach.ts   # coaching unitaire à la demande
@@ -125,10 +136,6 @@ web/
     src/llm_client.ts   # client Ollama Cloud avec retries
     src/schema.ts       # validation des entrées/sorties
     wrangler.toml       # Worker, assets et binding DATA
-  frontend/
-    index.html          # shell SPA
-    style.css           # composants et thème
-    app.js              # Alpine, API et consommation SSE
 src/collection/sync_cloudflare.py  # publication locale vers KV
 ```
 

@@ -58,7 +58,7 @@ Les outils d'analyse traditionnels de League of Legends (OP.GG, U.GG, Porofessor
 
 ## 🏗️ Architecture Globale
 
-Le projet repose sur une **architecture Médaillon** en Python (pour l'extraction, l'ingénierie des données et le ML) couplée à une **application web Cloudflare Worker** (TypeScript + KV + Alpine.js) pour la restitution web en temps réel. **Aucun backend FastAPI ne tourne en production** : le calcul lourd est fait en amont en Python local et synchronisé dans Cloudflare KV, ce qui permet au Worker de servir l'API et les pages avec une empreinte CPU minimale (< 10 ms).
+Le projet repose sur une **architecture Médaillon** en Python (pour l'extraction, l'ingénierie des données et le ML) couplée à une **application web Cloudflare Worker** (TypeScript + KV + Vite + Vue Router) pour la restitution web en temps réel. **Aucun backend FastAPI ne tourne en production** : le calcul lourd est fait en amont en Python local et synchronisé dans Cloudflare KV, ce qui permet au Worker de servir l'API et les pages avec une empreinte CPU minimale (< 10 ms).
 
 ```mermaid
 flowchart TD
@@ -75,7 +75,7 @@ flowchart TD
         S02 & G03 & M05 & SH06 -->|refresh_cloudflare.py| KV[(Cloudflare KV)]
         KV <--> CFW[Cloudflare Worker TypeScript]
         CFW <-->|Streaming SSE| OLLAMA[Ollama Cloud / Local LLM]
-        CFW -->|Sert assets & API| WEB[Frontend SPA Alpine.js / Chart.js]
+        CFW -->|Sert assets & API| WEB[SPA Vite / Vue 3]
     end
 ```
 
@@ -104,8 +104,10 @@ riftsense/
 │   └── 06_shap/               # Explications SHAP locales et globales
 ├── config/                    # accounts.json (ignoré) et son gabarit accounts.example.json
 ├── web/
-│   ├── cf/                    # Cloudflare Worker TypeScript (API, KV & SSE de production)
-│   └── frontend/              # Interface SPA statique servie par le Worker
+│   └── cf/                    # paquet Vite + Worker Cloudflare
+│       ├── client/            # SPA Vue 3, pages et composants TypeScript
+│       ├── public/            # assets statiques
+│       └── src/               # API, KV & SSE de production
 └── tests/                     # Suite de tests automatisés pytest & vitest
 ```
 
@@ -252,13 +254,13 @@ rate-limiter, lui, vit dans `riotlib`.
 
 ### Lancement de l'Application Web
 
-L'application web s'exécute via le **Worker Cloudflare TypeScript** (`web/cf/`) qui sert l'API sous `/api/*`, le binding KV (`DATA`) et les assets statiques du frontend Alpine.js (`web/frontend/`) :
+L'application web s'exécute via le **Worker Cloudflare TypeScript** (`web/cf/`) qui sert l'API sous `/api/*`, le binding KV (`DATA`) et le frontend construit par Vite (`web/cf/client/`) :
 
 ```bash
 cd web/cf
 
 # Lancement en local avec lecture des données Cloudflare KV distantes :
-npx wrangler dev --remote
+npm run dev
 ```
 
 L'application est accessible en local sur `http://localhost:8787` (et déployée en production sur `https://riftsense.jeanvg.fr`).

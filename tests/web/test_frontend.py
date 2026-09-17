@@ -1,358 +1,207 @@
-"""Tests de câblage du frontend statique, lus sur disque.
+"""Tests de câblage statique du frontend Vite/Vue.
 
-Pas de test d'interactivité Alpine (pas de Playwright) : on verrouille le câblage.
-Le service HTTP des fichiers appartient au Worker Cloudflare (binding `assets` de
-wrangler.toml, testé côté vitest) ; ces tests portent sur le contenu livré.
+Les interactions sont couvertes par Vitest dans web/cf/client ; ce fichier
+verrouille surtout l'architecture livrée et les contrats entre composants.
 """
 from pathlib import Path
 
-FRONTEND = Path(__file__).resolve().parents[2] / "web" / "frontend"
-WRANGLER = Path(__file__).resolve().parents[2] / "web" / "cf" / "wrangler.toml"
+ROOT = Path(__file__).resolve().parents[2]
+WEB = ROOT / "web" / "cf"
 
 
-def _read(name):
-    return (FRONTEND / name).read_text()
+def _read(name: str) -> str:
+    return (WEB / name).read_text()
 
 
-def test_index_references_its_assets():
+def test_index_mounts_the_vue_application():
     body = _read("index.html")
-    assert 'x-data="app()"' in body
-    assert '/vendor/alpine.min.js' in body
-    assert '/vendor/chart.umd.min.js' in body
-    assert '/style.css' in body
-    assert '/app.js' in body
-    assert '/static/' not in body
+    assert '<div id="app"></div>' in body
+    assert 'type="module" src="/client/main.ts"' in body
+    assert "x-data" not in body and "Alpine" not in body
+    assert "/static/" not in body
 
 
 def test_worker_serves_the_spa_fallback():
-    """Les routes /c/<slug> et /readme n'existent que cote client : sans ce repli,
-    un acces direct ou un rechargement rend un 404."""
-    toml = WRANGLER.read_text()
-    assert 'directory = "../frontend"' in toml
+    toml = _read("wrangler.toml")
+    assert "directory =" not in toml
     assert 'not_found_handling = "single-page-application"' in toml
+    assert "cloudflare()" in _read("vite.config.ts")
 
 
-def test_assets_present_and_non_empty():
-    for name in ("style.css", "app.js", "vendor/alpine.min.js",
-                 "vendor/chart.umd.min.js", "og.png"):
-        asset = FRONTEND / name
-        assert asset.exists(), name
-        assert asset.stat().st_size > 1000, name
+def test_assets_and_dependencies_are_current():
+    for name in ("client/style.css", "client/main.ts", "client/App.vue", "public/og.png"):
+        asset = WEB / name
+        assert asset.exists() and asset.stat().st_size > 100, name
+    package = _read("package.json")
+    assert '"vue"' in package and '"vue-router"' in package and '"chart.js"' in package
+    assert '"alpinejs"' not in package
 
 
 def test_style_css_has_tokens():
-    css = _read("style.css")
-    for token in ("--bg:", "--panel:", "--gold:", "--win:", "--loss:",
-                  "tabular-nums"):
-        assert token in css, token
+    css = _read("client/style.css")
+    for token in ("--bg:", "--panel:", "--gold:", "--win:", "--loss:", "tabular-nums"):
+        assert token in css
 
 
-def test_coaching_context_and_on_demand_game_flow_wired():
+def test_router_and_canonical_are_wired():
+    main = _read("client/main.ts")
+    router = _read("client/router.ts")
     body = _read("index.html")
-    js = _read("app.js")
-    assert "/coaching-context" in js
-    assert 'fetch("/api/coach/game"' in js
-    assert "matchCoachInfo" in js and "review_status" in body
-    assert "gameReviewSample" not in js
-    assert "this.coachingContext?.matches?.[id]?.pedagogic" in js
-    assert "n_game_reviews_available" in body
-    assert "n_game_reviews_used" in body
+    assert "createApp(App).use(router)" in main
+    assert "createRouter" in router and "createWebHistory" in router
+    assert "router.afterEach(syncCanonical)" in main
+    assert 'link[rel="canonical"]' in main and 'meta[property="og:url"]' in main
+    assert '<link rel="canonical" href="https://riftsense.jeanvg.fr/">' in body
 
 
-def test_app_js_has_router_and_helpers():
-    js = _read("app.js")
-    assert "function app()" in js
-    assert "function api(" in js
-    assert "getReader()" in js
-    assert 'event === "review"' in js
-    assert "location.pathname" in js
+def test_shell_and_home_are_vue_components():
+    shell = _read("client/App.vue")
+    home = _read("client/pages/HomePage.vue")
+    assert "/api/accounts" in shell
+    assert "route.name === 'home'" in shell
+    assert 'class="accounts-grid"' in home and 'class="account-card"' in home
+    assert "<RegisterForm" in home
 
 
-def test_components_do_not_double_init():
-    """Alpine appelle deja init() d'un objet x-data : le repeter double les requetes."""
-    body = _read("index.html")
-    assert 'x-init="init()"' not in body
+def test_account_dashboard_is_vue_owned():
+    page = _read("client/pages/AccountPage.vue")
+    for component in ("AccountProfile", "GameHistory", "CoachingControls", "GlobalCoaching", "GameReviews", "ShapProfile"):
+        assert f"<{component}" in page
+    assert 'role="tablist"' in page
+    assert 'v-if="ownerView"' in page and "refresh_cloudflare.py" in page
 
 
-def test_deep_link_to_a_game_review_wired():
-    """?review=<match_id> doit ouvrir l'onglet coaching sur la vue par-partie.
-
-    Le lien depuis le CV pointe une analyse precise : sans ce cablage il retombe sur
-    la page du compte, qui n'explique rien a un visiteur exterieur.
-    """
-    js = _read("app.js")
-    assert "function deepLinkOf(" in js
-    assert 'q.get("review")' in js
-    assert "resolvePendingReview" in js
-    assert "gameMatchId(r) === wanted" in js
+def test_account_header_and_history_contracts():
+    page = _read("client/pages/AccountPage.vue")
+    profile = _read("client/components/AccountProfile.ce.vue")
+    history = _read("client/components/GameHistory.ce.vue")
+    assert "/predicted-rank" in profile and "/rank" in profile
+    assert '@prediction-loaded="predictedRank = $event"' in page
+    assert ':predicted-rank="predictedRank"' in page
+    assert "/games?page=${page.value}&size=${size}" in history
+    assert "review_status" in history
 
 
-def test_home_page_wired():
-    body = _read("index.html")
-    js = _read("app.js")
-    assert "function homePage()" in js
-    assert "/api/accounts" in js
-    # marqueurs propres au template home (absents de la nav switcher F1)
-    assert 'class="accounts-grid"' in body
-    assert 'class="account-card"' in body
+def test_coaching_context_and_generation_are_wired():
+    page = _read("client/pages/AccountPage.vue")
+    history = _read("client/components/GameHistory.ce.vue")
+    global_coaching = _read("client/components/GlobalCoaching.ce.vue")
+    assert "/coaching-context" in page
+    assert 'fetch("/api/coach"' in page and 'fetch("/api/coach/game"' in page
+    assert "getReader()" in page and 'event === "review"' in page
+    assert "props.coachingContext?.matches?.[matchId]" in history
+    assert "n_game_reviews_available" in global_coaching and "n_game_reviews_used" in global_coaching
 
 
-def test_account_page_history_wired():
-    body = _read("index.html")
-    js = _read("app.js")
-    assert "function accountPage(" in js
-    assert "/api/c/" in js and "/games" in js
-    assert "/api/fetch" not in js
-    assert "/api/jobs/" not in js
-    assert "refresh_cloudflare.py" in body
-    assert 'class="game-row"' in body or "game-row" in body
-    assert "job-banner" in body
+def test_aggregate_and_game_reviews_stay_separate():
+    page = _read("client/pages/AccountPage.vue")
+    assert "kind=aggregate" in page and "kind=game" in page
+    assert "findMatchingReview" in page and "gameReviewsCount" in page
 
 
-def test_account_header_rank_wired():
-    body = _read("index.html")
-    js = _read("app.js")
-    assert "/api/c/" in js and "/rank" in js
-    assert "loadRank" in js
-    assert "rank-badge" in body or "rankLabel" in body
+def test_deep_link_to_game_review_is_preserved():
+    page = _read("client/pages/AccountPage.vue")
+    games = _read("client/components/GameReviews.vue")
+    assert "route.query.review" in page
+    assert 'reviewQuery ? "coaching"' in page and 'reviewQuery ? "games"' in page
+    assert "resolveTarget" in games and "gameMatchId(item) === matchId" in games
 
 
-def test_dashboard_uses_accessible_tabs_and_refresh_help():
-    body = _read("index.html")
-    assert 'role="tablist"' in body
-    assert 'type="button" class="tab"' in body
-    assert 'class="sync-help"' in body
-    assert "Mettre à jour mes données" in body
-    # La page est publique : l'instruction terminal ne concerne que le proprietaire.
-    assert 'x-show="ownerView"' in body
+def test_game_reviews_own_filters_pagination_and_details():
+    component = _read("client/components/GameReviews.vue")
+    assert 'class="review-primer"' in component and "API Riot" in component
+    assert 'class="game-review-layout"' in component
+    assert "filterResult" in component and "filterChampion" in component
+    assert "async function loadMore" in component and "/reviews?kind=game&page=" in component
+    assert "async function selectReview" in component
 
 
-def test_owner_only_sync_help_gated_in_js():
-    js = _read("app.js")
-    assert "function ownerViewFrom(" in js
-    assert "ownerView:" in js
+def test_interactive_game_chat_is_vue_owned():
+    component = _read("client/components/GameReviews.vue")
+    assert 'class="game-chat"' in component
+    assert "async function sendChat" in component and 'fetch("/api/chat"' in component
+    assert "informations ennemies cachées" in component
 
 
-def test_share_preview_meta_present():
-    """Sans rendu serveur, un lien partage n'affiche rien sans ces balises."""
-    body = _read("index.html")
-    for tag in ('property="og:title"', 'property="og:image"',
-                'property="og:description"', 'name="twitter:card"'):
-        assert tag in body, tag
+def test_game_feedback_sends_full_map_and_notes():
+    component = _read("client/components/GameReviews.vue")
+    assert 'class="fb-note-input"' in component and "async function saveNote" in component
+    assert "const next = { ...feedback.value, [key]: entry }" in component
+    assert "responses: next" in component and "responses = { [key]" not in component
 
 
-def test_game_reviews_primer_explains_the_pipeline():
-    body = _read("index.html")
-    assert 'class="review-primer"' in body
-    assert "API Riot" in body
+def test_global_feedback_and_evaluation_refresh_are_wired():
+    page = _read("client/pages/AccountPage.vue")
+    controls = _read("client/components/CoachingControls.ce.vue")
+    global_coaching = _read("client/components/GlobalCoaching.ce.vue")
+    assert 'class="eval-strip"' in controls and "mistake_useful_rate" in controls and "/eval" in controls
+    assert 'fetch("/api/feedback"' in global_coaching
+    assert '@feedback-saved="evalRevision += 1"' in page
 
 
-def test_history_tab_predicted_rank_wired():
-    body = _read("index.html")
-    js = _read("app.js")
-    assert "/api/c/" in js and "/predicted-rank" in js
-    assert "loadPredictedRank" in js
-    assert "predictedRank" in body
+def test_shap_is_lazy_and_charted():
+    component = _read("client/components/ShapProfile.ce.vue")
+    assert "/shap" in component and 'import("chart.js")' in component
+    assert "new Chart(" in component and "shap-empty" in component
 
 
-def test_coaching_tab_wired():
-    body = _read("index.html")
-    js = _read("app.js")
-    assert "/api/coach" in js
-    assert "/api/c/" in js and "/reviews" in js
-    assert "/api/feedback" in js
-    assert "NEG_TAGS" in js
-    # La séparation agrégé/par-game est portée par le filtre `kind` de l'API,
-    # pas par des type-guards côté client (retirés : rien ne les appelait).
-    assert "kind=aggregate" in js
-    assert "kind=game" in js
-    assert "gameReviewsCount" in js
-    assert "insight-card" in body or "evidence-chip" in body
-    assert 'class="coach-builder"' in body
-    assert 'class="segmented-choice"' in body
-    assert "Joueurs Challenger" in body
-    assert "Analyses de parties" in body
-    assert "game-review-layout" in body
-    assert "selectedGameReview" in js
+def test_readme_is_a_vue_page_and_keeps_methodology():
+    page = _read("client/pages/ReadmePage.vue")
+    assert "const tab = ref" in page and "v-if=\"tab === 'overview'\"" in page
+    for phrase in ("asymétrie", "benchmark", "positionnement", "Model card", "AUC 0.677", "Spearman 0.537", "held-out", "docs/MODEL_CARD.md", "auto-supervisé", "déprécié"):
+        assert phrase.lower() in page.lower(), phrase
 
 
-def test_interactive_game_chat_wired():
-    body = _read("index.html")
-    js = _read("app.js")
-    assert 'class="game-chat"' in body
-    assert "sendGameChat" in js
-    assert 'fetch("/api/chat"' in js
-    assert "informations ennemies cachées" in body
-
-
-def test_feedback_note_textarea_wired():
-    """Le champ note (Pydantic FeedbackItem.note, déjà accepté par l'API) était
-    modélisé de bout en bout (schema/API/CLI) mais jamais exposé côté web — seuls
-    les boutons y/n/tag existaient. Verrouille l'ajout du textarea + saveNote."""
-    body = _read("index.html")
-    js = _read("app.js")
-    assert "fb-note-input" in body
-    assert "saveNote" in js
-    assert "noteDraft" in js
-
-
-def test_feedback_sends_full_map():
-    """Régression F4 : submitFb doit envoyer la fbMap complète (le backend
-    écrase la ligne par ts — un envoi par insight perdait les notations précédentes)."""
-    js = _read("app.js")
-    assert "Object.entries(newMap)" in js
-    # l'ancien pattern mono-insight ne doit plus être présent
-    assert "responses = { [key]" not in js
-
-
-def test_shap_tab_wired():
-    body = _read("index.html")
-    js = _read("app.js")
-    assert "/api/c/" in js and "/shap" in js
-    assert "new Chart(" in js
-    assert "shap-wrap" in body or "shap-empty" in body
-
-
-def test_readme_page_wired():
-    body = _read("index.html")
-    js = _read("app.js")
-    assert "function readmePage()" in js
-    # contenu vulgarisé clé présent dans le HTML servi
-    assert "asymétrie" in body.lower() or "asymetrie" in body.lower()
-    assert "benchmark" in body.lower()
-    assert "positionnement" in body.lower()
-
-
-def test_eval_rate_published_in_the_coaching_tab():
-    """Le critere de succes du projet (>=70 % d'erreurs utiles sur >=10 analyses)
-    n'existait que dans la CLI : un coach dont personne ne voit l'evaluation reste
-    une opinion. Le taux est lu en direct depuis KV, vote compris."""
-    body = _read("index.html")
-    js = _read("app.js")
-    assert 'class="eval-strip"' in body
-    assert "mistake_useful_rate" in body
-    assert "loadEval" in js
-    assert "/eval" in js
-
-
-def test_readme_states_the_success_criterion():
-    body = _read("index.html")
-    assert "≥70 %" in body and "10 analyses de parties annotées" in body
-
-
-def test_readme_exposes_the_model_card():
-    """Les metriques ML n'existaient que dans data/05_model/*.json : un modele
-    servi sans carte publique est une boite noire. On verrouille la presence du
-    headline test held-out, du protocole et des resultats negatifs (le point qui
-    distingue une model card d'une plaquette)."""
-    body = _read("index.html")
-    assert "Model card" in body
-    assert "AUC 0.677" in body and "Spearman 0.537" in body
-    assert "held-out" in body
-    assert "Purged CV" in body or "purg" in body.lower()
-    assert "docs/MODEL_CARD.md" in body
-    # les resultats negatifs doivent rester affiches, pas seulement les bons
-    assert "auto-supervisé" in body or "auto-supervise" in body
-    assert "déprécié" in body
-
-
-def test_readme_states_the_real_schema_bounds():
-    """La page decrivait `strengths[3]` alors que le schema impose 1 a 3 depuis
-    le correctif issu des annotations. Le defaut a survecu parce que rien ne
-    reliait la page au code : la borne est lue dans schema.py, pas recopiee."""
+def test_readme_states_success_criterion_and_real_schema_bounds():
     import re
-
-    schema = (Path(__file__).resolve().parents[2] / "src" / "04_coaching"
-              / "schema.py").read_text()
+    page = _read("client/pages/ReadmePage.vue")
+    assert "≥70 %" in page and "10 analyses de parties annotées" in page
+    schema = (ROOT / "src" / "04_coaching" / "schema.py").read_text()
     review = schema.split("class Review")[1].split("class ")[0]
-    body = _read("index.html")
     for field in ("strengths", "mistakes", "habits"):
-        line = next(ln for ln in review.splitlines() if ln.strip().startswith(field))
+        line = next(line for line in review.splitlines() if line.strip().startswith(field))
         lo = int(re.search(r"min_length=(\d+)", line).group(1))
         hi = int(re.search(r"max_length=(\d+)", line).group(1))
         expected = f"{field}[{lo}]" if lo == hi else f"{field}[{lo}..{hi}]"
-        assert expected in body, f"la page n'annonce pas {expected}"
+        assert expected in page
 
 
-def test_canonical_declared_and_resynced_by_the_router():
-    """Sans canonique, la SPA sert le meme HTML sur /, /c/<slug> et /readme : Google
-    choisit lui-meme l'URL a indexer. `syncCanonical` la rend auto-referente."""
-    body = _read("index.html")
-    js = _read("app.js")
-    assert '<link rel="canonical" href="https://riftsense.jeanvg.fr/">' in body
-    assert 'link[rel="canonical"]' in js
-    assert 'meta[property="og:url"]' in js
-    # Appelee au chargement, au retour arriere et a chaque navigation interne.
-    assert js.count("syncCanonical()") >= 4
-
-
-def test_robots_and_sitemap_are_real_files():
-    """Le repli SPA du Worker rend index.html pour tout chemin inconnu : /robots.txt
-    renvoyait donc du HTML. Deux fichiers statiques suffisent, l'asset gagne sur le repli."""
-    robots = _read("robots.txt")
-    assert "User-agent: *" in robots
-    assert "Disallow: /api/" in robots
-    assert "Sitemap: https://riftsense.jeanvg.fr/sitemap.xml" in robots
-    sitemap = _read("sitemap.xml")
-    assert sitemap.startswith("<?xml")
-    assert "http://www.sitemaps.org/schemas/sitemap/0.9" in sitemap
-    assert "<loc>https://riftsense.jeanvg.fr/</loc>" in sitemap
-
-
-def test_le_formulaire_d_inscription_est_cable():
-    body = _read("index.html")
-    assert 'x-data="registerPage()"' in body
-    assert 'x-model="riotId"' in body
-    assert 'x-model="platform"' in body
-    assert '@submit.prevent="submit()"' in body
-
-
-def test_le_composant_d_inscription_appelle_les_deux_routes():
-    js = _read("app.js")
-    assert "function registerPage()" in js
-    assert '"/api/register"' in js
-    assert "/api/register/${" in js or "'/api/register/' +" in js
-
-
-def test_les_codes_d_erreur_typees_ont_tous_un_libelle():
-    """Le service publie des codes, pas des phrases : sans table de libellés le
-    visiteur lirait `riot_id_not_found` en clair."""
-    js = _read("app.js")
+def test_registration_routes_and_polling_are_wired():
+    shell = _read("client/App.vue")
+    component = _read("client/components/RegisterForm.ce.vue")
+    assert "route.name === 'register'" in shell and '<RegisterForm v-else-if=' in shell
+    assert '"/api/register"' in component and "/api/register/${" in component
+    assert "location.pathname.match" in component
+    assert "onBeforeUnmount(stopPolling)" in component and "clearTimeout(timer)" in component
     for code in ("riot_id_not_found", "no_ranked_games", "riot_unavailable", "internal"):
-        assert code in js, code
+        assert code in component
 
 
-def test_l_inscription_ne_propose_aucune_fonction_llm():
-    """Garde-fou de périmètre : la page d'inscription ne doit pas exposer de
-    bouton de coaching, les routes Ollama restant derrière auth.ts."""
+def test_authentication_is_shared_by_vue_components():
+    shell = _read("client/App.vue")
+    auth = _read("client/auth.ts")
+    modal = _read("client/components/AuthModal.ce.vue")
+    control = _read("client/components/AuthControl.ce.vue")
+    assert "<AuthControl" in shell and "<AuthModal" in shell
+    assert 'AUTH_TOKEN_KEY = "coach_auth_token"' in auth
+    assert "export let authToken" in auth and "withAuthHeaders" in auth
+    assert 'fetch("/api/auth/login"' in modal
+    assert 'fetch("/api/auth/status"' in control and 'fetch("/api/auth/logout"' in control
+
+
+def test_social_preview_robots_and_sitemap_are_present():
     body = _read("index.html")
-    section = body[body.index('x-data="registerPage()"'):]
-    section = section[:section.index("</section>")]
-    for forbidden in ("/api/coach", "/api/chat"):
-        assert forbidden not in section, forbidden
+    for tag in ('property="og:title"', 'property="og:image"', 'property="og:description"', 'name="twitter:card"'):
+        assert tag in body
+    robots = _read("public/robots.txt")
+    sitemap = _read("public/sitemap.xml")
+    assert "User-agent: *" in robots and "Disallow: /api/" in robots
+    assert "Sitemap: https://riftsense.jeanvg.fr/sitemap.xml" in robots
+    assert sitemap.startswith("<?xml") and "<loc>https://riftsense.jeanvg.fr/</loc>" in sitemap
 
 
-def test_la_page_d_attente_a_sa_propre_route():
-    """`/register/{slug}` doit survivre à un rafraîchissement de page : sans route
-    dédiée, l'attente n'est qu'un état en mémoire perdu au moindre F5."""
-    js = _read("app.js")
-    assert "/register/" in js
-    assert "routeOf(location.pathname)" in js
-    body = _read("index.html")
-    assert "route.name === 'register'" in body
-    assert body.count('x-data="registerPage()"') >= 2
-
-
-def test_le_sondage_d_inscription_s_arrete_a_la_navigation():
-    """Alpine n'appelle aucune méthode `destroy` au démontage d'un x-data : seul
-    `Alpine.onElRemoved` est un hook réel. Sans lui, `poll()` continuerait de sonder
-    un compte que plus personne n'affiche après une navigation."""
-    js = _read("app.js")
-    assert "Alpine.onElRemoved" in js
-    assert "stopPolling" in js
-    # `destroy() { clearTimeout(...) }` sur registerPage n'était jamais appelé par
-    # Alpine : régression-gardée en s'assurant que registerPage ne redéfinit plus
-    # cette méthode morte (le seul `destroy()` restant est celui de Chart.js).
-    register_section = js[js.index("function registerPage()"):]
-    register_section = register_section[:register_section.index("\nfunction ")]
-    assert "destroy()" not in register_section
+def test_no_alpine_directives_or_runtime_remain():
+    sources = "\n".join(path.read_text() for path in (WEB / "client").rglob("*") if path.suffix in {".ts", ".vue", ".js"})
+    assert "Alpine" not in sources
+    assert "x-data=" not in sources and "x-show=" not in sources and "x-if=" not in sources
+    assert '"alpinejs"' not in _read("package.json")

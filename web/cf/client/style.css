@@ -573,6 +573,14 @@ h3 { font-size: 14px; font-weight: 650; }
 }
 
 /* Topbar Auth Controls */
+auth-control { display: contents; }
+account-profile,
+coaching-controls,
+game-history,
+global-coaching,
+job-banner,
+shap-profile { display: block; }
+
 .topbar-auth-btn {
   display: inline-flex;
   align-items: center;
@@ -2923,6 +2931,7 @@ h3 { font-size: 14px; font-weight: 650; }
   border-top: 1px solid var(--border-soft);
   transition: background 140ms ease;
 }
+button.hist-row { width: 100%; color: inherit; background: transparent; border-right: 0; border-bottom: 0; border-left: 0; cursor: pointer; font-family: inherit; text-align: left; }
 .hist-row:hover { color: var(--text); }
 
 /* ==========================================================================

@@ -189,7 +189,8 @@ web/
                   src/game_coach.ts = coaching d'UNE partie (POST /api/coach/game)
                   src/coaching_context.ts = scopes, champion principal, fraîcheur des bilans
                   src/curation.ts = désignation de la partie pédagogiquement utile
-  frontend/       SPA statique servie par le Worker
+  cf/client/      SPA Vite/Vue Router et composants Vue TypeScript
+  cf/public/      assets statiques copiés tels quels par Vite
 shared/         prompts/*.txt (source de vérité, lue par prompt.py ET par le Worker)
                 + schemas/*.json (générés depuis Pydantic)
 config/           accounts.json (ignoré, données perso) + accounts.example.json (gabarit)

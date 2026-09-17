@@ -64,5 +64,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Build Vite + Worker
+        run: npm run build
+
       - name: Vitest
         run: npm test

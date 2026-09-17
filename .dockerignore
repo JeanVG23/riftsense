@@ -8,6 +8,7 @@
 # entree, pas sur un ancetre).
 data/*
 !data/00_static
+!data/00_static/**
 docs/
 node_modules/
 web/
@@ -15,3 +16,4 @@ tests/
 **/__pycache__/
 *.pkl
 *.parquet
+.env*

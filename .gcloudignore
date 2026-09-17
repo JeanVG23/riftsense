@@ -1,0 +1,33 @@
+.gcloudignore
+.git
+.gitignore
+
+# Python & virtualenv
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Secrets
+.env*
+r2_secret
+
+# Données : exclure tout data/* SAUF data/00_static (catalogue statique nécessaire au service)
+data/*
+!data/00_static
+!data/00_static/**
+poc/output/
+*.parquet
+*.duckdb
+*.rofl
+captures/
+frames/
+
+# Non requis pour le conteneur Cloud Run
+docs/
+node_modules/
+web/
+tests/
+.demo/
+.claude/
+.superpowers/
