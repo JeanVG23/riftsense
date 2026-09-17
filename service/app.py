@@ -46,7 +46,7 @@ def require_secret(view):
 
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok", "service": "coaching-lol-ingest"})
+    return jsonify({"status": "ok", "service": "riftsense-ingest"})
 
 
 _REQUIRED = ("slug", "riot_id", "platform")
