@@ -279,7 +279,7 @@ def test_canonical_declared_and_resynced_by_the_router():
     choisit lui-meme l'URL a indexer. `syncCanonical` la rend auto-referente."""
     body = _read("index.html")
     js = _read("app.js")
-    assert '<link rel="canonical" href="https://coaching-lol.jeanvg.fr/">' in body
+    assert '<link rel="canonical" href="https://riftsense.jeanvg.fr/">' in body
     assert 'link[rel="canonical"]' in js
     assert 'meta[property="og:url"]' in js
     # Appelee au chargement, au retour arriere et a chaque navigation interne.
@@ -292,11 +292,11 @@ def test_robots_and_sitemap_are_real_files():
     robots = _read("robots.txt")
     assert "User-agent: *" in robots
     assert "Disallow: /api/" in robots
-    assert "Sitemap: https://coaching-lol.jeanvg.fr/sitemap.xml" in robots
+    assert "Sitemap: https://riftsense.jeanvg.fr/sitemap.xml" in robots
     sitemap = _read("sitemap.xml")
     assert sitemap.startswith("<?xml")
     assert "http://www.sitemaps.org/schemas/sitemap/0.9" in sitemap
-    assert "<loc>https://coaching-lol.jeanvg.fr/</loc>" in sitemap
+    assert "<loc>https://riftsense.jeanvg.fr/</loc>" in sitemap
 
 
 def test_le_formulaire_d_inscription_est_cable():

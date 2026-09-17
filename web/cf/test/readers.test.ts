@@ -30,10 +30,10 @@ describe("KEYS", () => {
     expect(KEYS.ref("challenger", "adc")).toBe("ref:challenger:adc");
     expect(KEYS.pred("spadzze")).toBe("pred:spadzze");
     expect(KEYS.shap("spadzze")).toBe("shap:spadzze:drivers");
-    expect(KEYS.reviews("spadzze")).toBe("coaching:spadzze:reviews");
-    expect(KEYS.feedback("spadzze")).toBe("coaching:spadzze:feedback");
-    expect(KEYS.chats("spadzze")).toBe("coaching:spadzze:chats");
-    expect(KEYS.game_payloads("spadzze")).toBe("coaching:spadzze:game-payloads");
+    expect(KEYS.reviews("spadzze")).toBe("riftsense:spadzze:reviews");
+    expect(KEYS.feedback("spadzze")).toBe("riftsense:spadzze:feedback");
+    expect(KEYS.chats("spadzze")).toBe("riftsense:spadzze:chats");
+    expect(KEYS.game_payloads("spadzze")).toBe("riftsense:spadzze:game-payloads");
   });
 });
 

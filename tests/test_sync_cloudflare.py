@@ -94,9 +94,9 @@ def test_sync_account_pushes_keys(data_root, monkeypatch):
         {"feature": "gd10", "contribution": -0.4},
         {"feature": "dpm", "contribution": 0.2},
     ]
-    assert "coaching:p:reviews" not in kv.store
-    assert "coaching:p:feedback" not in kv.store
-    bundle = json.loads(kv.store["coaching:p:game-payloads"])
+    assert "riftsense:p:reviews" not in kv.store
+    assert "riftsense:p:feedback" not in kv.store
+    bundle = json.loads(kv.store["riftsense:p:game-payloads"])
     assert bundle["items"] == {}
     assert bundle["unavailable"] == [
         {"match_id": "EUW1_10", "reason": "benchmark_missing"}
@@ -128,7 +128,7 @@ def test_sync_account_can_skip_game_payload_bundle(data_root, monkeypatch):
            json.dumps({"match_id": "EUW1_1"}) + "\n")
     kv = FakeKV()
     sc.sync_account(kv, "p", game_payloads=False)
-    assert "coaching:p:game-payloads" not in kv.store
+    assert "riftsense:p:game-payloads" not in kv.store
 
 
 def test_seed_reviews_only_when_kv_key_absent(data_root, monkeypatch):
@@ -139,14 +139,14 @@ def test_seed_reviews_only_when_kv_key_absent(data_root, monkeypatch):
     )
     kv = FakeKV()
     sc.sync_account(kv, "p", seed_reviews=True)
-    assert kv.store.get("coaching:p:reviews") == (
+    assert kv.store.get("riftsense:p:reviews") == (
         data_root / "07_coaching" / "p" / "reviews.jsonl"
     ).read_text()
 
     kv2 = FakeKV()
-    kv2.store["coaching:p:reviews"] = json.dumps({"ts": "web"}) + "\n"
+    kv2.store["riftsense:p:reviews"] = json.dumps({"ts": "web"}) + "\n"
     sc.sync_account(kv2, "p", seed_reviews=True)
-    assert json.loads(kv2.store["coaching:p:reviews"])["ts"] == "web"
+    assert json.loads(kv2.store["riftsense:p:reviews"])["ts"] == "web"
 
 
 def test_sync_referential(data_root):
@@ -191,11 +191,11 @@ def test_push_coaching_merges_reviews_and_feedback(data_root, monkeypatch):
     _write(data_root / "07_coaching" / "p" / "feedback.jsonl",
            json.dumps({"ts": "t2", "items": []}) + "\n")
     kv = FakeKV()
-    kv.store["coaching:p:reviews"] = json.dumps({"ts": "t1", "kind": "game"}) + "\n"
+    kv.store["riftsense:p:reviews"] = json.dumps({"ts": "t1", "kind": "game"}) + "\n"
     sc.sync_account(kv, "p", coaching=True)
-    reviews = [json.loads(l) for l in kv.store["coaching:p:reviews"].splitlines()]
+    reviews = [json.loads(l) for l in kv.store["riftsense:p:reviews"].splitlines()]
     assert [r["ts"] for r in reviews] == ["t1", "t2"]        # la review web survit
-    assert json.loads(kv.store["coaching:p:feedback"])["ts"] == "t2"
+    assert json.loads(kv.store["riftsense:p:feedback"])["ts"] == "t2"
 
 
 def test_ebm_drivers_excludes_ml_only_proxies(monkeypatch):

@@ -183,12 +183,20 @@ const ACCOUNT_ROUTES: Record<
     Response.json(await buildCoachingContext(env.DATA, slug)),
 };
 
+// Rebranding 2026-09-16 : l'ancien domaine est rattaché à CE Worker et y
+// répond 301 permanent : aucun lien déjà partagé (CV, recruteur) ne finit en 404.
+const LEGACY_DOMAIN = "coaching-lol.jeanvg.fr";
+const CANONICAL_ORIGIN = "https://riftsense.jeanvg.fr";
+
 export async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
+  if (url.hostname === LEGACY_DOMAIN) {
+    return Response.redirect(CANONICAL_ORIGIN + url.pathname + url.search, 301);
+  }
   if (url.pathname === "/api/health") {
     return Response.json({
       status: "ok",
-      service: "coaching-lol",
+      service: "riftsense",
       server_time: new Date().toISOString(),
     });
   }

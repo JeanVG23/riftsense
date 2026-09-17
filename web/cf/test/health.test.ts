@@ -22,8 +22,14 @@ describe("handle", () => {
     expect(r.status).toBe(200);
     const j = await r.json() as Record<string, unknown>;
     expect(j.status).toBe("ok");
-    expect(j.service).toBe("coaching-lol");
+    expect(j.service).toBe("riftsense");
     expect(typeof j.server_time).toBe("string");
+  });
+
+  it("l'ancien domaine répond 301 vers le canonique", async () => {
+    const r = await handle(new Request("https://coaching-lol.jeanvg.fr/c/spadzze?tab=coaching"), makeEnv());
+    expect(r.status).toBe(301);
+    expect(r.headers.get("Location")).toBe("https://riftsense.jeanvg.fr/c/spadzze?tab=coaching");
   });
 
   it("GET /api/inconnu répond 404 JSON", async () => {

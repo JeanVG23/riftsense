@@ -4,4 +4,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://coaching-lol.jeanvg.fr/sitemap.xml
+Sitemap: https://riftsense.jeanvg.fr/sitemap.xml
