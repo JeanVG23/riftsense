@@ -5,7 +5,7 @@ Le Worker ne parle jamais à Riot et ne charge aucun modèle ML. Ce script relit
 couches silver/gold locales, calcule le rang via ``src/core/ml_rank.py`` puis les
 drivers EBM via ``src/core/ebm_explain.py`` (sur la même ligne de features que la
 prédiction publiée), et pousse une valeur KV par fichier logique. Les clés
-``coaching:*`` restent la
+``riftsense:*`` restent la
 propriété du Worker ; ``--seed-reviews`` ne les amorce que si elles sont absentes.
 """
 from __future__ import annotations
