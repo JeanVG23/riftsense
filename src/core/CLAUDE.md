@@ -46,7 +46,7 @@
   rester importable par la collecte. ⚠️ La frontière de rang est un paramètre de recherche
   actif : la déplacer se fait ICI, ces constantes étaient recopiées dans ~11 scripts.
 - **`cli.py`** — `arg`/`flag`/`int_arg`/`csv_arg` : parseur argv des scripts de collecte
-  (recopié à l'identique dans 7 fichiers). `live_capture.py` garde sa copie (stdlib-only assumé).
+  (recopié à l'identique dans 7 fichiers).
 - **`kv_keys.py`** — gabarits des clés Cloudflare KV côté Python (`key("gold", slug=…, scope=…)`),
   dont le bundle local `riftsense:{slug}:game-payloads` consommé par le coaching unitaire web.
   Miroir de `KEYS` dans `web/cf/src/readers.ts`, verrouillé par `tests/test_kv_keys_parity.py`

@@ -94,19 +94,6 @@ titrées par catégorie). Rien n'est implémenté : ni `src/core/turrets.py`, ni
   critères d'évaluation désormais atteints et sens de `avg/max_map_depth` (valeur haute =
   marqueur plus Diamond/risqué dans le code, jamais une prescription positive).
 
-## 🟦 Phase 2 — Computer vision / Live Client (gated)
-
-Le gate d'utilité global est atteint, mais cela ne suffit pas à justifier la CV. Les derniers
-feedbacks connus sur le manque de causalité étaient adressables avec les données Riot et ont
-motivé l'enrichissement LLM actuel.
-
-- [ ] **N'ouvrir qu'un spike CV ciblé** si le nouveau lot fait ressortir des erreurs récurrentes
-  dues à une information réellement absente de l'API : cooldown exact, skillshot, micro-position
-  entre frames ou zone de caméra.
-  - Préférer les replays `.rofl` en spectateur pour mesurer le gain hors game live.
-  - Définir avant le spike une métrique et un exemple de conseil rendu possible par la CV.
-  - Respecter les ToS Riot : lecture seule, aucune automatisation d'input.
-
 ## ✅ Acquis à ne plus remettre dans la file de travaux
 
 - Reviews agrégées et par-game (`--game`, `--game-batch`), agents spécialisés optionnels.

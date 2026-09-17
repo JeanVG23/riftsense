@@ -19,19 +19,19 @@ au lieu de « place-toi ici »). On capture le **positionnement et les déplacem
 3. **Centré sur soi.** Une frame/minute suffit pour un avis sur l'équipe ; pour soi on veut
    une granularité plus fine (cooldowns, sorts loupés…).
 4. **Le LLM ne voit pas la vidéo brute.** Il reçoit un **journal structuré** d'événements
-   et d'états déjà extraits. L'extraction (API Riot + vision) fait le travail ; le LLM raconte.
+   et d'états déjà extraits. L'extraction (API Riot) fait le travail ; le LLM raconte.
 5. **D'abord le journal fiable, ensuite le coaching.**
-6. **Riot-first, CV-for-the-gaps.** API Riot = source principale ; CV = combler les trous.
+6. **Riot-first.** API Riot post-game = source active ; capture live / CV = hors périmètre actuel.
 
-## Source de données : Riot-first, CV-for-the-gaps
+## Source de données : Riot-first
 
-La vision n'est PAS la source principale. L'API Riot donne gratuitement, sans OCR :
+Le projet actuel utilise une seule source : l'API Riot **post-game**, sans OCR ni capture locale.
 
 - **Match-V5 + Timeline** (post-game) : positions x/y de tous les champions toutes les 60 s,
   gold/XP/items par joueur, et tous les events discrets (kills, objectifs, wards, level-ups,
   ordre de skill, achats). La **timeline** est le joyau.
-- **Live Client Data API** (`https://127.0.0.1:2999`, pendant la game) : abilities, runes,
-  items, gold, level, scoreboard, feed d'events en temps réel.
+
+La capture live et la CV sont un projet séparé, hors périmètre actuel.
 
 ### Accès API (clé prod « Coach_LoL_LLMs », 39 méthodes)
 
@@ -41,48 +41,41 @@ Clé de production (limites généreuses, pas d'expiration 24 h) → backoff pol
 |-----|-------------|------|---------|
 | account-v1 | `accounts/by-riot-id/{gameName}/{tagLine}` | Riot ID → `puuid` (porte d'entrée) | **régional** |
 | match-v5 | `matches/by-puuid/{puuid}/ids`, `matches/{id}`, **`matches/{id}/timeline`** | Cœur du MVP | **régional** |
-| match-v5 | `matches/by-puuid/{puuid}/replays` | Bonus Phase 2 (pont .rofl) | régional |
 | league-v4 | `entries/by-puuid/{puuid}` | Elo/LP (rend summoner-v4 inutile) | **plateforme** |
 | lol-challenges-v1 | `player-data/{puuid}`, `challenges/percentiles` | Bonus benchmarking profil | plateforme |
 | champion-mastery-v4 | `champion-masteries/by-puuid/{puuid}` | Profilage (main vs pick), Phase 2 | plateforme |
-| spectator-v5 | `active-games/by-summoner/{puuid}` | Live uniquement, Phase 2 | plateforme |
 
 **Piège routing** : account-v1 + match-v5 = régional (`europe`/`americas`/`asia`) ;
-league-v4 / mastery / spectator = plateforme (`euw1`…).
+league-v4 / mastery = plateforme (`euw1`…).
 **Hors scope** : summoner-v4, clash-v1, tournament-*, lol-status-v4, champion-v3.
-
-### Ce que la CV doit combler (phase 2 seulement)
-
-Uniquement ce que Riot ne donne pas : cooldowns exacts, skillshots loupés/touchés,
-micro-positionnement entre frames 60 s, zone de caméra.
 
 ### Les deux niveaux d'information (CRITIQUE pour l'asymétrie)
 
-- **« Ce que je savais »** — Live Client Data API : ne renvoie **que ce que le joueur voit**
-  (fog of war respecté natif). → **Seule** base autorisée pour reprocher/juger une décision.
-- **« Ce qui s'est réellement passé »** — Match Timeline post-game : info complète (positions
-  ennemies même invisibles). → Sert uniquement à **labelliser a posteriori**. Ne JAMAIS le
-  présenter au LLM comme une connaissance qu'avait le joueur.
+- **« Ce qui peut être prescrit »** — uniquement les features exactes et vérifiables depuis
+  la timeline (`COACHING_SAFE`), jamais un proxy statistique présenté comme un reproche.
+- **« Ce qui reste statistique »** — `ML_ONLY` (proxys flous) sert le modèle, mais n'est jamais
+  injecté comme conseil actionnable.
+- **« Ce qui sert à labelliser »** — la timeline complète et les benchmarks servent à comparer
+  et labelliser après coup ; ils ne sont jamais présentés au LLM comme une connaissance
+  que le joueur avait au moment T.
 
 ## Stack cible
 
-Langage principal : **Python** (écosystème vision/ML). Lancer depuis la racine, dans
+Langage principal : **Python** (écosystème ML). Lancer depuis la racine, dans
 l'environnement Poetry (`poetry shell` ou préfixer `poetry run`) :
 `python3 src/<dossier>/<script>.py` — chaque script insère `src/core/` dans `sys.path` avant
 `import riotlib` (convention flat-import, pas de package Python dans `src/`).
 
 | Brique | Techno |
 |--------|--------|
-| Données de jeu | API Riot : Match-V5 + Timeline, Live Client Data API |
-| Extraction frames/vidéo (phase 2) | FFmpeg, OpenCV, NumPy, Tesseract/EasyOCR |
-| Détection minimap (tardif) | YOLO-like (Ultralytics/supervision) ou template matching + règles |
+| Données de jeu | API Riot : Match-V5 + Timeline |
 | Validation schémas | Pydantic |
 | Stockage | Parquet/JSONL en local ; Cloudflare KV pour les données web publiées |
 | Analytics local | DuckDB |
 | Extraction structurée | Ollama local ou Cloud, structured output JSON (schéma imposé, T° basse) |
 | Synthèse narration | Petit modèle local pour l'extraction ; modèle plus gros (API) pour la narration nuancée |
 
-**À éviter (sur-ingénierie)** : CV tant que le MVP timeline n'est pas validé ; scraping
+**À éviter (sur-ingénierie)** : capture live / CV ; scraping
 YouTube ; gros fine-tuning de LLM ; modèle supervisé d'erreurs sans dataset labellisé
 (heuristiques déterministes d'abord) ; Postgres (DuckDB suffit) ; full video understanding.
 
@@ -90,11 +83,10 @@ YouTube ; gros fine-tuning de LLM ; modèle supervisé d'erreurs sans dataset la
 
 - **Phase 1 — Coach 100 % API, zéro vision (MVP)** ✅ : N dernières games via Match-V5 →
   features macro/positionnement → Ollama → compte-rendu. Valider « le coach est-il utile ? »
-  avant d'investir dans le pipeline CV. Si le coach timeline est bon, on sait où mettre la
-  CV. S'il est mauvais, le problème vient des features, pas de la vision.
-- **Phase 2 — CV pour les trous** : vision ciblée sur ce qui manque (cooldowns, skillshots,
-  micro-position, caméra). Piste : rejouer la game depuis les **fichiers replay (.rofl)** en
-  mode spectateur (Live Client API + caméra disponibles, sans impacter la game live).
+  avant d'investir dans un autre projet. S'il est mauvais, le problème vient des features,
+  pas de la source de données.
+- **Phase 2 — capture live / CV** : **hors périmètre actuel** (projet séparé ; aucune
+  intégration, aucun code de capture).
 - **Phase 3 — ML / spécialisation (si justifié)** : heuristiques → ML supervisé seulement
   une fois des labels accumulés. Pas de fine-tuning avant d'en prouver le besoin.
 
@@ -115,10 +107,9 @@ ne fait que raconter ce que les features ont conclu. Investir là.
 Principe : **pas « une ligne = une game »**. Au moins 4 tables/fichiers logiques.
 
 - **`games`** — métadonnées globales : patch, champion, rôle, durée, résultat, side, elo.
-- **`states_timeline`** — états échantillonnés : `game_id`, `timestamp_ms`, `my_hp_pct`,
-  `my_mana_pct`, `q_cd`…`r_cd`, `flash_cd`, `tp_cd`, `visible_enemy_count`,
-  `visible_on_minimap_*`, `camera_zone`, `gold_unspent`, `wave_state_estimate`.
-  (Positions/gold/level viennent de la timeline Riot ; HP/mana/cooldowns/caméra = CV phase 2.)
+- **`states_timeline`** — états échantillonnés depuis la timeline Riot : `game_id`,
+  `timestamp_ms`, positions x/y, gold/XP/level/items, wards et événements discrets.
+  Aucun champ HP/mana/cooldown/caméra : ce besoin appartient au projet séparé capture live / CV.
 - **`events`** — événements discrets : `game_id`, `timestamp_ms`, `event_type`,
   `actor` (self/ally/enemy_visible), `zone`, `confidence`, `payload_json`.
 - **`reviews`** — labels et résumés : erreurs détectées, bons moves, scores
@@ -126,7 +117,7 @@ Principe : **pas « une ligne = une game »**. Au moins 4 tables/fichiers logiqu
 
 ## Pipeline de résumé
 
-1. Récupération (Riot API phase 1 ; + extraction CV phase 2).
+1. Récupération via l'API Riot post-game.
 2. Conversion en événements et états structurés.
 3. Agrégation en **features haut niveau** benchmarkées challenger, ex. : « 3 pushes sans
    vision en side lane », « 2 recalls tardifs avant drake (challengers : -350 g plus tôt) »,
@@ -140,8 +131,6 @@ Principe : **pas « une ligne = une game »**. Au moins 4 tables/fichiers logiqu
 
 - **Coach champ select** — picks/bans et matchups.
 - **Coach in-game / fin de game** — axe principal : journal agrégé + compte-rendu.
-- **Overlay de lecture d'écran** — lit l'écran → données → LLM, garantissant l'asymétrie.
-  (ToS Riot : overlay en lecture seule, aucune automatisation d'input.)
 
 ## Évaluation
 
@@ -152,7 +141,7 @@ absolues du LLM.
 ## Architecture du code (médaillon, numérotée pour l'ordre du pipeline)
 
 Code dans `src/`, données dans `data/` (couches numérotées). `src/` rangé par rôle (pas de
-vrac à la racine) : `core/` (libs partagées), `collection/` (appels API Riot / Live Client),
+vrac à la racine) : `core/` (libs partagées), `collection/` (appels API Riot),
 `pipeline_ops/` (maintenance médaillon, 0 appel API), `reporting/` (livrable heuristique
 pré-ML), `experiments/` (spikes historiques), puis `01_data_engineering` → `04_coaching`
 (pipeline ML). `tests/` (pytest) couvrent la dérivation déterministe + extraction comp +
@@ -162,7 +151,7 @@ agrégation contextuelle. Lancer : `poetry run pytest tests/`.
 src/
   core/           riotlib.py, positioning.py, champion_profiles.py, game_journal.py, ml_features.py,
                   ranks.py, cli.py, kv_keys.py, dataset_split.py, ml_rank.py, ebm_explain.py, settings.py
-  collection/     build_referential.py, aggregate_games.py, live_capture.py, sync_cloudflare.py,
+  collection/     build_referential.py, aggregate_games.py, sync_cloudflare.py,
                   refresh_cloudflare.py, pipeline.py, densify_targets.py, densify_sweet_spot.py,
                   densify_players.py, fetch_apex_lp.py
   pipeline_ops/   reextract_silver.py, rebuild_gold.py, compress_raw.py,
@@ -235,8 +224,6 @@ que le joueur avait (aucun proxy `ML_ONLY`).
 - **`build_referential.py`** — collecte les benchmarks par rang (league-v4/-exp-v4).
   `python3 src/collection/build_referential.py --region euw1 [--rank R] [--players N]`.
 - **`aggregate_games.py`** — pipeline perso : N games → silver + gold (all/adc/zeri).
-- **`live_capture.py`** — capture Live Client Data API pendant une game ; zéro dépendance hors
-  stdlib (copiable seul sur une machine sans le reste du repo).
 - **`sync_cloudflare.py`** — publication des agrégats, rangs, prédictions ML, SHAP, reviews et
   feedbacks locaux vers Cloudflare KV. Fusionne l'historique distant et supporte `--dry-run`.
   `--seed-reviews` n'amorce les reviews que si la clé est absente ; `--push-coaching` fusionne
@@ -498,7 +485,6 @@ Historique complet des runs, métriques et decisions (dates, chiffres, specs) :
 3. Stabiliser et valider la **robustesse ML/SHAP** (qualité des prescriptions SHAP vs
    heuristiques reste à valider).
 4. Poursuivre l'industrialisation : modèles Pydantic et flux consolidé.
-5. Phase 2 (CV / Live Client) seulement si le coach démontre sa valeur.
 
 ## Notes de développement
 

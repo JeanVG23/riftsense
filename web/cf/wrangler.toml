@@ -6,6 +6,7 @@ compatibility_date = "2026-08-30"
 directory = "../frontend"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = true
 
 # URL du service d'ingestion Cloud Run, sous forme déterministe (nom du service,
 # numéro de projet, région) : à confronter à la sortie de `gcloud run deploy`

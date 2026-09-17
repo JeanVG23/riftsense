@@ -1367,7 +1367,7 @@
 
       <div class="card">
         <h2>Où en est le projet</h2>
-        <p>Phase 1 (coach 100% API, zéro vision) est validée : le positionnement reconstruit sans image apporte déjà un signal utile. Le référentiel multi-rangs (Diamond → Challenger) est collecté, le pipeline ML (XGBoost / Random Forest / EBM + SHAP) est branché, et la narration LLM (Ollama) avec boucle de feedback tourne en production sur ce site. La computer vision (cooldowns, skillshots, micro-positionnement) reste une phase 2 volontairement reportée : on ne l'ajoute que si le coach basé timeline a prouvé sa valeur.</p>
+        <p>Phase 1 (coach 100% API, zéro vision) est validée : le positionnement reconstruit sans image apporte déjà un signal utile. Le référentiel multi-rangs (Diamond → Challenger) est collecté, le pipeline ML (XGBoost / Random Forest / EBM + SHAP) est branché, et la narration LLM (Ollama) avec boucle de feedback tourne en production sur ce site. La capture live et la computer vision sont un projet séparé, hors périmètre actuel : le coach s'appuie uniquement sur la timeline Riot post-game.</p>
       </div>
     </div>
   </template>
@@ -1376,20 +1376,20 @@
   <template x-if="tab === 'data'">
     <div>
       <div class="card">
-        <h2>Riot-first, CV-for-the-gaps</h2>
-        <p>Décision d'architecture centrale : <strong>la vision par ordinateur n'est pas la source principale</strong>. L'API Riot fournit gratuitement, sans erreur d'OCR, l'essentiel de la donnée nécessaire à un coach de positionnement : deux sources, deux usages bien distincts.</p>
+        <h2>Riot-first</h2>
+        <p>Décision d'architecture centrale : <strong>la capture live et la vision par ordinateur ne sont pas la source active</strong>. L'API Riot post-game fournit gratuitement, sans erreur d'OCR, l'essentiel de la donnée nécessaire à un coach de positionnement.</p>
         <ul>
           <li><strong>Match-V5 + Timeline</strong> (post-game) — positions x/y de <em>tous</em> les champions toutes les 60 s, gold/XP/items par joueur, et tous les événements discrets (kills, objectifs, wards, level-ups, achats).</li>
-          <li><strong>Live Client Data API</strong> (<span class="mono">127.0.0.1:2999</span>, pendant la game) — tes cooldowns, runes, items, gold, scoreboard, feed d'events, en temps réel.</li>
         </ul>
       </div>
 
       <div class="card">
-        <h2>Deux niveaux d'information — le mécanisme de l'asymétrie</h2>
-        <p>C'est la distinction technique qui rend le principe d'asymétrie (onglet Vue d'ensemble) réellement applicable, et pas juste une intention :</p>
+        <h2>Le mécanisme de l'asymétrie</h2>
+        <p>C'est le garde-fou qui rend le principe d'asymétrie (onglet Vue d'ensemble) réellement applicable, et pas juste une intention :</p>
         <ul>
-          <li><strong>« Ce que je savais »</strong> — Live Client Data API : ne renvoie que ce que le joueur voit, le brouillard de guerre est respecté nativement par l'API elle-même. C'est la <em>seule</em> base autorisée pour reprocher ou juger une décision.</li>
-          <li><strong>« Ce qui s'est réellement passé »</strong> — Match Timeline post-game : information complète, y compris les positions ennemies invisibles au moment T. Sert uniquement à labelliser après coup (« en fait le jungle était botside »), jamais présentée au LLM comme une connaissance qu'avait le joueur.</li>
+          <li><strong>« Ce qui peut être prescrit »</strong> — uniquement les features exactes et vérifiables depuis la timeline (<span class="mono">COACHING_SAFE</span>).</li>
+          <li><strong>« Ce qui reste statistique »</strong> — les proxys <span class="mono">ML_ONLY</span> servent le modèle, mais ne sont jamais formulés comme un reproche.</li>
+          <li><strong>« Ce qui sert à labelliser »</strong> — la timeline complète et les benchmarks comparent et labellisent après coup ; ils ne sont jamais présentés au LLM comme une connaissance que le joueur avait au moment T.</li>
         </ul>
       </div>
 
@@ -1405,7 +1405,7 @@
           <tr><td>champion-mastery-v4</td><td class="mono">champion-masteries/by-puuid</td><td>Profilage main vs pick peu maîtrisé</td><td>plateforme</td></tr>
         </table>
         </div>
-        <p class="faint" style="margin-top:10px">account-v1 et match-v5 utilisent le routing <strong>régional</strong> (europe/americas/asia) ; league-v4, mastery et spectator utilisent le routing <strong>plateforme</strong> (euw1…). Clé de production : pas de rate-limiting agressif nécessaire, juste un backoff poli sur 429.</p>
+        <p class="faint" style="margin-top:10px">account-v1 et match-v5 utilisent le routing <strong>régional</strong> (europe/americas/asia) ; league-v4 et mastery utilisent le routing <strong>plateforme</strong> (euw1…). Clé de production : pas de rate-limiting agressif nécessaire, juste un backoff poli sur 429.</p>
       </div>
 
       <div class="card">
