@@ -61,7 +61,7 @@ Le script de synchronisation seul reste utile pour republier les fichiers locaux
 interroger Riot. Il fusionne les données locales avec celles déjà présentes dans KV et ne
 supprime pas l'historique distant. Il reconstruit aussi, depuis le cache raw local, les
 payloads déterministes des 50 parties les plus récentes dans
-`coaching:{slug}:game-payloads` (20 Mio maximum). Cela ne provoque ni appel Riot ni appel
+`riftsense:{slug}:game-payloads` (20 Mio maximum). Cela ne provoque ni appel Riot ni appel
 LLM ; `--skip-game-payloads` permet de sauter cette reconstruction lors d'un diagnostic.
 
 ```bash

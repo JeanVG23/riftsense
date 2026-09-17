@@ -392,7 +392,7 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
     --game-batch [N]` (défaut 10 : reviews des N dernières games ADC pas
     encore reviewées, dédup par `match_id`, poursuit sur échec).
   - **Chemin par-game côté web** : `payload.build_game_bundle` sérialise ces
-    payloads (clé KV `coaching:{slug}:game-payloads`, `payload_hash` +
+    payloads (clé KV `riftsense:{slug}:game-payloads`, `payload_hash` +
     `benchmark_scope` = champion sinon rôle sinon global) ; `web/cf/src/game_coach.ts`
     relit l'entrée demandée, réutilise une review existante sans appel LLM et
     ne régénère que sur `force`. Les motifs d'indisponibilité publiés
