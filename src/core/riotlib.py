@@ -21,6 +21,7 @@ import requests
 import zstandard as zstd
 
 import champion_profiles as cp
+import turrets as turret_map
 
 # --------------------------------------------------------------------- chemins
 # riotlib vit dans src/core/ ; la racine projet (data/, .env) est deux niveaux au-dessus.
@@ -177,9 +178,20 @@ class RiotClient:
 
     def _get(self, base: str, path: str, **params):
         url = f"https://{base}.api.riotgames.com{path}"
+        network_error: Exception | None = None
         for _ in range(6):
             self._throttle()
-            r = self.session.get(url, params=params, timeout=20)
+            try:
+                r = self.session.get(url, params=params, timeout=20)
+            except requests.exceptions.RequestException as error:
+                # Même traitement qu'un 5xx : la coupure passagère est le cas
+                # normal sur une collecte longue (le ladder fait ~1000 pages,
+                # accumulées en mémoire), et la laisser remonter jette tout.
+                network_error = error
+                print(f"  Réseau {type(error).__name__}, nouvelle tentative dans 5s...",
+                      file=sys.stderr)
+                time.sleep(5)
+                continue
             if r.status_code == 429:
                 wait = int(r.headers.get("Retry-After", "2"))
                 print(f"  429, attente {wait}s…", file=sys.stderr)
@@ -193,7 +205,7 @@ class RiotClient:
                 continue
             r.raise_for_status()
             return r.json()
-        raise RuntimeError(f"Échec après retries: {url}")
+        raise RuntimeError(f"Échec après retries: {url}") from network_error
 
     # account-v1 (régional)
     def puuid_from_riot_id(self, game_name: str, tag_line: str) -> str | None:
@@ -442,11 +454,15 @@ def _gold_state_from_frames(my_fr: dict, opp_fr: dict, minute: int) -> str | Non
 
 
 def _combat_metrics(timeline: dict, *, my_pid: int, support_pid: int | None,
-                    enemy_jungle_pid: int | None, enemy_bot_pids: set[int],
+                    ally_bot_pids: set[int], enemy_jungle_pid: int | None,
+                    enemy_bot_pids: set[int],
                     pid_role: dict[int, str], pid_champ: dict[int, str],
                     my_fr: dict, opp_fr: dict) -> tuple[list, list, list, list]:
     deaths, kills, assists, support_deaths = [], [], [], []
-    my_bot_pids = {my_pid, support_pid} - {None}
+    # Pour un support, ``support_pid == my_pid``. Construire la paire depuis
+    # ``{my_pid, support_pid}`` supprimait donc l'ADC allié et rendait tous les
+    # indicateurs 2v2 du support faux.
+    my_bot_pids = ally_bot_pids
 
     for frame in timeline["info"]["frames"]:
         for event in frame.get("events", []):
@@ -532,12 +548,81 @@ def _dragon_proximity(timeline: dict, my_fr: dict) -> int | None:
     return round(sum(distances) / len(distances)) if distances else None
 
 
-def _plate_diff_early(timeline: dict, my_team: int, enemy_team: int) -> int:
+_EARLY_EPIC_MONSTERS = {"DRAGON", "RIFTHERALD", "HORDE"}
+
+
+def _jungle_metrics(timeline: dict, *, my_pid: int, my_team: int,
+                    pid_team: dict[int, int], my_fr: dict,
+                    opp_fr: dict) -> dict:
+    """Signaux descriptifs propres au jungler aux jalons 10/14 minutes.
+
+    Le farm de camps est separe du CS de lane. Les monstres epiques mesurent le
+    controle d'equipe observe depuis la perspective du jungler : ``killerTeamId``
+    ne permet pas d'attribuer individuellement l'objectif au joueur. Les compteurs
+    d'evenements early sont, eux, bornes strictement avant 14:00.
+    """
+    def jungle_cs_at(frames: dict, minute: int) -> int | None:
+        frame = frames.get(minute)
+        if not frame:
+            return None
+        value = frame.get("jungleMinionsKilled")
+        return int(value) if value is not None else None
+
+    mine10, mine14 = jungle_cs_at(my_fr, 10), jungle_cs_at(my_fr, 14)
+    opp10, opp14 = jungle_cs_at(opp_fr, 10), jungle_cs_at(opp_fr, 14)
+    early_takedowns = 0
+    ally_champion_kills = 0
+    ally_epics = enemy_epics = 0
+
+    for event in iter_events(timeline):
+        if event.get("timestamp", 0) >= 14 * 60_000:
+            continue
+        if event.get("type") == "CHAMPION_KILL":
+            killer = event.get("killerId")
+            if pid_team.get(killer) == my_team:
+                ally_champion_kills += 1
+                if (killer == my_pid
+                        or my_pid in event.get("assistingParticipantIds", [])):
+                    early_takedowns += 1
+        elif (event.get("type") == "ELITE_MONSTER_KILL"
+              and event.get("monsterType") in _EARLY_EPIC_MONSTERS):
+            killer_team = (event.get("killerTeamId")
+                           or pid_team.get(event.get("killerId")))
+            if killer_team == my_team:
+                ally_epics += 1
+            elif killer_team in {100, 200}:
+                enemy_epics += 1
+
+    return {
+        "jungle_csm10": mine10 / 10.0 if mine10 is not None else None,
+        "jungle_csm14": mine14 / 14.0 if mine14 is not None else None,
+        "jungle_csd10": (mine10 - opp10
+                          if mine10 is not None and opp10 is not None else None),
+        "jungle_csd14": (mine14 - opp14
+                          if mine14 is not None and opp14 is not None else None),
+        "jungle_takedowns_early": early_takedowns,
+        "jungle_kill_participation_early": (
+            early_takedowns / ally_champion_kills if ally_champion_kills else 0.0),
+        "jungle_team_epic_monsters_early": ally_epics,
+        "jungle_team_epic_monster_diff_early": ally_epics - enemy_epics,
+    }
+
+
+def _plate_diff_early(timeline: dict, my_team: int, enemy_team: int,
+                      lane: str | None) -> int | None:
+    """Plaques prises moins plaques concédées avant la minute 14, SUR LA LANE DU
+    JOUEUR. `lane=None` (jungler) rend None plutôt qu'un chiffre emprunté à la
+    botlane, qui était le comportement précédent pour tous les rôles.
+
+    La lane est obligatoire : une valeur par défaut rendrait au premier appelant
+    distrait exactement le bug qu'on vient de retirer."""
+    if lane is None:
+        return None
     mine = enemy = 0
     for event in iter_events(timeline):
-        if event.get("type") != "TURRET_PLATE_DESTROYED" or event.get("laneType") != "BOT_LANE":
+        if event.get("type") != "TURRET_PLATE_DESTROYED" or event.get("laneType") != lane:
             continue
-        if round(event["timestamp"] / 60000) >= 14:
+        if event["timestamp"] >= 14 * 60_000:
             continue
         if event.get("teamId") == enemy_team:
             mine += 1
@@ -650,6 +735,31 @@ def _objectives_timeline(timeline: dict, my_team: int) -> list[dict]:
     return sorted(objectives, key=lambda x: x["minute"])
 
 
+def summoner_profile(match: dict, puuid: str) -> dict:
+    """Icône de profil et niveau d'un joueur, lus dans une partie déjà en main.
+
+    Match-V5 porte `profileIcon` et `summonerLevel` pour chaque participant :
+    les relire coûte zéro appel Riot, là où summoner-v4 en ajouterait un. Le prix
+    de ce choix est un décalage borné : ce sont l'icône et le niveau du jour de
+    cette partie, pas de l'instant présent. Sans cette lecture, le site n'a rien
+    à afficher et fabrique les deux valeurs par hachage du pseudo, ce qui est
+    pire qu'un léger retard : c'est faux et ça a l'air vrai.
+
+    Dict vide si le joueur n'est pas dans la partie ou si Riot ne donne pas un
+    entier : mieux vaut laisser survivre la dernière valeur connue que l'écraser.
+    """
+    for participant in match.get("info", {}).get("participants", []):
+        if participant.get("puuid") != puuid:
+            continue
+        profile = {}
+        for field, key in (("profileIcon", "icon"), ("summonerLevel", "level")):
+            value = participant.get(field)
+            if isinstance(value, int) and not isinstance(value, bool):
+                profile[key] = value
+        return profile
+    return {}
+
+
 def extract_game(match: dict, timeline: dict, puuid: str,
                  rank: str | None = None, cache: "MatchCache | None" = None) -> dict | None:
     """Une game -> record silver (morts + benchmark de lane). None si hors Faille."""
@@ -672,6 +782,8 @@ def extract_game(match: dict, timeline: dict, puuid: str,
     opp_pid = find_pid(match, team=enemy_team, role=my_role) if my_role else None
     enemy_jungle_pid = find_pid(match, team=enemy_team, role="JUNGLE")
     support_pid = find_pid(match, team=my_team, role="UTILITY")
+    ally_adc_pid = find_pid(match, team=my_team, role="BOTTOM")
+    ally_bot_pids = {ally_adc_pid, support_pid} - {None}
     enemy_adc_pid = find_pid(match, team=enemy_team, role="BOTTOM")
     enemy_supp_pid = find_pid(match, team=enemy_team, role="UTILITY")
     enemy_bot_pids = {enemy_adc_pid, enemy_supp_pid} - {None}
@@ -684,18 +796,25 @@ def extract_game(match: dict, timeline: dict, puuid: str,
     lane = _lane_metrics(my_fr, opp_fr, opp_pid, pid_champ)
     deaths, kills, assists, support_deaths = _combat_metrics(
         timeline, my_pid=my_pid, support_pid=support_pid,
+        ally_bot_pids=ally_bot_pids,
         enemy_jungle_pid=enemy_jungle_pid, enemy_bot_pids=enemy_bot_pids,
         pid_role=pid_role, pid_champ=pid_champ, my_fr=my_fr, opp_fr=opp_fr,
     )
     frames_in_base = _frames_in_base_early(timeline, my_pid, my_team)
     avg_dragon_prox = _dragon_proximity(timeline, my_fr)
-    plates_diff_early = _plate_diff_early(timeline, my_team, enemy_team)
+    plates_diff_early = _plate_diff_early(
+        timeline, my_team, enemy_team, turret_map.LANE_OF_ROLE.get(my_role))
     comp = _composition(parts, pid_champ, my_team, me)
     sides = _jungle_pathing(parts, timeline, my_team)
     objectives = _objectives_timeline(timeline, my_team)
 
-    import positioning  # import paresseux : évite le cycle riotlib<->positioning
     pid_team = {i + 1: p["teamId"] for i, p in enumerate(parts)}
+    jungle = (_jungle_metrics(
+        timeline, my_pid=my_pid, my_team=my_team, pid_team=pid_team,
+        my_fr=my_fr, opp_fr=opp_fr,
+    ) if my_role == "JUNGLE" else {})
+
+    import positioning  # import paresseux : évite le cycle riotlib<->positioning
     position = positioning.positioning_features(
         timeline, my_pid, pid_team, my_role or "BOTTOM",
         snaps=cache.snaps() if cache is not None else None)
@@ -715,6 +834,7 @@ def extract_game(match: dict, timeline: dict, puuid: str,
         "comp": comp,
         "sides": sides,
         "objectives": objectives,
+        "jungle": jungle,
         "deaths": deaths,
         "kills": kills,
         "assists": assists,

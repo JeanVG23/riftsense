@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { titleCase, type PredictedRank } from "../account-profile";
 import { authToken, openCoachAuth, setStoredAuthToken, withAuthHeaders } from "../auth";
 import { gameChampion, gameMatchId, type GameReview } from "../game-review";
+import { RECENT_ACCOUNTS_CHANGED, rememberRecentAccount } from "../recent-accounts";
 import AccountProfile from "../components/AccountProfile.ce.vue";
 import CoachingControls from "../components/CoachingControls.ce.vue";
 import GameHistory from "../components/GameHistory.ce.vue";
@@ -84,6 +85,16 @@ async function loadCoachingContext(): Promise<void> {
       review.value = findMatchingReview();
     }
   } catch { coachingContext.value = null; }
+}
+
+async function saveRecentAccount(): Promise<void> {
+  try {
+    const account = await api(`/api/c/${encodeURIComponent(props.slug)}/account`);
+    rememberRecentAccount(account);
+    window.dispatchEvent(new CustomEvent(RECENT_ACCOUNTS_CHANGED));
+  } catch {
+    // Une URL inconnue ne doit pas entrer dans l'historique du navigateur.
+  }
 }
 
 async function loadReviews(): Promise<void> {
@@ -222,25 +233,45 @@ function goToGameReview(matchId: string): void {
 
 function selectGameTarget(matchId: string): void { pendingReviewId.value = matchId; void updateQuery(); }
 
+function onSynced(): void {
+  void Promise.all([loadReviews(), loadCoachingContext()]);
+}
+
 onMounted(() => {
   window.addEventListener("coach-auth-change", onAuthChange);
-  void Promise.all([loadReviews(), loadCoachingContext()]);
+  void Promise.all([loadReviews(), loadCoachingContext(), saveRecentAccount()]);
 });
 onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChange));
 </script>
 
 <template>
-  <AccountProfile :slug="slug" :total="total" @prediction-loaded="predictedRank = $event" />
+  <AccountProfile
+    :slug="slug"
+    :total="total"
+    @prediction-loaded="predictedRank = $event"
+    @open-shap="setTab('shap')"
+    @synced="onSynced"
+  />
   <details v-if="ownerView" class="sync-help"><summary>Mettre à jour mes données</summary><p>Depuis ton terminal, lance <code>poetry run python src/collection/refresh_cloudflare.py</code>. Les nouvelles parties sont ensuite publiées automatiquement sur ce site.</p></details>
   <JobBanner :job="job" />
   <div class="tabs" role="tablist" aria-label="Sections du compte">
-    <button v-for="item in ([['history', 'Parties'], ['coaching', 'Coaching'], ['shap', 'Profil ML']] as const)" :key="item[0]" type="button" class="tab" :class="{ active: tab === item[0] }" :aria-selected="tab === item[0]" @click="setTab(item[0])">{{ item[1] }}</button>
+    <button
+      v-for="item in ([['history', 'Parties classées'], ['shap', 'Profil ML & SHAP'], ['coaching', 'Coaching IA']] as const)"
+      :key="item[0]"
+      type="button"
+      class="tab"
+      :class="{ active: tab === item[0] }"
+      :aria-selected="tab === item[0]"
+      @click="setTab(item[0])"
+    >
+      {{ item[1] }}
+    </button>
   </div>
   <GameHistory v-if="tab === 'history'" :slug="slug" :game-reviews="gameReviews" :coaching-context="coachingContext" :job="job" :predicted-rank="predictedRank" :authenticated="authenticated" @games-loaded="syncGamesPage" @coach-game="gameCoachAction" @regenerate-game="game => generateGame(game, true)" />
+  <ShapProfile v-else-if="tab === 'shap'" :slug="slug" />
   <div v-else-if="tab === 'coaching'">
     <CoachingControls :slug="slug" :view="coachingView" :game-reviews-count="gameReviewsCount" :scopes="dynamicScopes" :scope="scope" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :eval-revision="evalRevision" @view-change="setCoachingView" @scope-change="setScope" @outcome-change="setOutcome" @generate="generateGlobal" />
     <GlobalCoaching v-if="coachingView === 'overall'" :slug="slug" :review="review" :reviews="reviews" :loading="reviewsLoading" :scope="scope" :scope-name="scopeLabel" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :coaching-context="coachingContext" @generate="generateGlobal" @review-select="selectGlobalReview" @feedback-saved="evalRevision += 1" />
     <GameReviews v-else :slug="slug" :reviews="gameReviews" :total="gameReviewsCount" :page="gameReviewsPage" :loading="reviewsLoading" :authenticated="authenticated" :target-match-id="pendingReviewId" @reviews-loaded="syncGameReviews" @review-select="selectGameTarget" @feedback-saved="evalRevision += 1" />
   </div>
-  <ShapProfile v-else :slug="slug" />
 </template>

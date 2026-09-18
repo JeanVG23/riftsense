@@ -45,7 +45,11 @@ def fetch_games(account: dict, n: int = 20,
     regional = rl.PLATFORM_TO_REGIONAL[platform]
     client = rl.RiotClient(key, regional, platform)
     game_name, tag_line = account["riot_id"].split("#", 1)
-    player = game_name.lower()
+    # Le slug de configuration est l'identité de stockage et d'URL. Le dériver
+    # du pseudo cassait les Riot ID contenant des espaces (`Bobby Lupo` écrivait
+    # dans `personal/bobby lupo`, puis le sync cherchait `personal/bobby-lupo`).
+    # Il garantit aussi que deux comptes au nom proche restent indépendants.
+    player = account["slug"]
     puuid = settings.resolve_puuid(account)
     if not puuid:
         raise RuntimeError("Riot ID introuvable")

@@ -8,6 +8,7 @@ const firstGame = {
   champion: "Kai'Sa",
   win: false,
   patch: "16.17",
+  game_ts: 1786379613694,
   queue: 420,
   role: "BOTTOM",
   kills: [{ minute: 8, victim_champ: "Jinx" }],
@@ -52,7 +53,8 @@ describe("GameHistory", () => {
     );
     expect(wrapper.text()).toContain("Kai'Sa");
     expect(wrapper.text()).toContain("1/1/1 · 2.00");
-    expect(wrapper.text()).toContain("Estimation du modèle : Diamond");
+    expect(wrapper.text()).toContain("Parties récentes");
+    expect(wrapper.text()).toContain("10 août 2026");
     expect(wrapper.emitted("gamesLoaded")?.[0]?.[0]).toMatchObject({ total: 21 });
   });
 

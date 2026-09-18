@@ -87,7 +87,8 @@ describe("PLATFORMS", () => {
   });
 });
 
-import { apiRegister, apiRegisterStatus } from "../src/register";
+import { apiRefresh, apiRegister, apiRegisterStatus } from "../src/register";
+import { REFRESH_COOLDOWN_MS } from "../src/ingest_queue";
 
 function envWithQueue(store = new Map<string, string>(), queueResponse: unknown = {
   state: "queued", position: 1, updated_at: 0,
@@ -235,5 +236,68 @@ describe("apiRegisterStatus", () => {
     const { env } = envWithQueue(new Map(), undefined, 404);
     const response = await apiRegisterStatus(env, "jamais");
     expect(response.status).toBe(404);
+  });
+});
+
+describe("apiRefresh", () => {
+  const curated = (extra: Record<string, unknown> = {}) => new Map<string, string>([
+    ["account:spadzze", JSON.stringify({
+      slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated", ...extra,
+    })],
+  ]);
+
+  it("collecte le compte sous SON slug, pas sous celui que slugFor produirait", async () => {
+    // Le coeur du bug corrigé : `slugFor("Spadzze", "euw")` vaut "spadzze-euw",
+    // alors que le compte curé est enregistré sous "spadzze". Passer par
+    // l'inscription collectait donc un compte fantôme à côté du vrai.
+    const { env, seen } = envWithQueue(curated());
+    const response = await apiRefresh(env, "spadzze");
+    expect(response.status).toBe(202);
+    expect(seen.body).toMatchObject({
+      slug: "spadzze", riot_id: "Spadzze#euw", platform: "euw1",
+    });
+    expect(await response.json())
+      .toMatchObject({ slug: "spadzze", status_url: "/api/register/spadzze/status" });
+  });
+
+  it("annonce la fenêtre au client plutôt que de la lui faire recopier", async () => {
+    const { env } = envWithQueue(curated());
+    const body = await (await apiRefresh(env, "spadzze")).json() as { cooldown?: number };
+    expect(body.cooldown).toBe(REFRESH_COOLDOWN_MS / 1000);
+  });
+
+  it("refuse une deuxième collecte dans la fenêtre, sans toucher à la file", async () => {
+    const { env, seen } = envWithQueue(curated({ last_ingest_ts: new Date().toISOString() }));
+    const response = await apiRefresh(env, "spadzze");
+    expect(response.status).toBe(429);
+    expect(seen.body).toBeUndefined();
+    const body = await response.json() as { retry_after?: number };
+    expect(body.retry_after).toBeGreaterThan(0);
+    expect(body.retry_after).toBeLessThanOrEqual(REFRESH_COOLDOWN_MS / 1000);
+    expect(response.headers.get("retry-after")).toBe(String(body.retry_after));
+  });
+
+  it("rouvre la collecte une fois la fenêtre passée", async () => {
+    const past = new Date(Date.now() - REFRESH_COOLDOWN_MS - 1000).toISOString();
+    const { env, seen } = envWithQueue(curated({ last_ingest_ts: past }));
+    expect((await apiRefresh(env, "spadzze")).status).toBe(202);
+    expect(seen.body).toBeDefined();
+  });
+
+  it("traduit en 429 le refus de la file, dont l'horloge tranche en dernier", async () => {
+    // KV est à cohérence finale : `last_ingest_ts` peut encore être vide alors
+    // que le job vient de réussir. Le Durable Object, lui, ne se trompe pas.
+    const { env } = envWithQueue(curated(), {
+      state: "done", n_games: 20, updated_at: Date.now(), retry_after: 640,
+    });
+    const response = await apiRefresh(env, "spadzze");
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ retry_after: 640 });
+  });
+
+  it("rend 404 sur un slug inconnu sans rien mettre en file", async () => {
+    const { env, seen } = envWithQueue();
+    expect((await apiRefresh(env, "jamais")).status).toBe(404);
+    expect(seen.body).toBeUndefined();
   });
 });

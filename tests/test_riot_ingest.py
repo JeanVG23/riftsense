@@ -240,3 +240,60 @@ def test_scopes_for_suit_le_role_dominant():
     assert riot_ingest.scopes_for([{"role": "JUNGLE"}]) == ["all", "jungle"]
     assert riot_ingest.scopes_for([]) == ["all"]
     assert riot_ingest.scopes_for([{"role": "?"}]) == ["all"]
+
+
+def _participant(match_id: str, puuid: str) -> dict:
+    match = rl._read_raw_at(FIXTURE_RAW / f"{match_id}_match.json.zst")
+    return next(p for p in match["info"]["participants"] if p["puuid"] == puuid)
+
+
+def test_publie_l_icone_et_le_niveau_du_joueur(tmp_path, demo_data, demo_puuid):
+    """Sans ces deux champs, le site les invente par hachage du slug.
+
+    Ils sont lus dans Match-V5, déjà téléchargé : la collecte ne coûte pas un
+    appel Riot de plus qu'avant.
+    """
+    kv = FakeKV()
+    match_ids = _demo_match_ids()
+    _run(tmp_path, FakeRiotClient(match_ids, puuid=demo_puuid), kv, FakeR2())
+
+    attendu = _participant(match_ids[0], demo_puuid)
+    account = json.loads(kv.store["account:demo-euw"])
+    assert account["icon"] == attendu["profileIcon"]
+    assert account["level"] == attendu["summonerLevel"]
+
+
+def test_une_nouvelle_collecte_rafraichit_l_icone_et_le_niveau(tmp_path, demo_data,
+                                                               demo_puuid):
+    """Un joueur change d'icône et monte de niveau : la valeur amorcée à la main
+    dans config/accounts.json ne doit pas survivre à une vraie collecte."""
+    match_ids = _demo_match_ids()
+    kv = FakeKV()
+    kv.store["account:demo-euw"] = json.dumps({
+        "slug": "demo-euw", "riot_id": "Demo#euw", "region": "euw1",
+        "source": "curated", "icon": 1, "level": 2,
+    })
+    _run(tmp_path, FakeRiotClient(match_ids, puuid=demo_puuid), kv, FakeR2())
+
+    account = json.loads(kv.store["account:demo-euw"])
+    assert account["icon"] == _participant(match_ids[0], demo_puuid)["profileIcon"]
+    assert account["level"] == _participant(match_ids[0], demo_puuid)["summonerLevel"]
+    # Le reste de l'enregistrement curé n'est pas emporté au passage.
+    assert account["source"] == "curated"
+
+
+def test_summoner_profile_ignore_un_puuid_absent_ou_un_champ_non_entier():
+    """Rien plutôt qu'une valeur douteuse : un dict vide laisse survivre la
+    dernière valeur connue au lieu de l'écraser.
+
+    Le lecteur vit dans `riotlib` et pas ici : le script de rattrapage
+    (`backfill_summoner_profiles.py`) lit les mêmes champs dans les mêmes
+    documents, et deux copies finiraient par diverger."""
+    match = {"info": {"participants": [
+        {"puuid": "A", "profileIcon": 42, "summonerLevel": 7},
+        {"puuid": "B", "profileIcon": None, "summonerLevel": "12"},
+    ]}}
+    assert rl.summoner_profile(match, "A") == {"icon": 42, "level": 7}
+    assert rl.summoner_profile(match, "B") == {}
+    assert rl.summoner_profile(match, "INCONNU") == {}
+    assert rl.summoner_profile({}, "A") == {}

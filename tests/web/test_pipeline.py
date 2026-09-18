@@ -62,6 +62,25 @@ def test_fetch_games_progress_and_writes_silver_gold(tmp_path):
     assert wg.called
 
 
+def test_fetch_games_uses_configured_slug_for_riot_id_with_spaces(tmp_path):
+    account = {"slug": "bobby-lupo", "riot_id": "Bobby Lupo#667", "region": "euw1"}
+    written: list[tuple] = []
+
+    with patch("riotlib.RiotClient.puuid_from_riot_id", lambda self, g, t: "p1"), \
+         patch("riotlib.RiotClient.match_ids", lambda self, puuid, count, queue: ["m1"]), \
+         patch("riotlib.RiotClient.entries_by_puuid", lambda self, puuid: []), \
+         patch("riotlib.get_match_timeline", lambda client, mid: ({}, {})), \
+         patch("riotlib.extract_game", lambda m, t, p: {"match_id": "m1"}), \
+         patch("riotlib.merge_jsonl", lambda path, new: written.append((path, new)) or new), \
+         patch("riotlib.write_gold"), \
+         patch("pipeline.rl.SILVER_DIR", tmp_path), \
+         patch("pipeline.settings.riot_api_key", lambda: "k"):
+        result = pipeline.fetch_games(account, n=1)
+
+    assert result["player"] == "bobby-lupo"
+    assert written[0][0] == tmp_path / "personal" / "bobby-lupo" / "games.jsonl"
+
+
 def test_fetch_games_caches_current_rank(tmp_path):
     account = {"slug": "spadzze", "riot_id": "Spadzze#euw", "region": "euw1"}
     fake_match = {"info": {"participants": [{"puuid": "p1", "championName": "Zeri"}]}}

@@ -152,6 +152,8 @@ navigateur -> POST /api/coach/game -> payload KV -> Ollama Cloud -> review versi
 
 - `GET /api/health` — état du Worker ;
 - `GET /api/accounts` — comptes préconfigurés et indicateurs ;
+- `GET /api/c/{slug}/account` — identité minimale d'un compte connu, utilisée pour
+  valider et mémoriser localement les comptes récents du navigateur ;
 - `GET /api/c/{slug}/games` — historique paginé ;
 - `GET /api/c/{slug}/rank` — rang Riot mis en cache ;
 - `GET /api/c/{slug}/predicted-rank` — estimation ML per-player, disponible à partir de

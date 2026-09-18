@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { IngestQueue, JOB_TTL_MS, RETRY_AFTER_ERROR_MS } from "../src/ingest_queue";
+import { IngestQueue, JOB_TTL_MS, REFRESH_COOLDOWN_MS, RETRY_AFTER_ERROR_MS }
+  from "../src/ingest_queue";
 
 function fakeState() {
   const storage = new Map<string, unknown>();
@@ -180,5 +181,55 @@ describe("IngestQueue", () => {
     expect((await status(queue, "ancien")).status).toBe(404);
     // Le job frais, lui, survit : la purge est fondée sur l'âge, pas sur l'état.
     expect(await (await status(queue, "recent")).json()).toMatchObject({ state: "done" });
+  });
+});
+
+describe("fenêtre de rafraîchissement", () => {
+  const ok = () => vi.stubGlobal("fetch", async () =>
+    new Response(JSON.stringify({ status: "ok", n_games: 20 }), { status: 200 }));
+
+  it("refuse de recollecter un slug dont la collecte vient de réussir", async () => {
+    // Le plafond du bouton « Actualiser ». Il vit ici et pas seulement dans
+    // `register.ts` parce que ce stockage est fortement cohérent, alors que le
+    // `last_ingest_ts` lu en amont dans KV peut encore dater d'avant la collecte.
+    ok();
+    const state = fakeState();
+    const queue = new IngestQueue(state, ENV);
+    await enqueue(queue, "a");
+    await queue.alarm();
+    const alarmsAfterFirst = state.alarms.length;
+
+    const refused = await (await enqueue(queue, "a")).json() as
+      { state: string; retry_after?: number };
+    expect(refused.state).toBe("done");
+    expect(refused.retry_after).toBeGreaterThan(0);
+    expect(refused.retry_after).toBeLessThanOrEqual(REFRESH_COOLDOWN_MS / 1000);
+    // Ni remise en file, ni nouvelle alarme : aucun appel Riot n'est déclenché.
+    expect(state.alarms.length).toBe(alarmsAfterFirst);
+  });
+
+  it("ne stocke pas `retry_after`, qui ne décrit que l'instant du refus", async () => {
+    ok();
+    const state = fakeState();
+    const queue = new IngestQueue(state, ENV);
+    await enqueue(queue, "a");
+    await queue.alarm();
+    await enqueue(queue, "a");
+    expect(await state.storage.get("job:a")).not.toHaveProperty("retry_after");
+    expect(await (await status(queue, "a")).json()).not.toHaveProperty("retry_after");
+  });
+
+  it("ré-empile une fois la fenêtre passée", async () => {
+    ok();
+    const state = fakeState();
+    const queue = new IngestQueue(state, ENV);
+    await enqueue(queue, "a");
+    await queue.alarm();
+
+    const done = await state.storage.get<{ updated_at: number }>("job:a");
+    await state.storage.put("job:a",
+      { ...done, updated_at: Date.now() - REFRESH_COOLDOWN_MS - 1 });
+
+    expect(await (await enqueue(queue, "a")).json()).toMatchObject({ state: "queued" });
   });
 });

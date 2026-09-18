@@ -1,7 +1,14 @@
 [
   {
+    "slug": "spadzze",
+    "riot_id": "Spadzze#euw",
+    "region": "euw1",
+    "group": "owner"
+  },
+  {
     "slug": "demo",
     "riot_id": "Faker#KR1",
-    "region": "kr"
+    "region": "kr",
+    "group": "permanent"
   }
 ]

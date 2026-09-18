@@ -1,29 +1,16 @@
 #!/usr/bin/env python3
-"""
-01_data_engineering — raw/silver -> dataset ML consolidé (1 ligne = 1 ADC d'une game).
+"""01_data_engineering — raw/silver -> dataset ML per-game par rôle.
 
-Référentiel : on extrait LES DEUX ADC (botlane des deux équipes) de chaque game
-DEPUIS LE RAW (0 appel API), pas seulement la perspective collectée. Le silver ne
-stocke qu'un joueur ciblé par game (cf. extract_game(puuid) unique) ; s'y limiter
-jetait ~9/10 des perspectives et ne récupérait l'ADC que des games où le joueur
-ciblé ÉTAIT ADC. En relisant le raw (qui contient les 10 joueurs), on densifie le
-dataset ADC d'environ ×8.7 (≈ games × 2).
+Pour chaque game du référentiel, les deux joueurs du rôle demandé sont ré-extraits
+depuis le raw, sans appel API. Le rang approximatif du dossier silver n'est plus
+transféré à ces lignes : le label officiel sera joint au niveau joueur à partir
+d'un snapshot daté du ladder par ``build_role_player_dataset.py``.
 
-⚠️ FLAW ASSUMÉ — transfert de rang : le rang d'une game = le rang de collecte du
-joueur ciblé (dossier silver). On le transfère AUX DEUX ADC en supposant un MMR
-égal dans le lobby (vrai en solo queue high-elo, matchmaking serré). L'ADC ennemi
-n'a donc pas son rang réel mesuré mais celui, approché, de la game. Acceptable pour
-un classif high/low ; à revoir si on descend en elo où l'écart de MMR intra-lobby
-s'élargit. Games collectées sous plusieurs rangs (lobbies master∩GM) : rang résolu
-au mode, tie-break sur le rang le plus bas (ne pas gonfler high_elo aux frontières).
+Les valeurs manquantes restent en NaN pour être traitées par les modèles. Sans
+``--role``, le comportement ADC historique reste inchangé pour le graphe Make.
+Avec ``--role``, la sortie est ``data/04_dataset/{role}_dataset.parquet``.
 
-Perso (Spadzze) : on garde SA perspective ADC (inférence), pas l'ADC ennemi.
-
-Les trous (gd20/csd14 None sur games courtes) sont LAISSÉS en NaN : XGBoost gère les
-valeurs manquantes nativement (pas d'imputation arbitraire).
-
-Sortie : data/04_dataset/adc_dataset.parquet (+ .csv pour inspection).
-Usage : poetry run python3 src/01_data_engineering/build_dataset.py
+Usage : poetry run python3 src/01_data_engineering/build_dataset.py --role JUNGLE
 """
 from __future__ import annotations
 
@@ -34,8 +21,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))  # accès à riotlib
 import numpy as np
 import pandas as pd
+import cli
 import riotlib as rl
-from ranks import RANKS, RANK_ORD, HIGH_ELO  # cible binaire + tie-break
+import role_features as rf
+from ranks import HIGH_ELO, RANKS, RANK_ORD  # réexports du pipeline ADC historique
 
 DATASET_DIR = rl.DATA / "04_dataset"
 
@@ -45,6 +34,7 @@ def game_to_row(g: dict, rank: str | None, source: str) -> dict:
     deaths = g.get("deaths", [])
     kills = g.get("kills", [])
     assists = g.get("assists", [])
+    jungle = g.get("jungle") or {}
     n = len(deaths)
     ph = collections.Counter(d["phase"] for d in deaths)
     gs = collections.Counter(d.get("gold_state") for d in deaths if d.get("gold_state"))
@@ -81,16 +71,30 @@ def game_to_row(g: dict, rank: str | None, source: str) -> dict:
         "support_deaths_early": g.get("support_deaths_early", 0),
         "plates_diff_early": g.get("plates_diff_early", 0),
         "frames_in_base_early": g.get("frames_in_base_early", 0),
+        # Features propres au jungler. Elles restent manquantes pour les autres
+        # roles et ne figurent que dans le manifeste JUNGLE.
+        **{feature: jungle.get(feature, np.nan)
+           for feature in rf.JUNGLE_DESCRIPTIVE},
         **{f"pos_{k}": v for k, v in (g.get("position") or {}).items()},
     }
 
 
-def adc_puuids(match: dict) -> list[str]:
-    """puuids des ADC (teamPosition BOTTOM) d'une game — un par équipe, donc ~2."""
+def role_puuids(match: dict, role: str) -> list[str]:
+    """Puuids des joueurs occupant ``role`` — un par équipe, donc environ 2."""
+    riot_role = rf.riot_role(role)
     puuids = match["metadata"]["participants"]
     parts = match["info"]["participants"]
     return [puuids[i] for i, p in enumerate(parts)
-            if (p.get("teamPosition") or "") == "BOTTOM"]
+            if (p.get("teamPosition") or "") == riot_role]
+
+
+def adc_puuids(match: dict) -> list[str]:
+    """Compatibilité du pipeline ADC historique."""
+    return role_puuids(match, "BOTTOM")
+
+
+def dataset_path(role: str) -> Path:
+    return DATASET_DIR / f"{rf.normalize_role(role).lower()}_dataset.parquet"
 
 
 def build_rank_map() -> tuple[dict[str, str], int]:
@@ -119,11 +123,12 @@ def _load_raw(match_id: str):
     return (match, timeline) if match and timeline else None
 
 
-def main() -> int:
+def _legacy_adc_main() -> int:
+    """Reconstruit les artefacts ADC historiques attendus par ``make dataset``."""
     rows = []
-    # référentiel : LES DEUX ADC de chaque game, ré-extraits depuis le raw (0 API).
     rank_of, multi = build_rank_map()
-    print(f"  {len(rank_of)} games référentiel distinctes ({multi} multi-rang -> mode)")
+    print(f"  {len(rank_of)} games référentiel distinctes "
+          f"({multi} multi-rang -> mode)")
     per_rank, raw_miss = collections.Counter(), 0
     for mid, rank in rank_of.items():
         raw = _load_raw(mid)
@@ -133,7 +138,7 @@ def main() -> int:
         match, timeline = raw
         for puuid in adc_puuids(match):
             rec = rl.extract_game(match, timeline, puuid, rank=rank)
-            if rec and rec.get("role") == "BOTTOM":  # extract_game filtre déjà non-SR
+            if rec and rec.get("role") == "BOTTOM":
                 rows.append(game_to_row(rec, rank, rl.KIND_REF))
                 per_rank[rank] += 1
     for rank in RANKS:
@@ -141,33 +146,77 @@ def main() -> int:
     if raw_miss:
         print(f"  ⚠ {raw_miss} games sans raw lisible -> ignorées")
 
-    # perso (non labellisé : pour inférence ultérieure) — perspective de Spadzze, pas
-    # l'ADC ennemi. Reste basé sur le silver collecté.
     perso_root = rl.SILVER_DIR / rl.KIND_PERSONAL
     if perso_root.exists():
-        for d in sorted(perso_root.iterdir()):
-            games = rl.read_jsonl(d / "games.jsonl")
-            adc = [g for g in games if g.get("role") == "BOTTOM"]
-            rows += [game_to_row(g, None, f"personal:{d.name}") for g in adc]
-            print(f"  personal/{d.name:<14}: {len(adc)} games ADC")
+        for directory in sorted(perso_root.iterdir()):
+            games = rl.read_jsonl(directory / "games.jsonl")
+            adc = [game for game in games if game.get("role") == "BOTTOM"]
+            rows += [game_to_row(game, None, f"personal:{directory.name}")
+                     for game in adc]
+            print(f"  personal/{directory.name:<14}: {len(adc)} games ADC")
 
-    df = pd.DataFrame(rows)
-    # dédup par (match_id, puuid) : garde les perspectives distinctes d'une même game
-    df = df.drop_duplicates(subset=["match_id", "puuid"]).reset_index(drop=True)
+    df = pd.DataFrame(rows).drop_duplicates(
+        subset=["match_id", "puuid"]).reset_index(drop=True)
     df["rank_ord"] = df["rank"].map(RANK_ORD)
     df["high_elo"] = df["rank"].isin(HIGH_ELO).astype("Int64")
-    df.loc[df["rank"].isna(), "high_elo"] = pd.NA  # perso : label inconnu
+    df.loc[df["rank"].isna(), "high_elo"] = pd.NA
 
     DATASET_DIR.mkdir(parents=True, exist_ok=True)
     df.to_parquet(DATASET_DIR / "adc_dataset.parquet", index=False)
     df.to_csv(DATASET_DIR / "adc_dataset.csv", index=False)
-
     ref = df[df["source"] == "referentiel"]
     print(f"\n✓ Dataset : {len(df)} games ({len(ref)} référentiel labellisés)")
     print(f"  Répartition rangs : {dict(ref['rank'].value_counts())}")
     print(f"  high_elo (GM+Chall=1) : {dict(ref['high_elo'].value_counts())}")
     print(f"  Écrit dans {DATASET_DIR}/adc_dataset.parquet")
     return 0
+
+
+def _role_dataset_main(role: str) -> int:
+    """Construit le dataset per-game non labellisé du rôle demandé."""
+    role = rf.normalize_role(role)
+    if role not in rf.ROLES:
+        print(f"rôle inconnu : {role} (attendus : {', '.join(rf.ROLES)})",
+              file=sys.stderr)
+        return 2
+
+    rows = []
+    # Le rang du dossier silver ne labellise plus chaque game. Le snapshot du
+    # ladder sera joint après agrégation, dans build_role_player_dataset.py.
+    match_ids = {g["match_id"] for rank in RANKS
+                 for g in rl.read_jsonl(rl.silver_games(rl.KIND_REF, rank))}
+    print(f"  {len(match_ids)} games référentiel distinctes")
+    raw_miss = 0
+    for mid in sorted(match_ids):
+        raw = _load_raw(mid)
+        if not raw:
+            raw_miss += 1
+            continue
+        match, timeline = raw
+        for puuid in role_puuids(match, role):
+            rec = rl.extract_game(match, timeline, puuid, rank=None)
+            if rec and rec.get("role") == rf.riot_role(role):
+                row = game_to_row(rec, None, rl.KIND_REF)
+                row.pop("rank", None)
+                row["role"] = role
+                rows.append(row)
+    if raw_miss:
+        print(f"  ⚠ {raw_miss} games sans raw lisible -> ignorées")
+
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df = df.drop_duplicates(subset=["match_id", "puuid"]).reset_index(drop=True)
+
+    DATASET_DIR.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(dataset_path(role), index=False)
+    print(f"\n✓ {len(df)} lignes {role} écrites dans {dataset_path(role)}")
+    return 0
+
+
+def main() -> int:
+    if not cli.flag("--role"):
+        return _legacy_adc_main()
+    return _role_dataset_main(rf.normalize_role(cli.arg("--role", "")))
 
 
 if __name__ == "__main__":

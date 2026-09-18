@@ -11,6 +11,8 @@ import {
   enemyTeam,
   fallbackChampionIcon,
   formatDiff,
+  formatFullDate,
+  formatGameDate,
   formatGold,
   formatKda,
   formatNumber,
@@ -167,21 +169,9 @@ onMounted(loadGames);
 
 <template>
   <div>
-    <div v-if="predictedRank?.predicted_rank" class="ml-callout" :class="rankGlow(predictedRank.predicted_rank)">
-      <img v-if="rankEmblem(predictedRank.predicted_rank)" class="ml-callout-emblem" :src="rankEmblem(predictedRank.predicted_rank)" alt="" loading="lazy">
-      <div>
-        <strong>Estimation du modèle : {{ titleCase(predictedRank.predicted_rank) }}</strong>
-        <p>
-          {{ predictedRank.n_games_used }} dernières parties ADC ·
-          <template v-if="predictedRank.predicted_lp != null"> environ {{ predictedRank.predicted_lp }} LP ·</template>
-          confiance {{ Math.round((predictedRank.proba || 0) * 100) }}%
-        </p>
-      </div>
-    </div>
     <div class="section-heading">
       <div>
         <h2>Parties récentes</h2>
-        <p>Les {{ games.length }} dernières parties affichées sur {{ total }}.</p>
       </div>
     </div>
 
@@ -229,9 +219,16 @@ onMounted(loadGames);
             </div>
             <div class="gr-sub-row faint">
               <span class="gr-queue-badge">{{ queueLabel(game.queue) }}</span>
-              <span v-if="game.lane?.gd14 != null" class="gr-diff" :class="game.lane.gd14 >= 0 ? 'diff-pos' : 'diff-neg'">
-                {{ game.lane.gd14 >= 0 ? "+" : "" }}{{ game.lane.gd14 }}g à 14m
-              </span>
+              <template v-if="game.game_ts">
+                <span class="gr-sub-sep" aria-hidden="true">·</span>
+                <span class="gr-date" :title="formatFullDate(game.game_ts)">{{ formatGameDate(game.game_ts) }}</span>
+              </template>
+              <template v-if="game.lane?.gd14 != null">
+                <span class="gr-sub-sep" aria-hidden="true">·</span>
+                <span class="gr-diff" :class="game.lane.gd14 >= 0 ? 'diff-pos' : 'diff-neg'">
+                  {{ game.lane.gd14 >= 0 ? "+" : "" }}{{ game.lane.gd14 }}g à 14m
+                </span>
+              </template>
               <span v-if="hasReview(game.match_id)" class="gr-badge-coach">
                 {{ matchCoachInfo(game.match_id)?.review_status === "stale" ? "✦ Coaching LLM à régénérer" : "✦ Coaching LLM prêt" }}
               </span>
@@ -256,6 +253,7 @@ onMounted(loadGames);
             <div class="gd-meta-info">
               <span class="gd-meta-tag mono">{{ game.match_id }}</span>
               <span class="gd-meta-tag">{{ queueLabel(game.queue) }}</span>
+              <span v-if="game.game_ts" class="gd-meta-tag gd-meta-date" :title="formatFullDate(game.game_ts)">📅 {{ formatGameDate(game.game_ts) }}</span>
               <span v-if="hasReview(game.match_id)" class="gd-coach-status ready">
                 <span class="pulse-dot"></span>
                 <span>{{ matchCoachInfo(game.match_id)?.review_status === "stale" ? "Analyse LLM existante (ancienne version)" : "Analyse LLM disponible pour ce match" }}</span>

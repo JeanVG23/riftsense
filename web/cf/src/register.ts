@@ -6,6 +6,7 @@
  */
 import { readAccount, type Account } from "./accounts";
 import { jsonError, notFound, unprocessable } from "./http";
+import { REFRESH_COOLDOWN_MS, retryAfter, type JobStatus } from "./ingest_queue";
 import type { Env } from "./index";
 
 /** Miroir des clés de `PLATFORM_TO_REGIONAL` (src/core/riotlib.py).
@@ -126,6 +127,64 @@ export async function apiRegister(request: Request, env: Env): Promise<Response>
   const status = await queued.json();
   return Response.json({ slug, status_url: `/api/register/${slug}/status`, ...status as object },
                        { status: 202 });
+}
+
+/** Réponse commune aux deux refus de cadence : le client n'a rien d'autre à
+ * lire que le nombre de secondes, et `Retry-After` dit la même chose aux
+ * intermédiaires HTTP. */
+function tooEarly(seconds: number): Response {
+  const minutes = Math.ceil(seconds / 60);
+  return new Response(JSON.stringify({
+    detail: `Données déjà à jour : nouvelle collecte possible dans ${minutes} min`,
+    retry_after: seconds,
+  }), {
+    status: 429,
+    headers: { "content-type": "application/json", "retry-after": String(seconds) },
+  });
+}
+
+/** Secondes restantes de la fenêtre de rafraîchissement, 0 si elle est passée. */
+function cooldownLeft(lastIngestTs?: string): number {
+  const last = lastIngestTs ? Date.parse(lastIngestTs) : NaN;
+  if (!Number.isFinite(last)) return 0;
+  return Date.now() - last < REFRESH_COOLDOWN_MS
+    ? retryAfter(last, REFRESH_COOLDOWN_MS) : 0;
+}
+
+/** Recollecte un compte DÉJÀ enregistré, désigné par son slug.
+ *
+ * Distinct de `apiRegister`, et pas seulement par commodité : une inscription
+ * calcule le slug depuis le Riot ID saisi, alors que les comptes curés portent
+ * un slug écrit à la main dans `config/accounts.json` que `slugFor` ne
+ * reproduira jamais (`Spadzze#euw` -> `spadzze-euw`, pas `spadzze`). Faire
+ * passer le bouton « Actualiser » par l'inscription revenait donc à collecter un
+ * compte fantôme à côté du vrai, aux frais de la clé Riot. Ici le slug de l'URL
+ * EST la clé du compte : rien n'est deviné, et le Riot ID envoyé au service est
+ * celui qui est stocké, pas celui que le navigateur a reconstitué. */
+export async function apiRefresh(env: Env, slug: string): Promise<Response> {
+  if (!env.INGEST_QUEUE) return jsonError(503, "collecte indisponible");
+  const account = await readAccount(env.DATA, slug);
+  if (!account) return notFound("compte introuvable");
+
+  const left = cooldownLeft(account.last_ingest_ts);
+  if (left) return tooEarly(left);
+
+  const queued = await queueStub(env).fetch(new Request("http://do/enqueue", {
+    method: "POST",
+    body: JSON.stringify({
+      slug: account.slug, riot_id: account.riot_id, platform: account.region,
+    }),
+  }));
+  const status = await queued.json() as JobStatus;
+  // La file tranche en dernier : son horloge est fortement cohérente, celle de
+  // `last_ingest_ts` ne l'est pas.
+  if (status.retry_after) return tooEarly(status.retry_after);
+  return Response.json({
+    slug: account.slug,
+    status_url: `/api/register/${account.slug}/status`,
+    cooldown: Math.round(REFRESH_COOLDOWN_MS / 1000),
+    ...status,
+  }, { status: 202 });
 }
 
 export async function apiRegisterStatus(env: Env, slug: string): Promise<Response> {

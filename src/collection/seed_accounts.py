@@ -24,17 +24,37 @@ sys.path.insert(0, str(ROOT / "src" / "core"))
 from cli import flag  # noqa: E402
 from kv_client import KV, DryKV  # noqa: E402
 from kv_keys import key as kv_key  # noqa: E402
+from riotlib import load_env  # noqa: E402
 
 ACCOUNTS_FILE = ROOT / "config" / "accounts.json"
 CONFIG_FIELDS = ("slug", "riot_id", "region")
+# Icône et niveau : valeurs d'AMORÇAGE seulement. Le service d'ingestion les lit
+# dans Match-V5 à chaque collecte ; les réappliquer depuis le fichier de
+# configuration reposerait une valeur figée par-dessus la vraie.
+SEED_ONLY_FIELDS = ("icon", "level")
+
+
+def _account_group(account: dict) -> str:
+    if "group" in account and account["group"]:
+        return str(account["group"])
+    return "owner" if account.get("slug") in ("spadzze", "aceofspadzze") else "permanent"
 
 
 def build_records(accounts: list[dict]) -> list[dict]:
     """Comptes de configuration -> enregistrements de registre."""
-    return [
-        {**{field: account[field] for field in CONFIG_FIELDS}, "source": "curated"}
-        for account in accounts
-    ]
+    records = []
+    for account in accounts:
+        rec = {
+            **{field: account[field] for field in CONFIG_FIELDS},
+            "group": _account_group(account),
+            "source": "curated",
+        }
+        for opt in SEED_ONLY_FIELDS:
+            if opt in account and account[opt] is not None:
+                rec[opt] = account[opt]
+        records.append(rec)
+    return records
+
 
 
 def seed(kv, records: list[dict]) -> list[str]:
@@ -45,6 +65,9 @@ def seed(kv, records: list[dict]) -> list[str]:
         existing_raw = kv.get(kv_key("account", slug=record["slug"]))
         existing = json.loads(existing_raw) if existing_raw else {}
         merged = {**existing, **record}
+        for field in SEED_ONLY_FIELDS:
+            if existing.get(field) is not None:
+                merged[field] = existing[field]
         kv.put(kv_key("account", slug=record["slug"]),
                json.dumps(merged, ensure_ascii=False))
         if record["slug"] not in slugs:
@@ -59,11 +82,18 @@ def main(argv: list[str] | None = None) -> int:
     if flag("--dry-run"):
         kv = DryKV()
     else:
-        kv = KV(
-            os.environ["CF_ACCOUNT_ID"],
-            os.environ["CF_KV_NAMESPACE_ID"],
-            os.environ["CF_API_TOKEN"],
-        )
+        env = load_env()
+        account = os.environ.get("CF_ACCOUNT_ID") or env.get("CF_ACCOUNT_ID")
+        namespace = (os.environ.get("CF_NAMESPACE_ID")
+                     or os.environ.get("CF_KV_NAMESPACE_ID")
+                     or env.get("CF_NAMESPACE_ID")
+                     or env.get("CF_KV_NAMESPACE_ID"))
+        token = os.environ.get("CF_API_TOKEN") or env.get("CF_API_TOKEN")
+        if not account or not namespace or not token:
+            raise SystemExit(
+                "CF_API_TOKEN / CF_ACCOUNT_ID / CF_NAMESPACE_ID manquants dans .env"
+            )
+        kv = KV(account, namespace, token)
     slugs = seed(kv, records)
     print(f"registre amorce : {len(records)} compte(s), index = {slugs}")
     return 0

@@ -46,9 +46,24 @@ GAMES   ?= 5
 ROUNDS  ?= 5
 PAUSE   ?= 10
 
+# Chaîne par rôle. Le label de rang ne vient plus du dossier silver mais d'un
+# snapshot DATÉ du ladder : make doit donc dépendre d'un fichier précis, pas d'un
+# « dernier en date » implicite. On lit le jour le plus récent MARQUÉ COMPLET dans
+# le manifeste (un blob à demi écrit existe sur disque sans être lisible), et une
+# nouvelle capture périme mécaniquement les cinq datasets, ce qui est le but.
+ROLES_LC ?= top jungle middle bottom support
+PLATFORM ?= $(REGION)
+LADDER_DIR := $(RAW_DIR)/rank_snapshots/$(PLATFORM)
+SNAPSHOT_DAY ?= $(shell python3 -c "import json,pathlib; p=pathlib.Path('$(LADDER_DIR)/manifest.json'); m=json.loads(p.read_text()) if p.exists() else {}; print(max((d for d, v in m.items() if v.get('complete')), default=''))" 2>/dev/null)
+LADDER := $(LADDER_DIR)/$(SNAPSHOT_DAY).jsonl.zst
+
+ROLE_GAMES   := $(foreach role,$(ROLES_LC),$(DATASET)/$(role)_dataset.parquet)
+ROLE_WINDOWS := $(foreach role,$(ROLES_LC),$(DATASET)/$(role)_player_dataset.parquet)
+ROLE_METRICS := $(foreach role,$(ROLES_LC),$(MODEL)/$(role)_player_metrics.json)
+
 .PHONY: help demo demo-clean test lint fixtures generate-shared \
         pipeline plan silver gold dataset split models analyse report \
-        collect lp-label sync sync-push graph force
+        roles collect lp-label ladder sync sync-push graph force
 
 help:
 	@echo "Démo (0 réseau, 0 clé)"
@@ -56,13 +71,15 @@ help:
 	@echo ""
 	@echo "Pipeline de production (data/ local)"
 	@echo "  make plan      ce qui est périmé et serait relancé (ne lance rien)"
-	@echo "  make pipeline  silver -> gold -> datasets -> split -> modèles -> analyse"
+	@echo "  make pipeline  silver -> gold -> datasets -> split -> modèles -> analyse -> rôles"
 	@echo "  make silver | gold | dataset | split | models | analyse | report"
+	@echo "  make roles     datasets + modèles par rôle -> table d'ouverture"
 	@echo "  make graph     le graphe de dépendances"
 	@echo ""
 	@echo "Étapes réseau (jamais déclenchées automatiquement)"
 	@echo "  make collect   collecte Riot (RANKS/PLAYERS/GAMES/ROUNDS/REGION)"
 	@echo "  make lp-label  LP courant des tiers apex (label de la régression)"
+	@echo "  make ladder    snapshot daté du ladder (label de rang par rôle)"
 	@echo "  make sync      publication Cloudflare KV en dry-run"
 	@echo "  make sync-push publication réelle"
 	@echo ""
@@ -97,7 +114,7 @@ demo-clean:
 
 # ------------------------------------------------------------- pipeline --------
 
-pipeline: models gold analyse
+pipeline: models gold analyse roles
 	@echo "\n✓ Pipeline à jour."
 
 # `make -n` sur le graphe réel : la seule façon honnête de répondre à « qu'est-ce
@@ -207,8 +224,52 @@ $(SHAP)/game/dia_chall/ebm_shape_functions.json: $(MODEL)/metrics_dia_chall.json
 
 analyse: $(SHAP)/player/high_elo/ebm_shape_functions.json $(SHAP)/game/dia_chall/ebm_shape_functions.json
 
+# ------------------------------------------------------------- par rôle -------
+#
+# Même graphe que la chaîne ADC, mais cinq fois, et avec une différence de fond :
+# le label n'est plus le rang du dossier silver (rang de COLLECTE, transféré à
+# tout le lobby), c'est le snapshot daté du ladder. D'où la dépendance à
+# `$(LADDER)`, qui vient du réseau et n'est donc jamais produite par le graphe.
+#
+# Règles à motif STATIQUES : le motif ne s'applique qu'aux cibles listées, si bien
+# que `adc_dataset.parquet` et `player_metrics.json`, qui matcheraient tous les
+# deux, gardent leurs règles explicites.
+
+# Un snapshot manquant doit nommer la commande à lancer. Sans cette règle, make
+# répond « No rule to make target », ce qui n'apprend rien à qui découvre la chaîne.
+$(LADDER):
+	@echo "✗ $@ absent : aucun snapshot complet du ladder. Lance 'make ladder' (API Riot)." >&2
+	@exit 1
+
+$(ROLE_GAMES): $(DATASET)/%_dataset.parquet: $(STAMPS)/silver \
+               src/01_data_engineering/build_dataset.py $(CORE)
+	$(PY) src/01_data_engineering/build_dataset.py --role $*
+
+$(ROLE_WINDOWS): $(DATASET)/%_player_dataset.parquet: $(DATASET)/%_dataset.parquet \
+                 $(LADDER) src/01_data_engineering/build_role_player_dataset.py $(CORE)
+	$(PY) src/01_data_engineering/build_role_player_dataset.py --role $* --platform $(PLATFORM) --snapshot-day $(SNAPSHOT_DAY)
+
+$(ROLE_METRICS): $(MODEL)/%_player_metrics.json: $(DATASET)/%_player_dataset.parquet \
+                 $(DATASET)/%_dataset.parquet src/02_data_science/train_role_ensemble.py \
+                 $(CORE)
+	$(PY) src/02_data_science/train_role_ensemble.py --role $*
+
+# La table d'ouverture relit les cinq métriques : elle dépend des cinq, sinon
+# elle publierait une marge calculée sur un modèle et une autre sur un modèle
+# d'avant-hier, sans que rien ne les distingue.
+$(MODEL)/role_readiness.json: $(ROLE_METRICS) src/pipeline_ops/role_readiness.py $(CORE)
+	$(PY) src/pipeline_ops/role_readiness.py
+
+roles: $(MODEL)/role_readiness.json
+
 report:
 	@$(PY) src/pipeline_ops/dataset_report.py
+
+# Lit une variable du graphe sans la recopier ailleurs : `make print-LADDER`.
+# Les tests s'en servent pour verrouiller ce qu'une expansion vide rendrait
+# invisible (une plateforme absente fabrique un chemin plausible et faux).
+print-%:
+	@echo '$($*)'
 
 graph:
 	@echo "  01_raw (collecte Riot, hors make)"
@@ -226,6 +287,13 @@ graph:
 	@echo "                             │    └─ shap_analysis --level player ──> 06_shap/player/high_elo/"
 	@echo "                             └─ train_player_lp ──> *_player_lp.pkl"
 	@echo "                                  └─ sync_cloudflare ──> KV (manuel)"
+	@echo ""
+	@echo "  chaîne par rôle (label = snapshot daté du ladder, 'make ladder')"
+	@echo "    02_silver ──> build_dataset --role X ──> <x>_dataset.parquet"
+	@echo "         └─ build_role_player_dataset --role X (+ snapshot ladder)"
+	@echo "              ──> <x>_player_dataset.parquet (+ .meta.json de provenance)"
+	@echo "                   └─ train_role_ensemble --role X ──> <x>_player_metrics.json"
+	@echo "                        └─ role_readiness (×5) ──> role_readiness.json"
 
 # --------------------------------------------------------------- réseau --------
 
@@ -244,6 +312,11 @@ collect:
 
 lp-label:
 	$(PY) src/collection/fetch_apex_lp.py --region $(REGION)
+
+# Une capture par jour, écrite puis marquée complète dans le manifeste. Relancer
+# cette cible périme les cinq datasets par rôle : c'est voulu, le label a changé.
+ladder:
+	$(PY) src/collection/fetch_ladder.py --platform $(PLATFORM)
 
 sync:
 	@echo "→ payloads unitaires reconstruits depuis le cache raw local (0 appel Riot)"

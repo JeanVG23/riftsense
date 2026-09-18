@@ -38,6 +38,7 @@ export interface GameSummary {
   sides?: Record<string, string>;
   objectives?: GameObjective[];
   plates_diff_early?: number;
+  game_ts?: number | string | null;
 }
 
 export interface GamesPage {
@@ -243,4 +244,31 @@ export function combatCount(game: GameSummary, filter: CombatFilter): number {
   if (filter === "death") return count(game.deaths);
   if (filter === "assist") return count(game.assists);
   return count(game.kills) + count(game.deaths) + count(game.assists);
+}
+
+export function formatGameDate(value?: number | string | null): string {
+  if (value == null || value === "") return "";
+  const num = typeof value === "number" ? value : Number(value);
+  const date = !Number.isNaN(num) && num > 0 ? new Date(num) : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+export function formatFullDate(value?: number | string | null): string {
+  if (value == null || value === "") return "";
+  const num = typeof value === "number" ? value : Number(value);
+  const date = !Number.isNaN(num) && num > 0 ? new Date(num) : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }

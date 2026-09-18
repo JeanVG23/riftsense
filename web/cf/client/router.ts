@@ -8,12 +8,16 @@ import {
 export type AppRoute =
   | { name: "home" }
   | { name: "readme" }
+  | { name: "terms" }
+  | { name: "privacy" }
   | { name: "register"; slug: string }
   | { name: "account"; slug: string };
 
 export const routes: RouteRecordRaw[] = [
   { path: "/", name: "home", component: {} },
   { path: "/readme", name: "readme", component: {} },
+  { path: "/terms", name: "terms", component: {} },
+  { path: "/privacy", name: "privacy", component: {} },
   { path: "/register/:slug", name: "register", component: {} },
   { path: "/c/:slug", name: "account", component: {} },
   { path: "/:pathMatch(.*)*", redirect: "/" },
@@ -22,6 +26,18 @@ export const routes: RouteRecordRaw[] = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition;
+    }
+    if (to.hash) {
+      return { el: to.hash, behavior: "smooth" };
+    }
+    if (to.path !== from.path) {
+      return { top: 0, left: 0 };
+    }
+    return undefined;
+  },
 });
 
 function firstParam(value: string | string[] | undefined): string {
@@ -36,6 +52,8 @@ function toAppRoute(route: RouteLocationResolvedGeneric): AppRoute {
     return { name: "register", slug: firstParam(route.params.slug) };
   }
   if (route.name === "readme") return { name: "readme" };
+  if (route.name === "terms") return { name: "terms" };
+  if (route.name === "privacy") return { name: "privacy" };
   return { name: "home" };
 }
 

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   combatEvents,
+  formatFullDate,
+  formatGameDate,
   formatKda,
   objectiveLabel,
   sideSummary,
@@ -34,5 +36,15 @@ describe("game history formatters", () => {
       ...game,
       sides: { ally_start: "BLUE", enemy_start: "RED", ally_weakside: "BOT", enemy_weakside: "BOT" },
     })).toContain("Double Weakside bot");
+  });
+
+  it("formate la date de partie et la date complète", () => {
+    // 1786379613694 -> 10 août 2026
+    const ts = 1786379613694;
+    expect(formatGameDate(ts)).toContain("10 août 2026");
+    expect(formatFullDate(ts)).toContain("10 août 2026");
+    expect(formatGameDate(null)).toBe("");
+    expect(formatGameDate(undefined)).toBe("");
+    expect(formatGameDate("invalide")).toBe("");
   });
 });

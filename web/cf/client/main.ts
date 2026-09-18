@@ -10,5 +10,12 @@ function syncCanonical(): void {
 }
 
 syncCanonical();
+router.afterEach((to, from) => {
+  if (to.path !== from.path) {
+    if (typeof window !== "undefined" && typeof window.scrollTo === "function") {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
+  }
+});
 router.afterEach(syncCanonical);
 createApp(App).use(router).mount("#app");

@@ -26,6 +26,10 @@ export interface JobStatus {
   n_games?: number;
   error_code?: string;
   updated_at: number;
+  /** Secondes restantes avant que le slug redevienne empilable. Présent
+   * UNIQUEMENT sur un refus, jamais stocké : c'est une propriété de l'instant de
+   * la réponse, pas de l'état du job. */
+  retry_after?: number;
 }
 
 const QUEUE_KEY = "queue";
@@ -54,6 +58,28 @@ export const RETRY_AFTER_ERROR_MS = 5 * 60 * 1000;
  * martelage) et au-dessus de la durée de vie d'un onglet en attente, dont le
  * sondage retomberait sinon sur un 404. */
 export const JOB_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Délai avant qu'un slug DÉJÀ collecté avec succès redevienne empilable.
+ *
+ * C'est le plafond du bouton « Actualiser » du tableau de bord. Une collecte
+ * coûte une quarantaine d'appels Riot (rang, liste des matchs, puis match +
+ * timeline pour chacune des 20 parties) : sans plafond, un visiteur qui garde le
+ * doigt sur le bouton dépense la clé de l'application, pas la sienne.
+ *
+ * Le refus vit ICI et pas seulement dans `register.ts` pour deux raisons. Le
+ * stockage du Durable Object est fortement cohérent, alors que la garde amont
+ * lit `last_ingest_ts` dans KV, à cohérence finale : deux clics séparés de
+ * quelques secondes peuvent y lire le compte d'AVANT la collecte. Et
+ * `last_ingest_ts` est écrit par le service sans fuseau
+ * (`datetime.now().isoformat()`), donc interprété en heure locale du Worker :
+ * un conteneur qui ne tournerait pas en UTC décalerait la fenêtre amont, jamais
+ * celle-ci, qui ne compare que des horloges du même Durable Object. */
+export const REFRESH_COOLDOWN_MS = 15 * 60 * 1000;
+
+/** Secondes restantes d'une fenêtre ouverte à `since`, au moins 1. */
+export function retryAfter(since: number, window: number): number {
+  return Math.max(1, Math.ceil((window - (Date.now() - since)) / 1000));
+}
 
 export class IngestQueue {
   constructor(private state: DurableObjectState, private env: Env) {}
@@ -86,6 +112,13 @@ export class IngestQueue {
       // `callIngest` en cours la repousserait en file ET ferait régresser son
       // statut de "running" à "queued", visible du visiteur qui recharge la page.
       return current;
+    }
+    if (current?.state === "done"
+        && Date.now() - current.updated_at < REFRESH_COOLDOWN_MS) {
+      // Le job précédent a réussi il y a moins de quinze minutes : les parties
+      // qu'une nouvelle collecte ramènerait sont déjà là. `retry_after` dit à
+      // l'appelant que c'est un refus et non une mise en file.
+      return { ...current, retry_after: retryAfter(current.updated_at, REFRESH_COOLDOWN_MS) };
     }
     if (current?.state === "error"
         && Date.now() - current.updated_at < RETRY_AFTER_ERROR_MS) {

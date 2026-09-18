@@ -19,6 +19,10 @@ export interface Account {
    * quoi un visiteur dont les parties entraînent le modèle qui le note obtient
    * un score optimiste. */
   source: "curated" | "public";
+  /** `owner` : comptes personnels du joueur/créateur. `permanent` : comptes de référence suivis. */
+  group?: "owner" | "permanent";
+  icon?: number;
+  level?: number;
   last_ingest_ts?: string;
 }
 
@@ -34,6 +38,9 @@ function parse(raw: string | null): Account | null {
       puuid: typeof value.puuid === "string" ? value.puuid : undefined,
       created_at: typeof value.created_at === "string" ? value.created_at : undefined,
       source: value.source === "public" ? "public" : "curated",
+      group: value.group === "owner" ? "owner" : (value.group === "permanent" ? "permanent" : undefined),
+      icon: typeof value.icon === "number" ? value.icon : undefined,
+      level: typeof value.level === "number" ? value.level : undefined,
       last_ingest_ts: typeof value.last_ingest_ts === "string"
         ? value.last_ingest_ts : undefined,
     };

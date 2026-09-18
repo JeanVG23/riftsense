@@ -59,6 +59,7 @@ describe("GET /api/accounts", () => {
     expect(r.status).toBe(200);
     expect(await r.json()).toEqual([{
       slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1",
+      group: "owner",
       games_count: 3, last_review_ts: "2026-08-30T11:00:00",
     }]);
   });
@@ -74,6 +75,70 @@ describe("GET /api/accounts", () => {
     const r = await handle(new Request("http://x/api/accounts"), env);
     const body = await r.json() as Array<{ slug: string }>;
     expect(body.map((account) => account.slug)).toEqual(["spadzze"]);
+  });
+});
+
+describe("GET /api/c/{slug}/account", () => {
+  it("retourne l'identité d'un compte connu sans le publier dans la galerie", async () => {
+    const { env, kv } = await seed();
+    await kv.put(KEYS.account("visiteur-euw"), JSON.stringify({
+      slug: "visiteur-euw", riot_id: "Visiteur#euw", region: "euw1", source: "public",
+    }));
+
+    const response = await handle(new Request("http://x/api/c/visiteur-euw/account"), env);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      slug: "visiteur-euw", riot_id: "Visiteur#euw", region: "euw1",
+    });
+  });
+
+  it("répond 404 pour ne pas mémoriser une URL inventée", async () => {
+    const { env } = await seed();
+    const response = await handle(new Request("http://x/api/c/inconnu/account"), env);
+    expect(response.status).toBe(404);
+  });
+});
+
+describe("POST /api/c/{slug}/refresh", () => {
+  /** File factice : la recollecte doit arriver avec le slug ET le Riot ID lus en
+   * KV, jamais avec ceux qu'un navigateur aurait reconstitués depuis l'URL. */
+  function withQueue(env: Env): { seen: { body?: unknown } } {
+    const seen: { body?: unknown } = {};
+    (env as unknown as { INGEST_QUEUE: unknown }).INGEST_QUEUE = {
+      idFromName: () => "id",
+      get: () => ({
+        fetch: async (request: Request) => {
+          seen.body = await request.json();
+          return Response.json({ state: "queued", position: 1, updated_at: 0 });
+        },
+      }),
+    };
+    return { seen };
+  }
+
+  it("met en file la recollecte du compte désigné par l'URL", async () => {
+    const { env } = await seed();
+    const { seen } = withQueue(env);
+    const r = await handle(
+      new Request("http://x/api/c/spadzze/refresh", { method: "POST" }), env);
+    expect(r.status).toBe(202);
+    expect(seen.body).toMatchObject({ slug: "spadzze", riot_id: "Spadzze#euw", platform: "euw1" });
+  });
+
+  it("405 en GET : c'est la seule écriture adressée à un compte", async () => {
+    const { env } = await seed();
+    withQueue(env);
+    const r = await handle(new Request("http://x/api/c/spadzze/refresh"), env);
+    expect(r.status).toBe(405);
+  });
+
+  it("404 sur un compte inconnu, sans rien mettre en file", async () => {
+    const { env } = await seed();
+    const { seen } = withQueue(env);
+    const r = await handle(
+      new Request("http://x/api/c/inconnu/refresh", { method: "POST" }), env);
+    expect(r.status).toBe(404);
+    expect(seen.body).toBeUndefined();
   });
 });
 

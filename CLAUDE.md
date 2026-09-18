@@ -150,18 +150,22 @@ agrégation contextuelle. Lancer : `poetry run pytest tests/`.
 ```
 src/
   core/           riotlib.py, positioning.py, champion_profiles.py, game_journal.py, ml_features.py,
-                  ranks.py, cli.py, kv_keys.py, dataset_split.py, ml_rank.py, ebm_explain.py, settings.py
+                  ranks.py, role_features.py, cli.py, kv_keys.py, dataset_split.py, ml_rank.py,
+                  ebm_explain.py, settings.py
   collection/     build_referential.py, aggregate_games.py, sync_cloudflare.py,
                   refresh_cloudflare.py, pipeline.py, densify_targets.py, densify_sweet_spot.py,
-                  densify_players.py, fetch_apex_lp.py
+                  densify_players.py, fetch_apex_lp.py, fetch_ladder.py,
+                  backfill_summoner_profiles.py
   pipeline_ops/   reextract_silver.py, rebuild_gold.py, compress_raw.py,
-                  archive_patch.py, list_unknown_champions.py, dataset_report.py
+                  archive_patch.py, list_unknown_champions.py, dataset_report.py,
+                  role_readiness.py
   reporting/      compare.py
   experiments/    phase1_pull.py
   01_data_engineering/  build_dataset.py, build_player_dataset.py, build_player_lp_dataset.py,
-                        build_sequence_dataset.py
+                        build_role_player_dataset.py, build_split.py, build_sequence_dataset.py
   02_data_science/      train_ensemble.py, calibrate_rank.py, train_player_ensemble.py,
-                        train_player_lp.py, calibrate_player_rank.py, analyze_auc_vs_ngames.py,
+                        train_role_ensemble.py, train_player_lp.py, calibrate_player_rank.py,
+                        analyze_auc_vs_ngames.py,
                         lp_metrics.py, audit_leakage.py, poc/per_player_hypothesis.py,
                         sequence_model.py, sequence_data.py, train_sequence_model.py,
                         pretrain_sequence_model.py, cv_common.py
@@ -172,11 +176,14 @@ data/
   00_static/      champion_traits.json (force-add : config source), ddragon/<version>/ (ignoré)
   01_raw/         JSON API brut compressé .json.zst (~10 Go -> ~750 Mo, ×13). Lecture/écriture
                   transparentes via riotlib._read_raw/_write_raw (tolérante .json.zst->.json.gz->.json)
+                  rank_snapshots/<plateforme>/<jour>.jsonl.zst + manifest.json : ladder daté
   02_silver/{referentiel/<rank>,personal/<player>}/games.jsonl   # 1 ligne = 1 game nettoyée (+ comp)
   03_gold/{referentiel/<rank>,personal/<player>}/<scope>/aggregate.json   # agrégats benchmarks
-  04_dataset/     adc_dataset.parquet, densify_targets.json, datasets per-player/LP
+  04_dataset/     adc_dataset.parquet, densify_targets.json, datasets per-player/LP,
+                  <role>_dataset.parquet + <role>_player_dataset.parquet (+ .meta.json de provenance)
   05_model/       modèles ML + metrics (xgb_highelo.pkl, player_metrics.json, player_lp_metrics.json,
-                  rank_calibration.json, auc_vs_ngames.{json,png})
+                  rank_calibration.json, auc_vs_ngames.{json,png}) ; par rôle :
+                  <role>_player_ebm.pkl, <role>_player_metrics.json, role_readiness.json
   06_shap/        player/high_elo/ + game/dia_chall/ : analyse EBM glass-box unifiée
                   (ebm_shape_functions.json = seuils de bascule, ebm_ranking, cross-check
                   SHAP-arbres vs EBM, diagnostics LOWESS, visuels)
@@ -261,9 +268,17 @@ gold → datasets → modèles. `make plan` répond « qu'est-ce qui est périm�
 niveaux via `core/ebm_explain.py` : le niveau player explique le modèle servi, le niveau
 game re-entraîne d'abord le modèle d'explication du jeu-type
 (`train_ensemble.py --target dia_chall`, jamais servi pour le rang).
+`make roles` déroule la chaîne par rôle (datasets per-game, fenêtres à N fixe,
+modèles, table d'ouverture) et fait partie de `make pipeline`, donc de `make plan` :
+sans ce câblage, toucher `role_features.py` ne périmait rien et les cinq modèles se
+relançaient de tête. Le snapshot du ladder est une dépendance FICHIER (jour le plus
+récent marqué complet au manifeste, `make print-SNAPSHOT_DAY` pour le lire) : une
+nouvelle capture périme mécaniquement les cinq datasets, et un snapshot absent renvoie
+vers `make ladder` au lieu d'un « No rule to make target ».
 ⚠️ **Les étapes réseau ne sont JAMAIS des dépendances** : `collect` (Riot), `lp-label`
-(fetch_apex_lp) et `sync`/`sync-push` (Cloudflare) sont des cibles explicites, et
-`tests/test_pipeline_graph.py` échoue si l'une d'elles devient un prérequis de `pipeline`.
+(fetch_apex_lp), `ladder` (fetch_ladder) et `sync`/`sync-push` (Cloudflare) sont des
+cibles explicites, et `tests/test_pipeline_graph.py` échoue si l'une d'elles devient un
+prérequis de `pipeline`.
 ⚠️ `01_raw` grossit hors du graphe : le témoin `data/.stamps/raw` est réévalué à chaque
 invocation par `find -newer … -print -quit`. C'est le seul nœud dont l'amont n'est pas
 produit par make.
@@ -326,6 +341,8 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   > queue high-elo). L'ADC ennemi n'a donc pas son rang réel mesuré. Acceptable pour un classif
   > high/low ; à revoir si on descend en elo. Games multi-rangs : rang résolu au **mode**,
   > tie-break sur le rang le plus bas.
+  > ➜ La chaîne PAR RÔLE (plus bas) ne porte plus ce flaw : elle labellise chaque joueur
+  > par un snapshot daté du ladder, pas par le rang de collecte de son lobby.
   `build_player_dataset.py` — 1 ligne = 1 joueur ≥`MIN_PLAYER_GAMES` games ADC référentiel,
   agrégées sur la totalité de l'historique disponible. `build_player_lp_dataset.py` — per-player
   SANS balance-cap, apex seulement (diamond exclu — LP non comparable).
@@ -401,6 +418,52 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
   Lancer : `python3 src/04_coaching/coach.py --player spadzze --scope adc
   [--game|--game-batch N]`. Aucun réseau côté `grounding`/`feedback`.
 
+### Chaîne par rôle (le modèle public explicable)
+
+Chaîne distincte du per-player ADC ci-dessus, et réponse directe au FLAW ASSUMÉ du
+transfert de rang : le label ne vient plus du dossier silver (rang de COLLECTE du
+joueur ciblé, recopié sur tout le lobby) mais d'un **snapshot daté du ladder**.
+Entrées : `make ladder` (réseau), puis `make roles` (hors-ligne).
+
+- **`collection/fetch_ladder.py`** (réseau) : un fichier par jour dans
+  `data/01_raw/rank_snapshots/<plateforme>/`, lisible seulement après inscription
+  `complete: true` au manifeste. Une pagination interrompue ne peut donc pas passer
+  pour un ladder entier ; `load_snapshot` refuse un jour incomplet et recompte les
+  lignes avant de rendre la main.
+- **`core/role_features.py`** : manifeste de features PAR RÔLE. Plusieurs entrées de
+  `ml_features` n'ont pas de sens hors botlane (les 2v2 reposent sur la paire bot,
+  `support_deaths_early` est structurellement nul pour un support) : les servir
+  publierait des explications fausses. Trois catégories de publication :
+  `HIDDEN_ML_ONLY` (proxys, jamais affichés), `PUBLIC_DESCRIPTIVE` (affiché, jamais
+  formulé en levier), `PUBLIC_ACTIONABLE`.
+  ⚠️ L'EBM public est **entraîné** sur `public_features`, pas filtré à l'affichage :
+  retirer un terme après coup casserait l'identité « somme des contributions = score ».
+- **`01_data_engineering/build_dataset.py --role X`** : per-game NON labellisé du rôle
+  (les deux joueurs du rôle relus depuis le raw, 0 API).
+- **`01_data_engineering/build_role_player_dataset.py --role X --snapshot-day J`** :
+  fenêtres à profondeur FIXE `(puuid, role, as_of)`, N=20, jointes au snapshot. La
+  profondeur fixe est le point à ne pas assouplir : à N variable, le volume
+  d'historique collecté devient un proxy du rang et passe dans les statistiques de
+  dispersion. Écrit aussi un sidecar `.meta.json` (jour du snapshot, effectifs par
+  tier, `label_age_days` min/p50/max, empan temporel des parties agrégées).
+- **`02_data_science/train_role_ensemble.py --role X`** : purged CV (agrégats de train
+  recalculés en excluant les matchs joués avec un joueur de validation) + held-out
+  stratifié, EBM `interactions=0`. Le sens d'un driver vient de la shape function
+  (décile p90 moins décile p10), jamais de la moyenne des contributions rendues par
+  `eval_terms` : elles sont CENTRÉES, donc leur moyenne vaut zéro et son signe est du
+  bruit numérique. Reporte le sidecar de provenance dans les métriques.
+- **`pipeline_ops/role_readiness.py`** : décide l'ouverture publique.
+  `marge = AUC held-out - erreur-type (Hanley-McNeil) - 0.70`, ET `corpus ==
+  "production"`. ⚠️ `DEFAULT_CORPUS = "research"` : certifier le corpus est un geste
+  écrit à la main, jamais l'effet d'une régénération. Aucun repli sur les anciennes
+  métriques `utility_*` (servir l'AUC d'un modèle sous le nom d'un autre).
+
+⚠️ **Plus aucune borne d'âge du label** (retirée le 2026-09-18) : la règle des 14 jours
+suivait le rythme des patchs LoL, pas une propriété de la donnée, et la tenir imposait
+de recollecter tout le corpus à chaque capture. L'écart n'est plus refusé, il est
+mesuré par ligne (`label_age_days`) et remonte jusqu'à la table d'ouverture, en face
+de la décision.
+
 Pipeline contexte (0 API) : `champion_profiles` (fetch DDragon one-shot) → `reextract_silver`
 (silver + comp) → compléter `champion_traits.json` via `list_unknown_champions` → `rebuild_gold`
 (+ `by_lane_context`) → `compare`. **Principe asymétrie** : le comp (info post-game complète)
@@ -431,6 +494,11 @@ Historique complet des runs, métriques et decisions (dates, chiffres, specs) :
   (`coaching:{slug}:*` → `riftsense:{slug}:*`, migration additive). Les entrées
   datées ci-dessous mentionnant `coaching-lol.jeanvg.fr` décrivent un état passé
   réel et ne sont pas réécrites.
+- **Chaîne par rôle** 🚧 (2026-09-18) : cinq modèles per-player explicables
+  (un par rôle), labellisés par snapshot DATÉ du ladder et non plus par le rang de
+  collecte ; fenêtres à profondeur fixe N=20. Held-out EBM 0.71 à 0.86 selon le rôle.
+  Les cinq rôles sont FERMÉS au public (`corpus: "research"`) : l'ouverture demande une
+  certification manuelle, pas une marge positive. Détail et chiffres : `docs/PROGRESS.md`.
 - **Rang servi = per-player** (ensemble xgb+rf+ebm, hypothèse constance sur tout
   l'historique, `MIN_PLAYER_GAMES=15`), test held-out AUC 0.688. **Per-game rang
   ABANDONNÉ** (2026-09-08, acté) : frontière master/GM illisible à N=1

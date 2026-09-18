@@ -99,7 +99,7 @@ def run(payload: dict, *, client, kv, r2, data_dir: Path, max_games: int = 20) -
             if not match_ids:
                 raise NoRankedGames(riot_id)
 
-            games, collected = [], []
+            games, collected, profile = [], [], {}
             for match_id in match_ids:
                 # `rl.get_match_timeline` avale ses propres exceptions réseau et
                 # rend None (code partagé avec le pilote local, qui préfère sauter
@@ -120,6 +120,10 @@ def run(payload: dict, *, client, kv, r2, data_dir: Path, max_games: int = 20) -
                 if game:
                     games.append(game)
                     collected.append(match_id)
+                    # `match_ids` est rendu du plus récent au plus ancien : la
+                    # première partie retenue porte l'icône et le niveau les
+                    # moins périmés.
+                    profile = profile or rl.summoner_profile(got[0], puuid)
         except (requests.RequestException, RuntimeError) as exc:
             raise RiotUnavailable(str(exc)) from exc
         if not games:
@@ -161,6 +165,10 @@ def run(payload: dict, *, client, kv, r2, data_dir: Path, max_games: int = 20) -
             "region": platform,
             "puuid": puuid,
             "source": existing.get("source", "public"),
+            # Après `existing` : une collecte fraîche prime sur ce que le fichier
+            # de configuration avait amorcé. `profile` peut être vide (participant
+            # introuvable) ; l'ancienne valeur survit alors au lieu d'être effacée.
+            **profile,
             "created_at": existing.get(
                 "created_at", datetime.now().isoformat(timespec="seconds")),
             "last_ingest_ts": datetime.now().isoformat(timespec="seconds"),

@@ -5,6 +5,37 @@
 > Résumé actif (à jour) : voir la section « État d'avancement » de `CLAUDE.md`.
 
 
+- **Chaîne par rôle, labellisée par snapshot du ladder** 🚧 (2026-09-18) : cinq
+  modèles per-player (TOP/JUNGLE/MIDDLE/BOTTOM/SUPPORT), entraînés sur les seules
+  features publiables, destinés à devenir l'analyse ML publique. Le label vient d'un
+  snapshot DATÉ du ladder (`fetch_ladder.py`, `make ladder`) et non plus du rang de
+  collecte du dossier silver : c'est la sortie du flaw assumé de transfert de rang.
+  Fenêtres à profondeur FIXE `(puuid, role, as_of)`, N=20, sinon le volume
+  d'historique collecté proxie le rang via les statistiques de dispersion.
+  Effectifs et held-out (snapshot euw1 du 2026-09-17, purged CV, EBM
+  `interactions=0`) : TOP 728 fenêtres / 0.7092, JUNGLE 922 / 0.7251, MIDDLE 939 /
+  0.7144, BOTTOM 1089 / 0.8569, SUPPORT 826 / 0.7296. Les cinq rôles restent FERMÉS
+  (`corpus: "research"`), y compris BOTTOM dont la marge est pourtant positive
+  (+0.1007) : l'ouverture exige une certification écrite à la main.
+  - **Borne d'âge du label retirée** : la règle des 14 jours venait du rythme des
+    patchs LoL, pas de la donnée, et la tenir imposait de recollecter tout le corpus
+    à chaque capture. Remplacée par de la mesure : `label_age_days` par ligne, sidecar
+    `.meta.json` de provenance à côté de chaque dataset, report dans les métriques,
+    colonne « âge label » dans la table d'ouverture (82 jours, 84 pour TOP).
+  - **`win_rate` ajouté aux features par rôle** (il était calculé mais vu par aucun
+    modèle, alors que l'ADC servi l'utilise). Ablation sur corpus identique :
+    CV médiane -0.0005, held-out médiane +0.005 avec 4 rôles sur 5 positifs, pour une
+    erreur-type de 0.056 à 0.099. Statistiquement un match nul : gardé pour la raison
+    conceptuelle (comparable à N fixe, sépare la variance de résultat de la
+    performance), pas pour un gain mesuré. L'ablation montre aussi que la baisse de
+    MIDDLE et BOTTOM vient du nouveau snapshot, pas de la feature.
+  - **Repli sur `utility_player_metrics.json` supprimé** dans `role_readiness` :
+    servir l'AUC d'un modèle non régénérable sous le nom d'un autre. Les replis sur
+    les DATASETS restent (retrouver une entrée sous son ancien nom est bénin).
+  - **Câblée dans le `Makefile`** (`make roles`, inclus dans `make pipeline`) : le
+    snapshot est une dépendance fichier (jour le plus récent marqué complet), donc une
+    nouvelle capture périme les cinq datasets et `make plan` le dit.
+
 - **Analyse ML unifiée (EBM glass-box)** ✅ (2026-09-08) : un moteur unique
   (`core/ebm_explain.py`, registre `LEVELS` player/game) sert l'analyse des deux niveaux
   ET la chaîne aval. `make analyse` (dans `make pipeline`) écrit
