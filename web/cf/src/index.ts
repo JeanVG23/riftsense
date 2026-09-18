@@ -24,6 +24,7 @@ import {
   readJsonl,
   readPred,
   readRank,
+  readRoleShap,
   readShap,
   type KVLike,
 } from "./readers";
@@ -209,6 +210,7 @@ const ACCOUNT_ROUTES: Record<
   reviews: (env, slug, params) => apiReviews(env, slug, params),
   feedback: async (env, slug) => Response.json(await readJsonl(env.DATA, KEYS.feedback(slug))),
   shap: async (env, slug) => Response.json(await readShap(env.DATA, slug)),
+  "shap-role": async (env, slug) => Response.json(await readRoleShap(env.DATA, slug)),
   eval: async (env, slug) => Response.json(await readEval(env.DATA, slug)),
   "coaching-context": async (env, slug) =>
     Response.json(await buildCoachingContext(env.DATA, slug)),

@@ -1,8 +1,11 @@
 """Décision d'ouverture publique, rôle par rôle."""
 import importlib.util
 import json
+import statistics
 import sys
 from pathlib import Path
+
+import pytest
 
 SPEC = importlib.util.spec_from_file_location(
     "rr", Path("src/pipeline_ops/role_readiness.py"))
@@ -10,9 +13,20 @@ rr = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(rr)
 
 
-def _metrics(auc, n_players, role="TOP"):
+def _metrics(auc, n_players, role="TOP", seeds=6):
+    """Métriques d'un held-out répété ; `auc` peut être un scalaire ou une liste.
+
+    Un scalaire répété n graines donne une dispersion observée nulle : la marge
+    retombe alors exactement sur l'erreur-type paramétrique, ce qui laisse aux
+    cas historiques ci-dessous le sens qu'ils avaient avant le held-out répété.
+    """
+    values = list(auc) if isinstance(auc, (list, tuple)) else [auc] * seeds
+    rows = [{"seed": index, "ebm": value, "ens_xgb_rf": value}
+            for index, value in enumerate(values)]
     return {"role": role, "auc": {"ebm": 0.99},
-            "auc_heldout": {"ebm": auc}, "n_players": n_players}
+            "auc_heldout_median": {"ebm": statistics.median(values)},
+            "auc_heldout_seeds": rows, "n_players": n_players,
+            "model_id": "a1b2c3d4e5f60718"}
 
 
 def test_readiness_lit_le_heldout_pas_la_cv():
@@ -115,3 +129,68 @@ def test_aucun_repli_sur_les_anciennes_metriques_utility(tmp_path, monkeypatch):
 
     rows = json.loads((tmp_path / "role_readiness.json").read_text())
     assert rows == []
+
+
+# --- held-out répété --------------------------------------------------------
+
+def test_la_marge_se_lit_sur_la_mediane_des_tirages():
+    out = rr.readiness(_metrics([0.66, 0.80, 0.92], 47), threshold=0.70,
+                       corpus="production")
+    assert out["auc_ebm"] == 0.80
+    assert out["n_seeds"] == 3
+
+
+def test_la_dispersion_observee_prime_quand_elle_depasse_la_formule():
+    """Sur un gros effectif, Hanley-McNeil annonce un bruit minuscule.
+
+    Si les tirages successifs, eux, s'étalent de 0.70 à 0.90, c'est la donnée
+    qui a raison contre la formule : retrancher l'erreur-type paramétrique
+    ouvrirait un rôle dont la moitié des tirages est sous le seuil.
+    """
+    stable = rr.readiness(_metrics(0.80, 610), threshold=0.70,
+                          corpus="production")
+    disperse = rr.readiness(_metrics([0.70, 0.90] * 5, 610), threshold=0.70,
+                            corpus="production")
+    assert stable["auc_ebm"] == disperse["auc_ebm"] == 0.80
+    assert disperse["stderr"] > stable["stderr"]
+    assert stable["open"] is True
+    assert disperse["open"] is False
+
+
+def test_le_taux_de_tirages_au_dessus_du_seuil_est_publie():
+    """Combien de fois sur dix le rôle passerait-il ? La table doit le dire."""
+    out = rr.readiness(_metrics([0.95] * 8 + [0.50] * 2, 47), threshold=0.70,
+                       corpus="production")
+    assert out["pass_rate"] == 0.8
+
+
+def test_des_metriques_d_un_seul_tirage_sont_refusees(tmp_path, monkeypatch):
+    """Les anciennes métriques n'ont pas de médiane : elles doivent échouer.
+
+    Les relire en prenant leur `auc_heldout` pour une médiane publierait un
+    tirage unique sous le nom d'une statistique robuste, exactement ce que le
+    held-out répété corrige.
+    """
+    monkeypatch.setattr(rr, "MODEL_DIR", tmp_path)
+    (tmp_path / "top_player_metrics.json").write_text(json.dumps(
+        {"role": "TOP", "auc": {"ebm": 0.99},
+         "auc_heldout": {"ebm": 0.99}, "n_players": 610}))
+    monkeypatch.setattr(sys, "argv", ["role_readiness.py"])
+
+    assert rr.main() == 0
+
+    assert json.loads((tmp_path / "role_readiness.json").read_text()) == []
+
+
+def test_le_model_id_voyage_jusqu_a_la_table():
+    """La marge et l'export servis doivent venir du même entraînement."""
+    metrics = _metrics(0.82, 40)
+    metrics["model_id"] = "fedcba9876543210"
+    assert rr.readiness(metrics)["model_id"] == "fedcba9876543210"
+
+
+def test_des_metriques_sans_model_id_sont_refusees():
+    metrics = _metrics(0.82, 40)
+    metrics.pop("model_id")
+    with pytest.raises(KeyError):
+        rr.readiness(metrics)

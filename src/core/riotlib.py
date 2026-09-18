@@ -15,6 +15,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import quote
 
 import requests
@@ -298,44 +299,62 @@ def _write_raw(base: str, obj: dict) -> None:
     _write_raw_at(raw_dir() / (base + ".json.zst"), obj)
 
 
-def get_match_timeline(client: RiotClient, match_id: str,
-                       target_puuid: str | None = None,
-                       target_role: str | None = None) -> tuple[dict, dict] | None:
+class FetchResult(NamedTuple):
+    """Issue d'une récupération de partie.
+
+    `role_mismatch` et `failed` étaient tous deux rendus comme None : le premier est
+    un filtre qui a fait son travail, le second une panne. Les confondre fait
+    reprocher au joueur ce qui est la faute du service.
+    """
+
+    status: str
+    match: dict | None = None
+    timeline: dict | None = None
+
+
+def fetch_match_timeline(client, match_id: str, target_puuid: str | None = None,
+                         target_role: str | None = None) -> FetchResult:
     """Charge (match, timeline) depuis raw/ si présents, sinon fetch et cache."""
     match = _read_raw(f"{match_id}_match")
     timeline = _read_raw(f"{match_id}_timeline")
-    
     try:
         if match is None:
             match = client.match(match_id)
             if match:
                 _write_raw(f"{match_id}_match", match)
-                
+
         if not match:
-            return None
-            
-        # Filtrage ciblé : on vérifie le rôle AVANT de fetch la timeline
+            return FetchResult("failed")
+
+        # Filtrage ciblé : on vérifie le rôle AVANT de payer la timeline.
         if target_puuid and target_role:
             meta = match.get("metadata", {})
             if target_puuid in meta.get("participants", []):
                 pidx = meta["participants"].index(target_puuid)
                 me = match.get("info", {}).get("participants", [])[pidx]
                 if me.get("teamPosition") != target_role:
-                    return None
-                    
+                    return FetchResult("role_mismatch", match)
+
         if timeline is None:
             timeline = client.timeline(match_id)
             if timeline:
                 _write_raw(f"{match_id}_timeline", timeline)
-                
     except Exception as e:
         print(f"  ⚠ skip {match_id}: {e}", file=sys.stderr)
-        return None
+        return FetchResult("failed")
 
-    if not match or not timeline:
-        return None
-        
-    return match, timeline
+    if not timeline:
+        return FetchResult("failed")
+    return FetchResult("ok", match, timeline)
+
+
+def get_match_timeline(client: RiotClient, match_id: str,
+                       target_puuid: str | None = None,
+                       target_role: str | None = None) -> tuple[dict, dict] | None:
+    """Compatibilité : le pilote local préfère sauter une partie plutôt que
+    d'interrompre un scraping de plusieurs heures, et ne distingue pas les motifs."""
+    result = fetch_match_timeline(client, match_id, target_puuid, target_role)
+    return (result.match, result.timeline) if result.status == "ok" else None
 
 
 # ---------------------------------------------------------- silver (1 game)

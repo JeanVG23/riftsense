@@ -46,6 +46,8 @@ describe("AccountProfile", () => {
     expect(wrapper.text()).toContain("Confiance 81%");
     expect(wrapper.text()).toContain("42");
     expect(wrapper.emitted("predictionLoaded")?.[0]?.[0]).toMatchObject({ predicted_rank: "master" });
+    const attrs = wrapper.element.attributes;
+    expect(Object.keys(attrs).some(k => attrs[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
 
   it("isole l'échec du rang de la prédiction ML", async () => {

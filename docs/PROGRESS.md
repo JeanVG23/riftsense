@@ -12,11 +12,14 @@
   collecte du dossier silver : c'est la sortie du flaw assumé de transfert de rang.
   Fenêtres à profondeur FIXE `(puuid, role, as_of)`, N=20, sinon le volume
   d'historique collecté proxie le rang via les statistiques de dispersion.
-  Effectifs et held-out (snapshot euw1 du 2026-09-17, purged CV, EBM
-  `interactions=0`) : TOP 728 fenêtres / 0.7092, JUNGLE 922 / 0.7251, MIDDLE 939 /
-  0.7144, BOTTOM 1089 / 0.8569, SUPPORT 826 / 0.7296. Les cinq rôles restent FERMÉS
-  (`corpus: "research"`), y compris BOTTOM dont la marge est pourtant positive
-  (+0.1007) : l'ouverture exige une certification écrite à la main.
+  Effectifs des fenêtres (snapshot euw1 du 2026-09-17, purged CV, EBM
+  `interactions=0`) : TOP 728, JUNGLE 922, MIDDLE 939, BOTTOM 1089, SUPPORT 826.
+  Premier jeu de métriques, frontière MASTER et tirage unique : TOP 0.7092,
+  JUNGLE 0.7251, MIDDLE 0.7144, BOTTOM 0.8569, SUPPORT 0.7296. Ces deux choix
+  (la frontière, le tirage unique) ont été repris le même jour : voir les deux
+  sous-entrées de fin, qui remplacent ces chiffres. Les cinq rôles restent FERMÉS
+  (`corpus: "research"`), y compris ceux dont la marge est positive : l'ouverture
+  exige une certification écrite à la main, jamais une marge.
   - **Borne d'âge du label retirée** : la règle des 14 jours venait du rythme des
     patchs LoL, pas de la donnée, et la tenir imposait de recollecter tout le corpus
     à chaque capture. Remplacée par de la mesure : `label_age_days` par ligne, sidecar
@@ -35,6 +38,99 @@
   - **Câblée dans le `Makefile`** (`make roles`, inclus dans `make pipeline`) : le
     snapshot est une dépendance fichier (jour le plus récent marqué complet), donc une
     nouvelle capture périme les cinq datasets et `make plan` le dit.
+  - **Frontière servie déplacée sur DIAMOND vs GM+CHALLENGER** (`DEFAULT_BOUNDARY`,
+    sonde du 2026-09-18, corpus identique, 0 appel API). Question posée : le plafond
+    d'AUC vient-il de la frontière de classes ou du volume de données ? Trois
+    configurations, held-out EBM sur les cinq rôles :
+    - MASTER+GM+CHALLENGER vs DIAMOND, la plus fournie (271 à 389 joueurs par
+      classe) : **0.617 à 0.673**. Trois fois plus de joueurs, AUC en BAISSE.
+    - MASTER seul vs DIAMOND (mêmes effectifs) : **0.542 à 0.612**, soit le hasard.
+      Master et Diamant sont la même population dans cet espace de features, et
+      c'est ce mélange qui plafonnait tout le reste.
+    - DIAMOND vs GM+CHALLENGER (91 à 198 joueurs par classe) : **0.760 à 0.921**,
+      contre 0.709 à 0.857 pour l'ancienne frontière sur exactement les mêmes
+      joueurs. Le plafond était la frontière, pas le volume.
+
+    ⚠️ Conséquence contre-intuitive sur la COLLECTE : la classe limitante de
+    `_balance` est GM+CHALLENGER dans toutes les configurations viables (91 TOP,
+    91 SUPPORT, 121 JUNGLE, 156 BOTTOM, 198 MIDDLE, contre 271 à 389 Diamants et
+    364 à 544 Masters déjà en base). Collecter des Diamants ou des Masters
+    n'ajoute donc PAS une ligne d'entraînement. Seule la collecte apex le fait, et
+    son plafond a été MESURÉ (0 appel API, snapshot euw1 du 2026-09-17) : le
+    ladder porte 1001 GM+CHALLENGER, dont 908 apparaissent déjà au moins une fois
+    dans les parties collectées, et ils jouent 78 % de leurs parties dans un seul
+    rôle (médiane). Effectif apex atteignable par rôle dominant : MIDDLE 296,
+    BOTTOM 203, JUNGLE 169, TOP 126, SUPPORT 114, contre 198 / 156 / 121 / 93 / 91
+    qualifiés aujourd'hui. Une densification apex complète vaut donc **+25 % à
+    +50 % de joueurs**, pas un changement d'ordre de grandeur : le held-out de TOP
+    passerait de 28 à environ 38. La cible la moins chère est la bande des 162
+    joueurs apex à 10-19 parties dans leur rôle dominant, à qui il manque moins de
+    dix parties pour franchir N=20. Projection des marges à ces effectifs, médiane
+    d'AUC supposée inchangée : JUNGLE +0.120, SUPPORT +0.060, BOTTOM +0.056,
+    MIDDLE +0.019, TOP -0.007. Autrement dit, la collecte apex ne suffit pas à
+    certifier les rôles faibles : elle resserre le bruit, elle ne déplace pas la
+    séparabilité. Ce qui décide de l'ouverture est la certification du corpus,
+    pas un lot de parties supplémentaires.
+  - **Held-out répété sur 10 graines** (graines 42 à 51) : le held-out ne se lit
+    plus sur un tirage. À 28 joueurs de test, le même modèle sur les mêmes données
+    rend **0.566 ou 0.918** selon les personnes tirées (TOP), et la certification
+    serait passée cinq fois sur dix. La graine ne pilote pas que la découpe
+    train/test : la classe haute étant limitante, `_balance` sous-échantillonne la
+    classe basse, donc QUELS Diamants forment cette classe fait partie du tirage.
+    `_balance` et `split_holdout` prennent une graine explicite ; la CV reste sur la
+    graine canonique, qui alimente `driver_stability`.
+    - Métriques : `auc_heldout_median` + `auc_heldout_seeds`, et la clé
+      `auc_heldout` DISPARAÎT au lieu de changer de sens. Un fichier d'avant fait
+      sauter le rôle avec un message, il n'est pas relu de travers.
+    - `role_readiness` : `marge = médiane - max(Hanley-McNeil, dispersion
+      observée) - 0.70`. Retenir la plus grande des deux n'est pas un double
+      comptage, et le partage observé le montre : la dispersion domine sur
+      TOP/JUNGLE/MIDDLE, la formule paramétrique domine sur BOTTOM/SUPPORT.
+    - Table d'ouverture (médianes sur 10 tirages) : JUNGLE 0.8714 / marge +0.0973 /
+      9 tirages sur 10, SUPPORT 0.8316 / +0.0524 / 7 sur 10, BOTTOM 0.8115 /
+      +0.0479 / 7 sur 10, MIDDLE 0.7689 / +0.0044 / 5 sur 10, TOP 0.7704 / -0.0288 /
+      5 sur 10. TOP est la démonstration du protocole : son tirage canonique
+      affichait 0.8367 et une marge de +0.0586, sa médiane est plus basse et sa
+      marge négative.
+    - Coût : environ 2.5x par rôle (une CV et dix held-out au lieu d'un), soit
+      environ 5 minutes pour les cinq en séquentiel.
+  - **Servie au visiteur inscrit** (2026-09-18) : le service d'ingestion Cloud Run
+    calcule la décomposition EBM du rôle dominant du visiteur et la publie sous
+    `shap:{slug}:role`. Avant ce câblage, un inscrit n'avait aucune analyse ML : les
+    clés `pred` et `shap` n'étaient écrites que par le sync, depuis la machine de
+    développement, pour les comptes personnels.
+    - **Table de correspondance JSON, pas pickle.** `interactions=0` réduit l'EBM à
+      un intercept plus, par feature, des bornes et des scores. Un pickle
+      d'`interpret` ne se recharge que sur la version qui l'a écrit, et les
+      dépendances du service sont bornées en `>=` : une reconstruction d'image dans
+      six mois casserait au chargement. L'export est de la donnée, pas du code, et il
+      dispense le conteneur d'interpret, scikit-learn et scipy. Contrepartie non
+      négociable : `tests/test_ebm_lookup.py` (EBM synthétique, en CI, avec les
+      valeurs posées exactement sur chaque borne) et `make verify-exports` (les cinq
+      artefacts réels, avant chaque build).
+    - **`game_to_row` est remonté dans `src/core/`.** L'aplatissement silver vers
+      colonnes plates vivait dans `01_data_engineering/`, que l'image du service ne
+      copie pas ; `core/ml_rank.py` l'atteignait par une injection de `sys.path`.
+      L'appeler depuis le service aurait rendu des features silencieusement NaN,
+      donc un score de joueur sans données présenté comme une analyse.
+    - **Préflight avant collecte profonde.** Le rôle, le rang, l'ouverture et la
+      présence de l'export sont connus dès les 20 parties de profil : tout ce qui est
+      décidable là l'est là. Les cinq rôles étant fermés, le câblage ne coûte pas un
+      appel Riot de plus qu'avant.
+    - **Collecte adaptative** quand un rôle est ouvert : jusqu'à 100 parties
+      examinées, la timeline n'étant payée que sur les parties du rôle (1 appel au
+      lieu de 2 hors rôle), avec un index `match_id` vers rôle qui évite de repayer
+      les parties écartées à chaque actualisation. Échéance monotone de 480 s, parce
+      que le timeout gunicorn n'est pas un budget d'exécution : `riotlib._get`
+      retente six fois avec un timeout de 20 s, donc un seul appel peut occuper 150 s.
+    - **`shap:{slug}:role` est réécrite à chaque ingestion**, en union discriminée
+      par `available` avec sept motifs. Sans cette règle, une analyse publiée
+      survivrait à sa péremption : rang qui baisse, rôle principal qui change, rôle
+      qui referme, et l'ancienne resterait lisible en paraissant valide.
+    - Le score publié est un `logit`, jamais une `probability` : MASTER n'appartient
+      à aucune des deux classes d'entraînement et aucune calibration proba vers rang
+      n'existe pour ces modèles. C'est une proximité à l'apex, pas un rang prédit.
+    - Les cinq rôles restent FERMÉS : rien n'est visible avant certification manuelle.
 
 - **Analyse ML unifiée (EBM glass-box)** ✅ (2026-09-08) : un moteur unique
   (`core/ebm_explain.py`, registre `LEVELS` player/game) sert l'analyse des deux niveaux

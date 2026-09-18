@@ -14,6 +14,15 @@ interface ShapReport {
 
 const props = defineProps<{ slug: string }>();
 
+/** Palette alignée sur le thème Targon : or, encre et ivoire. */
+const palette = {
+  gold: "#b98f53",
+  loss: "#8c5a55",
+  border: "#e5e0d6",
+  dim: "#4a545b",
+  ink: "#141718",
+};
+
 const loading = ref(true);
 const report = ref<ShapReport | null>(null);
 const sort = ref<"abs" | "val">("abs");
@@ -49,7 +58,7 @@ async function renderChart(): Promise<void> {
       labels: drivers.map((driver) => driver.feature),
       datasets: [{
         data: drivers.map((driver) => driver.contribution),
-        backgroundColor: drivers.map((driver) => driver.contribution >= 0 ? "#c8aa6e" : "#f85149"),
+        backgroundColor: drivers.map((driver) => driver.contribution >= 0 ? palette.gold : palette.loss),
         borderRadius: 3,
         borderSkipped: false,
       }],
@@ -62,8 +71,8 @@ async function renderChart(): Promise<void> {
         label: (context) => `EBM ${Number(context.raw).toFixed(4)}`,
       } } },
       scales: {
-        x: { grid: { color: "#2a2d34" }, ticks: { color: "#9a9da4", font: { size: 11 } } },
-        y: { grid: { display: false }, ticks: { color: "#e8e9ec", font: { size: 11 } } },
+        x: { grid: { color: palette.border }, ticks: { color: palette.dim, font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { color: palette.ink, font: { size: 11 } } },
       },
     },
   });
@@ -162,11 +171,11 @@ onBeforeUnmount(destroyChart);
       <div class="shap-legend-strip">
         <div class="shap-legend-item">
           <span class="legend-box legend-box--gold" aria-hidden="true"></span>
-          <span><strong>Barres dorées</strong> : Facteurs forts poussant vers le haut niveau (High-Elo GM/C)</span>
+          <span><strong>Contribution positive</strong> : facteurs forts poussant vers le haut niveau (GM/Challenger)</span>
         </div>
         <div class="shap-legend-item">
           <span class="legend-box legend-box--loss" aria-hidden="true"></span>
-          <span><strong>Barres rouges</strong> : Facteurs limitants / axes prioritaires d'amélioration (M/D)</span>
+          <span><strong>Contribution négative</strong> : facteurs limitants / axes prioritaires d'amélioration</span>
         </div>
       </div>
 
@@ -178,3 +187,197 @@ onBeforeUnmount(destroyChart);
     </div>
   </div>
 </template>
+
+<style scoped>
+.shap-container {
+  margin-top: 10px;
+}
+
+.shap-empty-card {
+  padding: 32px 28px;
+  background: var(--panel-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  text-align: center;
+  max-width: 680px;
+  margin: 20px auto;
+}
+
+.shap-unavail-title {
+  font-size: 18px;
+  color: var(--text);
+  margin: 12px 0 8px;
+}
+
+.shap-unavail-sub {
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 500px;
+  margin: 0 auto 24px;
+}
+
+.shap-demo-guidance {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-align: left;
+}
+
+.demo-guidance-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--primary);
+}
+
+.demo-guidance-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-demo-shap {
+  flex: 1 1 240px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  color: var(--text);
+  text-decoration: none;
+  transition: var(--transition-base);
+}
+.btn-demo-shap:hover {
+  background: var(--panel-hover);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+
+.demo-shap-avatar {
+  font-size: 18px;
+}
+
+.demo-shap-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.demo-shap-name {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.demo-shap-desc {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.demo-shap-arrow {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.shap-active-card {
+  padding: 24px;
+  background: var(--panel-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.shap-header-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.eyebrow-shap {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  color: var(--primary);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.btn-sort-shap {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.shap-legend-strip {
+  display: flex;
+  gap: 18px;
+  margin: 8px 0 14px;
+  padding: 10px 14px;
+  background: var(--surface-alt);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.shap-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.legend-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.legend-box--gold { background: var(--gold); }
+.legend-box--loss { background: var(--danger); }
+
+.shap-explainer-text {
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 16px;
+  max-width: 860px;
+}
+
+.shap-wrap {
+  height: 560px;
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.shap-empty {
+  padding: 48px 20px;
+  line-height: 1.7;
+  text-align: center;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+}
+
+@media (max-width: 860px) {
+  .shap-wrap {
+    height: 440px;
+    padding: 10px;
+  }
+}
+</style>

@@ -59,7 +59,7 @@ def test_shell_and_home_are_vue_components():
     home = _read("client/pages/HomePage.vue")
     assert "/api/accounts" in shell
     assert "route.name === 'home'" in shell
-    assert 'class="accounts-grid"' in home and 'class="account-card"' in home
+    assert "accounts-grid" in home and "account-card" in home
     assert "<RegisterForm" in home
 
 
@@ -170,11 +170,12 @@ def test_registration_routes_and_polling_are_wired():
     shell = _read("client/App.vue")
     component = _read("client/components/RegisterForm.ce.vue")
     assert "route.name === 'register'" in shell and '<RegisterForm v-else-if=' in shell
-    assert '"/api/register"' in component and "/api/register/${" in component
+    reg_lib = _read("client/account-registration.ts")
+    assert ('"/api/register"' in component or '"/api/register"' in reg_lib) and "/api/register/${" in component
     assert "location.pathname.match" in component
     assert "onBeforeUnmount(stopPolling)" in component and "clearTimeout(timer)" in component
     for code in ("riot_id_not_found", "no_ranked_games", "riot_unavailable", "internal"):
-        assert code in component
+        assert code in component or code in reg_lib
 
 
 def test_authentication_is_shared_by_vue_components():

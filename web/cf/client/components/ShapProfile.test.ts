@@ -86,4 +86,14 @@ describe("ShapProfile", () => {
     expect(chartMock.destroy).toHaveBeenCalled();
     expect((chartMock.configs.at(-1)?.data as { labels: string[] }).labels).toEqual(["positive", "negative"]);
   });
+
+  it("applique les attributs de scope CSS sur le template", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ available: false, drivers: [] })));
+    wrapper = mount(ShapProfile, { props: { slug: "Two" }, attachTo: document.body });
+    await flushPromises();
+
+    const root = wrapper.get(".shap-container");
+    const scopeAttr = Object.keys(root.attributes()).find((attr) => attr.startsWith("data-v-"));
+    expect(scopeAttr).toBeDefined();
+  });
 });

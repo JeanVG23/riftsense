@@ -8,6 +8,7 @@ import {
 export type AppRoute =
   | { name: "home" }
   | { name: "readme" }
+  | { name: "case-study" }
   | { name: "terms" }
   | { name: "privacy" }
   | { name: "register"; slug: string }
@@ -15,6 +16,8 @@ export type AppRoute =
 
 export const routes: RouteRecordRaw[] = [
   { path: "/", name: "home", component: {} },
+  { path: "/demo", redirect: "/c/spadzze?review=EUW1_7898084645" },
+  { path: "/case-study", redirect: "/c/spadzze?review=EUW1_7898084645" },
   { path: "/readme", name: "readme", component: {} },
   { path: "/terms", name: "terms", component: {} },
   { path: "/privacy", name: "privacy", component: {} },
@@ -51,9 +54,10 @@ function toAppRoute(route: RouteLocationResolvedGeneric): AppRoute {
   if (route.name === "register") {
     return { name: "register", slug: firstParam(route.params.slug) };
   }
-  if (route.name === "readme") return { name: "readme" };
-  if (route.name === "terms") return { name: "terms" };
-  if (route.name === "privacy") return { name: "privacy" };
+  if (route.path === "/demo" || route.path === "/case-study") return { name: "account", slug: "spadzze" };
+  if (route.name === "readme" || route.path === "/readme") return { name: "readme" };
+  if (route.name === "terms" || route.path === "/terms") return { name: "terms" };
+  if (route.name === "privacy" || route.path === "/privacy") return { name: "privacy" };
   return { name: "home" };
 }
 

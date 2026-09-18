@@ -35,3 +35,9 @@ const label = computed(() => {
     <span v-if="job.status === 'error' && job.error" class="faint">{{ job.error }}</span>
   </div>
 </template>
+
+<style scoped>
+.job-banner {
+  display: block;
+}
+</style>

@@ -258,3 +258,178 @@ def test_le_taux_de_victoire_entre_dans_les_features_publiques():
         columns = tre.ebm_feature_columns(role)
         assert "win_rate" in columns
         assert "n_games" not in columns
+
+
+# --- frontière servie et held-out répété ------------------------------------
+
+def test_la_frontiere_par_defaut_est_diamond():
+    """MASTER est inséparable de DIAMOND dans cet espace de features.
+
+    Sonde du 2026-09-18, cinq rôles, mêmes datasets : DIAMOND vs GM+CHALL rend
+    0.76 à 0.92 d'AUC held-out, DIAMOND vs MASTER seul rend 0.53 à 0.61, soit le
+    hasard. Servir la frontière MASTER vs GM+CHALL revenait à demander au modèle
+    de trancher entre deux populations que la donnée ne distingue pas.
+    """
+    import inspect
+
+    assert tre.DEFAULT_BOUNDARY == "diamond"
+    assert inspect.signature(tre.train_role).parameters["boundary"].default \
+        == tre.DEFAULT_BOUNDARY
+
+
+def _players(n_high=6, n_low=30):
+    tiers = ["CHALLENGER"] * n_high + ["DIAMOND"] * n_low
+    return pd.DataFrame(
+        {"tier": tiers,
+         "high_elo": [1] * n_high + [0] * n_low},
+        index=[f"p{i}" for i in range(n_high + n_low)])
+
+
+def test_le_tirage_de_balance_suit_la_graine():
+    """Quels Diamants servent de classe basse fait partie du tirage.
+
+    La classe haute est limitante (93 à 198 joueurs par rôle contre 271 à 389
+    Diamants) : à graine fixe, les mêmes Diamants étaient repris à chaque run et
+    la variance de ce choix restait invisible.
+    """
+    une = tre._balance(_players(), {"DIAMOND"}, seed=1)
+    autre = tre._balance(_players(), {"DIAMOND"}, seed=2)
+    assert set(une.index) != set(autre.index)
+
+
+def test_la_decoupe_du_heldout_suit_la_graine():
+    une, _ = tre.split_holdout(_players(20, 20), frac=0.25, seed=1)
+    autre, _ = tre.split_holdout(_players(20, 20), frac=0.25, seed=2)
+    assert set(une.index) != set(autre.index)
+
+
+def test_la_mediane_par_modele_ignore_la_colonne_de_graine():
+    rows = [{"seed": 1, "ebm": 0.70}, {"seed": 2, "ebm": 0.90},
+            {"seed": 3, "ebm": 0.80}]
+    assert tre._median_by_model(rows) == {"ebm": 0.80}
+
+
+class _RankingModel:
+    """Modèle jouet : classe sur la première colonne, sans rien apprendre.
+
+    L'intégration testée ici est le PROTOCOLE (un held-out par graine), pas la
+    qualité de l'ajustement : entraîner trois vrais ensembles sur 24 joueurs
+    rendrait le test lent sans rien vérifier de plus.
+    """
+
+    term_names_: list[str] = []
+
+    def fit(self, X, y):
+        return self
+
+    def predict_proba(self, X):
+        values = np.nan_to_num(X.iloc[:, 0].to_numpy(dtype=float))
+        return np.column_stack([-values, values])
+
+    def eval_terms(self, X):
+        return np.zeros((len(X), 0))
+
+
+def _synthetic_role_data(role="JUNGLE", n_high=12, n_low=12, n_window=4):
+    """Fenêtres à profondeur fixe, deux classes séparables, zéro lecture disque."""
+    import ml_features as mf
+
+    rng = np.random.default_rng(0)
+    features = rf.public_features(role)
+    games = []
+    for index in range(n_high + n_low):
+        high = index < n_high
+        for game in range(n_window):
+            row = {"puuid": f"p{index}", "role": role,
+                   "match_id": f"m{index}-{game}", "game_ts": 100 - game,
+                   "win": int(rng.random() < (0.6 if high else 0.4))}
+            row.update({name: float(rng.normal(1.0 if high else 0.0))
+                        for name in features})
+            games.append(row)
+    games_df = pd.DataFrame(games)
+
+    rows = []
+    for index in range(n_high + n_low):
+        high = index < n_high
+        aggregates = mf.aggregate_player_features(
+            games_df[games_df["puuid"] == f"p{index}"], features)
+        aggregates.pop("n_games", None)
+        rows.append({"puuid": f"p{index}",
+                     "tier": "CHALLENGER" if high else "DIAMOND",
+                     "high_elo": int(high), "n_window": n_window,
+                     "as_of": 100, **aggregates})
+    return pd.DataFrame(rows), games_df
+
+
+def test_le_heldout_est_repete_sur_chaque_graine(monkeypatch):
+    """Un held-out de 28 à 60 joueurs ne se lit pas sur un seul tirage.
+
+    Mesuré le 2026-09-18 sur dix graines : le même modèle, sur les mêmes
+    données, vaut 0.663 ou 0.918 en TOP selon les 28 personnes tirées. Publier
+    un tirage revenait à publier ce tirage-là, pas le modèle.
+    """
+    monkeypatch.setattr(tre, "make_models",
+                        lambda: {name: _RankingModel()
+                                 for name in ("xgb", "rf", "ebm")})
+    player_df, games_df = _synthetic_role_data()
+
+    metrics = tre.train_role(player_df, games_df, "JUNGLE", n_splits=2,
+                             holdout_seeds=(1, 2, 3))
+
+    assert [row["seed"] for row in metrics["auc_heldout_seeds"]] == [1, 2, 3]
+    assert metrics["auc_heldout_median"]["ebm"] == pytest.approx(
+        float(np.median([row["ebm"] for row in metrics["auc_heldout_seeds"]])))
+    assert metrics["boundary"] == "diamond"
+
+
+def test_les_metriques_ne_publient_plus_un_tirage_unique(monkeypatch):
+    """`auc_heldout` disparaît au lieu de changer de sens.
+
+    Garder la clé en y écrivant la médiane servirait un nombre sous le nom d'un
+    autre : les anciennes métriques doivent échouer bruyamment, pas se lire de
+    travers.
+    """
+    monkeypatch.setattr(tre, "make_models",
+                        lambda: {name: _RankingModel()
+                                 for name in ("xgb", "rf", "ebm")})
+    player_df, games_df = _synthetic_role_data()
+
+    metrics = tre.train_role(player_df, games_df, "JUNGLE", n_splits=2,
+                             holdout_seeds=(1, 2))
+
+    assert "auc_heldout" not in metrics
+
+
+def test_l_export_accompagne_le_modele_et_partage_son_identite(
+        tmp_path, monkeypatch):
+    """L'export et les métriques issus d'un run partagent leur identité."""
+    import json as json_module
+
+    monkeypatch.setattr(tre, "MODEL_DIR", tmp_path)
+    player_df, games_df = _synthetic_role_data(role="TOP")
+    metrics = tre.train_role(
+        player_df, games_df, "TOP", n_splits=2, holdout_seeds=(42,))
+    tre.save_role_artifacts(
+        player_df, "TOP", metrics, boundary=tre.DEFAULT_BOUNDARY)
+
+    export = json_module.loads((tmp_path / "top_ebm_export.json").read_text())
+    saved = json_module.loads(
+        (tmp_path / "top_player_metrics.json").read_text())
+    assert export["schema_version"] == 1
+    assert export["role"] == "TOP"
+    assert export["boundary"] == "diamond"
+    assert export["features"] == tre.ebm_feature_columns("TOP")
+    assert export["model_id"] == saved["model_id"]
+    assert set(export["shapes"]) == set(export["features"])
+
+
+def test_l_export_est_ecrit_apres_les_metriques(tmp_path, monkeypatch):
+    """La date de l'export empêche Make de relancer sans fin le modèle."""
+    monkeypatch.setattr(tre, "MODEL_DIR", tmp_path)
+    player_df, games_df = _synthetic_role_data(role="TOP")
+    metrics = tre.train_role(
+        player_df, games_df, "TOP", n_splits=2, holdout_seeds=(42,))
+    tre.save_role_artifacts(
+        player_df, "TOP", metrics, boundary=tre.DEFAULT_BOUNDARY)
+    assert ((tmp_path / "top_ebm_export.json").stat().st_mtime_ns
+            >= (tmp_path / "top_player_metrics.json").stat().st_mtime_ns)

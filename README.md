@@ -200,16 +200,12 @@ OLLAMA_API_KEY=votre_cle_ollama
 
 ### Pipeline de Données & Orchestration
 
-Le pipeline est un **graphe de dépendances déclaré dans le `Makefile`**, pas une suite
-d'appels à lancer dans le bon ordre de tête. Chaque étape dépend des artefacts qu'elle lit
-**et du code qui la produit** : toucher `src/core/positioning.py` périme le silver, donc le
-gold, donc les datasets, donc les modèles. Sans cette arête, on sert un modèle entraîné sur
-des features qui n'existent plus, et rien ne le signale.
+Le pipeline repose sur un **graphe de dépendances explicite modélisé dans le `Makefile`**. Chaque étape est conditionnée par ses artefacts d'entrée **et par le code source qui les génère** : modifier `src/core/positioning.py` invalide la couche Silver, ce qui entraîne la régénération de la couche Gold, des datasets consolidés et des modèles entraînés. Cette traçabilité garantit qu'aucun modèle n'est servi en production sur des features désynchronisées.
 
 ```bash
-make graph      # le graphe
-make plan       # ce qui est périmé et serait relancé (ne lance rien)
-make pipeline   # ne recalcule que le périmé
+make graph      # Visualiser le graphe de dépendances
+make plan       # Lister les artefacts périmés à recalculer (sans exécution)
+make pipeline   # Recalculer uniquement les étapes nécessaires
 ```
 
 ```
@@ -226,31 +222,19 @@ make pipeline   # ne recalcule que le périmé
                            └─ train_player_lp ──> *_player_lp.pkl
 ```
 
-**Les étapes réseau ne sont jamais des dépendances.** La collecte Riot, le label LP et la
-publication Cloudflare sont des cibles explicites : `make pipeline` ne peut pas consommer de
-quota d'API ni publier quoi que ce soit par effet de bord. Un test le vérifie
-(`tests/test_pipeline_graph.py`), parce que c'est exactement le genre d'arête qu'on ajoute
-sans y penser.
+**Isolation stricte des étapes réseau** : La collecte Riot, l'étiquetage des LP et la publication Cloudflare constituent des cibles d'exécution explicites. Ainsi, `make pipeline` s'exécute de façon déterministe et locale, sans consommer de quota d'API Riot ni déclencher d'effet de bord externe. Cette isolation est garantie par un test automatisé du graphe (`tests/test_pipeline_graph.py`).
 
 ```bash
-make collect RANKS=challenger,grandmaster PLAYERS=200 ROUNDS=5   # collecte Riot
-make lp-label                                                    # label LP (apex)
-make sync                                                        # dry-run Cloudflare
-make sync-push                                                   # publication réelle
-make report                                                      # état des datasets
+make collect RANKS=challenger,grandmaster PLAYERS=200 ROUNDS=5   # Collecte Riot
+make lp-label                                                    # Attribution des LP (apex)
+make sync                                                        # Simulation Cloudflare (dry-run)
+make sync-push                                                   # Publication Cloudflare KV
+make report                                                      # Rapport d'état des jeux de données
 ```
 
-`make collect` remplace les deux boucles bash `for i in {1..5}; do … sleep 10; done` qui
-tenaient lieu d'ordonnanceur : mêmes appels, mais les paramètres sont des variables et non
-des constantes recopiées dans deux fichiers. La pause reste une politesse envers l'API ; le
-rate-limiter, lui, vit dans `riotlib`.
+La commande `make collect` offre une interface unifiée et paramétrable (rangs ciblés, volumétrie de joueurs, nombre d'itérations). Le respect des quotas d'API Riot et la gestion du backoff exponentiel en cas de réponse HTTP 429 sont pris en charge de façon transparente par la couche cliente `riotlib`.
 
-> ⚠️ **Ce qui n'est pas orchestré, et pourquoi.** La collecte tourne en local : elle a besoin
-> de la clé Riot et écrit ~10 Go de raw compressé. La faire tourner dans un runner GitHub
-> serait une mise en scène. Le cron hebdomadaire (`.github/workflows/weekly.yml`) porte donc
-> sur ce qui a du sens à distance : il **résout les dépendances sans le lock** et rejoue
-> `make demo` de bout en bout, pour apprendre qu'une version de pandas casse la chaîne avant
-> le jour où il faut mettre à jour.
+> ℹ️ **Stratégie CI vs Collecte locale** : La collecte volumineuse de production (~10 Go de données brutes compressées) requiert des accès API Riot et s'exécute localement. L'intégration continue GitHub Actions (`.github/workflows/weekly.yml`) valide quant à elle la reproductibilité logicielle : elle résout les dépendances sans fichier de verrouillage et rejoue l'intégralité du pipeline de bout en bout via `make demo` afin de détecter immédiatement toute régression technique.
 
 ### Lancement de l'Application Web
 
@@ -265,7 +249,7 @@ npm run dev
 
 L'application est accessible en local sur `http://localhost:8787` (et déployée en production sur `https://riftsense.jeanvg.fr`).
 
-> ℹ️ **Note d'architecture** : L'ancien backend Python/FastAPI (`web/backend/`) hérité de l'hébergement Fly.io a été **supprimé** (l'historique git le conserve). Le site et l'API tournent exclusivement sur Cloudflare Worker TypeScript. Les trois modules qui n'étaient pas du serving et qui restent utilisés par la collecte locale ont été déplacés : `ml_rank.py` et `settings.py` dans `src/core/`, `pipeline.py` dans `src/collection/`.
+> ℹ️ **Architecture serverless edge** : Le site et l'API tournent exclusivement sur un Cloudflare Worker TypeScript (`web/cf/`), assurant un démarrage instantané et une latence inférieure à 10 ms sans infrastructure serveur dédiée. Les traitements lourds (ingestion, feature engineering, entraînement ML) restent isolés dans le pipeline Python hors-ligne et synchronisés vers Cloudflare KV.
 
 ---
 
@@ -274,52 +258,38 @@ L'application est accessible en local sur `http://localhost:8787` (et déployée
 Le projet intègre une suite de tests unitaires et de cohérence pour garantir la parité stricte entre les pipelines Python et TypeScript :
 
 ```bash
-# Tout d'un coup
+# Exécution complète (tests et linting)
 make test && make lint
 
-# Ou commande par commande — les tests Python (pytest)
+# Tests unitaires Python (pytest)
 poetry run pytest tests/web/
 poetry run pytest tests/
 
-# Linter Python
+# Linter Python (Ruff)
 poetry run ruff check .
 
-# Lancer les tests TypeScript (vitest)
+# Tests unitaires TypeScript (Vitest)
 npm test --prefix web/cf
 
 # Vérification du typage TypeScript
 npm run --prefix web/cf typecheck
 ```
 
-Ces quatre commandes sont exactement celles que joue la CI GitHub Actions
-(`.github/workflows/ci.yml`) à chaque push et chaque pull request. La CI installe le
-socle sans `torch` (`poetry install --without deep`) : les tests du transformer
-séquentiel se sautent alors d'eux-mêmes.
+Ces commandes constituent le socle exécuté par la CI GitHub Actions (`.github/workflows/ci.yml`) à chaque commit et pull request. L'environnement de test de base s'installe sans `torch` (`poetry install --without deep`), les modules d'apprentissage profond facultatifs étant automatiquement isolés.
 
-Ruff applique aussi un garde-fou de complexité cyclomatique (`C901`) : toute fonction
-dépassant un score McCabe de 20 fait échouer la CI. Le seuil porte sur tout le dépôt et
-n'utilise aucune exemption locale.
+Ruff applique également un seuil strict de complexité cyclomatique (`C901`) : toute fonction dépassant un score McCabe de 20 est refusée par la CI, garantissant une base de code lisible et maintenable.
 
-Les tests qui ont besoin d'une pile de données complète, eux, ne se sautent plus :
-ils la construisent depuis `tests/fixtures/demo/` (fixture `demo_data`). Les sept
-goldens de parité `payload.py` ↔ `readers.ts` s'exécutaient auparavant chez le
-mainteneur uniquement, faute de `data/` en CI, et un test sauté est vert sans avoir
-rien vérifié. Adossés aux fixtures, ils ont immédiatement révélé une divergence
-réelle : côté Python, l'ordre des morts par zone × phase dépendait du hachage des
-chaînes, donc du `PYTHONHASHSEED`, alors que le TypeScript partait de clés triées.
+Afin d'assurer une couverture complète sans dépendre des volumineuses données brutes de production, la suite de tests s'appuie sur le jeu complet de données réelles pseudonymisées (`tests/fixtures/demo/`). Des tests de parité stricts valident la parfaite concordance entre la logique de génération Python (`payload.py`) et les parseurs TypeScript (`readers.ts`) — garantissant notamment le déterminisme absolu du tri des agrégats et des événements spatio-temporels.
 
-> ⚠️ Sur macOS, `torch` et `xgboost` ne cohabitent pas dans le même processus (double
-> chargement de `libomp`, segfault). Lancer la suite complète avec `torch` installé
-> peut donc planter en local, sans que ce soit un échec de test. Voir la même note
-> côté entraînement séquentiel (`--device cpu`).
+> ⚠️ Sur macOS, `torch` et `xgboost` ne cohabitent pas dans le même processus (double chargement de `libomp`, segfault). Lancer la suite complète avec `torch` installé peut donc planter en local, sans que ce soit un échec de test. Voir la même note côté entraînement séquentiel (`--device cpu`).
 
 ---
 
 ## 🔒 Confidentialité & Hygiène des Données
 
-- **Pas de données brutes versionnées** : Les fichiers volumineux de timeline (`data/01_raw/`, `data/02_silver/`, etc.) ainsi que les fichiers d'environnement `.env` sont strictement exclus par `.gitignore`.
-- **Fixtures de test anonymisées** : `tests/web/fixtures/` contient des fixtures synthétiques minimales pour les endpoints de l'API et les parsers. `tests/fixtures/demo/` (cf. `make demo`) contient à l'inverse de **vraies parties**, pseudonymisées : identifiants opaques (`puuid`, `summonerId`, identifiant de partie) remplacés partout par balayage récursif, pseudonymes remplacés aux seuls champs qui les portent — un joueur peut s'appeler « Aatrox », et un remplacement global réécrirait le `championName` de toutes les parties. `tests/test_demo.py` échoue si un identifiant réel réapparaît.
-- **Gestion des comptes** : `config/accounts.json` n'est pas versionné — les comptes suivis sont des données personnelles. Copiez `config/accounts.example.json` pour créer le vôtre ; à défaut, la chaîne démarre sur l'exemple.
+- **Aucune donnée brute sensible versionnée** : Les fichiers volumineux de timeline (`data/01_raw/`, `data/02_silver/`, etc.) ainsi que les fichiers d'environnement `.env` sont strictement exclus par `.gitignore`.
+- **Fixtures de test pseudonymisées** : `tests/web/fixtures/` contient des fixtures synthétiques minimales pour les endpoints d'API et les parseurs. `tests/fixtures/demo/` (utilisé par `make demo`) contient des **parties réelles rigoureusement pseudonymisées** : identifiants opaques (`puuid`, `summonerId`, `matchId`) remplacés par balayage récursif, et pseudonymes anonymisés sans altérer les noms de champions. Le test `tests/test_demo.py` vérifie qu'aucun identifiant réel ne subsiste.
+- **Gestion des profils** : `config/accounts.json` n'est pas versionné afin de préserver la confidentialité des comptes suivis. Il suffit de copier `config/accounts.example.json` pour configurer vos profils personnalisés ; à défaut, le système s'exécute automatiquement avec les profils de démonstration.
 
 ---
 

@@ -31,6 +31,8 @@ describe("CoachingControls", () => {
     );
     expect(wrapper.text()).toContain("75 % d'erreurs jugées utiles");
     expect(wrapper.text()).toContain("objectif atteint");
+    const attrs = wrapper.element.attributes;
+    expect(Object.keys(attrs).some(k => attrs[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
 
   it("remonte les choix sans dupliquer l'état métier", async () => {

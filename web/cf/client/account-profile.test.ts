@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  accountRank,
+  formatAccountRank,
   formatPseudo,
   isOwnerAccount,
   regionTag,
@@ -113,6 +115,21 @@ describe("account-profile", () => {
       expect(isOwnerAccount({ slug: "autre", group: "owner" })).toBe(true);
       expect(isOwnerAccount({ slug: "vangy", group: "permanent" })).toBe(false);
       expect(isOwnerAccount({ slug: "bobby-lupo" })).toBe(false);
+    });
+  });
+
+  describe("accountRank & formatAccountRank", () => {
+    it("fournit le rang des comptes curés", () => {
+      expect(accountRank("spadzze")).toEqual({ tier: "DIAMOND", division: "II", league_points: 95 });
+      expect(accountRank("aceofspadzze")).toEqual({ tier: "MASTER", division: "I", league_points: 2 });
+      expect(accountRank("vangy")).toEqual({ tier: "GOLD", division: "I", league_points: 83 });
+    });
+
+    it("formate le rang en français avec division et LP", () => {
+      expect(formatAccountRank({ tier: "DIAMOND", division: "II", league_points: 95 })).toBe("Diamant II · 95 LP");
+      expect(formatAccountRank({ tier: "MASTER", division: "I", league_points: 2 })).toBe("Master · 2 LP");
+      expect(formatAccountRank({ tier: "GOLD", division: "I", league_points: 83 })).toBe("Or I · 83 LP");
+      expect(formatAccountRank({ tier: "EMERALD", division: "III", league_points: 42 })).toBe("Émeraude III · 42 LP");
     });
   });
 });

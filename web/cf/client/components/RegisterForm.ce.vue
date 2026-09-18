@@ -1,45 +1,29 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from "vue";
+import {
+  navigateTo,
+  REGISTER_ERRORS,
+  RIOT_PLATFORMS,
+  useAccountRegistration,
+  type RegistrationResponse,
+  type RegistrationState,
+} from "../account-registration";
 import { RECENT_ACCOUNTS_CHANGED, rememberRecentAccount } from "../recent-accounts";
-
-
-type RegistrationState = "queued" | "running" | "done" | "error";
-
-interface RegistrationResponse {
-  slug?: string;
-  detail?: string;
-  state?: RegistrationState;
-  error_code?: string;
-  position?: number | null;
-  n_games?: number | null;
-}
 
 const props = withDefaults(defineProps<{ mode?: "form" | "status" }>(), {
   mode: "form",
 });
 
-const REGISTER_ERRORS: Record<string, string> = {
-  riot_id_not_found: "Ce Riot ID est introuvable. Vérifie le pseudo et le tag.",
-  no_ranked_games: "Aucune partie classée récente trouvée sur ce compte.",
-  riot_unavailable: "L'API Riot ne répond pas pour le moment. Réessaie dans quelques minutes.",
-  internal: "Une erreur interne est survenue. Réessaie plus tard.",
-};
 const MAX_NETWORK_RETRIES = 5;
 
-const riotId = ref("");
-const platform = ref("euw1");
+const { riotId, platform, submitting, error, submitRegistration } = useAccountRegistration();
+
 const state = ref<RegistrationState | null>(null);
 const position = ref<number | null>(null);
-const error = ref<string | null>(null);
-const submitting = ref(false);
 const slug = ref<string | null>(null);
 let timer: ReturnType<typeof setTimeout> | null = null;
 let networkFailures = 0;
 let stopped = false;
-
-function navigate(path: string) {
-  window.dispatchEvent(new CustomEvent("coach-go", { detail: { path } }));
-}
 
 function stopPolling() {
   if (timer !== null) clearTimeout(timer);
@@ -54,32 +38,7 @@ function poll() {
 }
 
 async function submit() {
-  error.value = null;
-  submitting.value = true;
-  try {
-    const response = await fetch("/api/register", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ riot_id: riotId.value, platform: platform.value }),
-    });
-    const body = await response.json().catch(() => ({})) as RegistrationResponse;
-    if (!response.ok || !body.slug) {
-      error.value = body.detail || REGISTER_ERRORS.internal;
-      return;
-    }
-    rememberRecentAccount({
-      slug: body.slug,
-      riot_id: riotId.value,
-      region: platform.value,
-      games_count: body.n_games ?? undefined,
-    });
-    window.dispatchEvent(new CustomEvent(RECENT_ACCOUNTS_CHANGED));
-    navigate(`/register/${body.slug}`);
-  } catch {
-    error.value = REGISTER_ERRORS.internal;
-  } finally {
-    submitting.value = false;
-  }
+  await submitRegistration();
 }
 
 async function refresh() {
@@ -121,7 +80,7 @@ async function refresh() {
       });
       window.dispatchEvent(new CustomEvent(RECENT_ACCOUNTS_CHANGED));
     }
-    navigate(`/c/${slug.value}`);
+    navigateTo(`/c/${slug.value}`);
     return;
   }
   if (body.state !== "queued" && body.state !== "running") {
@@ -136,7 +95,7 @@ async function refresh() {
 
 function backToForm() {
   stopPolling();
-  navigate("/");
+  navigateTo("/");
 }
 
 onMounted(() => {
@@ -171,16 +130,7 @@ onBeforeUnmount(stopPolling);
         <label class="field-label register-label-server" for="platform">
           <span>Serveur</span>
           <select id="platform" v-model="platform" class="select register-select-server">
-            <option value="euw1">EUW (Europe Ouest)</option>
-            <option value="eun1">EUNE (Europe Nord/Est)</option>
-            <option value="na1">NA (Amérique du Nord)</option>
-            <option value="kr">KR (Corée)</option>
-            <option value="br1">BR (Brésil)</option>
-            <option value="jp1">JP (Japon)</option>
-            <option value="tr1">TR (Turquie)</option>
-            <option value="la1">LAN (Am. Latine Nord)</option>
-            <option value="la2">LAS (Am. Latine Sud)</option>
-            <option value="oc1">OCE (Océanie)</option>
+            <option v-for="p in RIOT_PLATFORMS" :key="p.value" :value="p.value">{{ p.label }}</option>
           </select>
         </label>
         <button type="submit" class="btn btn-primary register-submit-btn" :disabled="submitting || !riotId">
@@ -202,8 +152,8 @@ onBeforeUnmount(stopPolling);
     </div>
 
     <h1 class="status-title">
-      <span v-if="state === 'error'" class="text-gradient-coral">Analyse impossible</span>
-      <span v-else class="text-gradient-cyan">Analyse de ton compte en cours</span>
+      <span v-if="state === 'error'" class="text-danger">Analyse impossible</span>
+      <span v-else class="text-ink">Analyse de ton compte en cours</span>
     </h1>
 
     <p class="status-subtitle muted">
@@ -308,3 +258,460 @@ onBeforeUnmount(stopPolling);
     </div>
   </div>
 </template>
+
+<style scoped>
+.register-hero-widget {
+  width: 100%;
+  max-width: 100%;
+  margin: 24px 0 0;
+}
+
+.register-bar-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-overlay);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.register-bar-inputs {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.register-label-riot {
+  flex: 1 1 340px;
+  margin: 0;
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--primary);
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.register-input-id {
+  width: 100%;
+  padding-left: 36px;
+  height: 42px;
+  font-size: 14px;
+  font-weight: 550;
+  background: var(--surface);
+  border-color: var(--gold);
+  border-radius: 10px;
+}
+.register-input-id:focus {
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+.register-label-server {
+  flex: 0 0 220px;
+  margin: 0;
+}
+
+.register-select-server {
+  width: 100%;
+  height: 42px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface);
+  border-color: var(--gold);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.register-submit-btn {
+  height: 42px;
+  padding: 0 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: #fffdf8 !important;
+  background: linear-gradient(135deg, #782025 0%, #541418 100%) !important;
+  border: 1px solid rgba(185, 143, 83, 0.45) !important;
+  box-shadow: 0 4px 14px rgba(120, 32, 37, 0.35) !important;
+  transition: var(--transition-base);
+}
+.register-submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8f262c 0%, #68191f 100%) !important;
+  border-color: var(--gold) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(120, 32, 37, 0.45) !important;
+  transform: translateY(-1px);
+}
+.register-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.register-btn-arrow {
+  color: #fbbf24;
+  transition: transform 150ms ease;
+}
+.register-submit-btn:hover:not(:disabled) .register-btn-arrow {
+  transform: translateX(3px);
+  color: #fbbf24;
+}
+
+.register-err-msg {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+/* Ingestion Stepper View (/register/:slug) */
+.register-status-view {
+  max-width: 660px;
+  margin: 36px auto;
+  text-align: center;
+}
+
+.hero-live-pill--error {
+  background: var(--loss-soft);
+  border-color: var(--loss-border);
+  color: var(--danger);
+}
+
+.live-indicator-dot.dot--error {
+  background: var(--danger);
+}
+
+.status-title {
+  font-size: clamp(28px, 4.5vw, 36px);
+  font-weight: 850;
+  letter-spacing: -.03em;
+  margin: 12px 0 8px;
+  line-height: 1.15;
+}
+
+.status-subtitle {
+  font-size: 14.5px;
+  color: var(--text-dim);
+  margin: 0 auto 28px;
+  max-width: 540px;
+  line-height: 1.5;
+}
+
+.status-progress-card {
+  padding: 32px 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-overlay);
+  text-align: left;
+}
+
+.status-progress-card.card--error {
+  border-color: var(--loss-border);
+  box-shadow: var(--shadow-overlay);
+}
+
+.status-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  padding: 0 12px;
+}
+
+.status-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 2;
+}
+
+.step-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  border: 2px solid var(--border-soft);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-faint);
+  transition: all 220ms ease;
+}
+
+.status-step.active .step-num {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-soft);
+  animation: step-pulse 2s infinite;
+}
+
+.status-step.done .step-num {
+  background: var(--win-soft);
+  border-color: var(--win);
+  color: var(--win);
+
+}
+
+.status-step.error .step-num {
+  background: var(--loss-soft);
+  border-color: var(--loss-border);
+  color: var(--danger);
+  font-weight: 900;
+}
+
+.step-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-faint);
+  letter-spacing: .02em;
+  transition: color 200ms ease;
+}
+.status-step.active .step-label { color: var(--primary); }
+.status-step.done .step-label { color: var(--win); }
+.status-step.error .step-label { color: var(--danger); }
+
+.step-sep {
+  flex: 1;
+  height: 2px;
+  background: var(--surface-alt);
+  margin: -22px 12px 0;
+  border-radius: 999px;
+  transition: background 250ms ease;
+}
+.step-sep.active {
+  background: var(--primary);
+}
+
+/* Error Box */
+.status-error-box {
+  background: var(--loss-soft);
+  border: 1px solid var(--loss-border);
+  border-radius: 14px;
+  padding: 22px;
+}
+
+.status-error-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.status-error-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--loss-soft);
+  border: 1px solid var(--loss-border);
+  display: grid;
+  place-items: center;
+  color: var(--danger);
+  flex-shrink: 0;
+}
+
+.status-error-content {
+  flex: 1;
+}
+
+.status-error-heading {
+  font-size: 15px;
+  font-weight: 750;
+  color: var(--danger);
+  margin-bottom: 4px;
+  letter-spacing: -.01em;
+}
+
+.status-error-message {
+  font-size: 13.5px;
+  color: var(--danger);
+  margin: 0;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.status-error-tips {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--loss-border);
+}
+
+.tip-title {
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+}
+
+.tip-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  line-height: 1.65;
+}
+
+.tip-list code {
+  padding: 2px 6px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--primary);
+  font-family: ui-monospace, monospace;
+  font-size: 11.5px;
+}
+
+.status-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+
+.status-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.status-action-btn .btn-arrow-left {
+  font-size: 14px;
+  transition: var(--transition-transform-fast);
+}
+.status-action-btn:hover .btn-arrow-left {
+  transform: translateX(-3px);
+}
+
+.status-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+  text-decoration: none;
+  transition: var(--transition-base);
+}
+.status-secondary-btn:hover {
+  background: var(--panel-hover);
+  border-color: var(--primary);
+  color: var(--text);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.status-secondary-btn .btn-arrow-right {
+  color: var(--primary);
+  font-size: 13px;
+  transition: var(--transition-transform-fast);
+}
+.status-secondary-btn:hover .btn-arrow-right {
+  transform: translateX(3px);
+}
+
+/* Loading Box */
+.status-loading-box {
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  border-radius: 14px;
+  padding: 24px 20px;
+}
+
+.status-progress-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: var(--surface);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.status-progress-bar.indeterminate {
+  width: 35%;
+  height: 100%;
+  background: var(--primary-gradient);
+  border-radius: 999px;
+
+  animation: progress-indeterminate 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(180%); }
+  100% { transform: translateX(320%); }
+}
+
+.status-desc-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-step-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 0;
+}
+
+.status-note {
+  font-size: 12px;
+  color: var(--text-faint);
+  line-height: 1.45;
+  margin-top: 4px;
+}
+
+@media (max-width: 860px) {
+  .register-bar-inputs {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .register-label-riot,
+  .register-label-server,
+  .register-submit-btn {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+}
+</style>
+
+@keyframes step-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .72; transform: scale(.97); }
+}

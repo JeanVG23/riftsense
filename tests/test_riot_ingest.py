@@ -61,6 +61,24 @@ class FakeRiotClient:
         return rl._read_raw_at(FIXTURE_RAW / f"{match_id}_timeline.json.zst")
 
 
+class CountingRiotClient(FakeRiotClient):
+    """Enregistre les appels match et timeline pour vérifier qu'aucun appel
+    inutile n'est fait lors d'un rafraîchissement."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.match_calls = []
+        self.timeline_calls = []
+
+    def match(self, match_id):
+        self.match_calls.append(match_id)
+        return super().match(match_id)
+
+    def timeline(self, match_id):
+        self.timeline_calls.append(match_id)
+        return super().timeline(match_id)
+
+
 class FakeKV:
     def __init__(self):
         self.store = {}
@@ -297,3 +315,132 @@ def test_summoner_profile_ignore_un_puuid_absent_ou_un_champ_non_entier():
     assert rl.summoner_profile(match, "B") == {}
     assert rl.summoner_profile(match, "INCONNU") == {}
     assert rl.summoner_profile({}, "A") == {}
+
+
+def test_actualiser_ne_refetch_pas_les_parties_deja_connues(tmp_path, demo_data):
+    """Lors d'un rafraîchissement, les matchs déjà indexés dans KV ne doivent pas
+    générer d'appels API match ou timeline."""
+    puuid = "DEMO-PUUID-0009"
+    kv = FakeKV()
+
+    # Ingestion initiale avec DEMO1_0000001
+    _run(tmp_path / "init", FakeRiotClient(["DEMO1_0000001"], puuid=puuid), kv, FakeR2())
+
+    # Actualisation : l'API Riot renvoie DEMO1_0000002 (nouveau) et DEMO1_0000001 (déjà connu)
+    client = CountingRiotClient(["DEMO1_0000002", "DEMO1_0000001"], puuid=puuid)
+    result = _run(tmp_path / "refresh", client, kv, FakeR2())
+
+    assert result["status"] == "ok"
+    assert result["n_games"] == 1
+    # Seul le nouveau match a été téléchargé
+    assert client.match_calls == ["DEMO1_0000002"]
+    assert client.timeline_calls == ["DEMO1_0000002"]
+
+    # KV contient bien les deux matchs
+    games = {json.loads(line)["match_id"]
+             for line in kv.store["silver:demo-euw:games"].splitlines() if line.strip()}
+    assert games == {"DEMO1_0000001", "DEMO1_0000002"}
+
+
+def test_actualiser_sans_nouvelle_partie_ne_fait_aucun_appel_match(tmp_path, demo_data):
+    """Si le joueur n'a pas rejoué depuis la dernière collecte, 0 appel match/timeline
+    n'est émis, et le statut retourne ok avec n_games = 0."""
+    puuid = "DEMO-PUUID-0009"
+    kv = FakeKV()
+
+    _run(tmp_path / "init", FakeRiotClient(["DEMO1_0000001"], puuid=puuid), kv, FakeR2())
+
+    # Actualisation avec les mêmes matchs
+    client = CountingRiotClient(["DEMO1_0000001"], puuid=puuid)
+    result = _run(tmp_path / "refresh", client, kv, FakeR2())
+
+    assert result["status"] == "ok"
+    assert result["n_games"] == 0
+    assert client.match_calls == []
+    assert client.timeline_calls == []
+
+
+def test_actualiser_quand_tous_les_nouveaux_matchs_echouent_leve_riot_unavailable(
+        tmp_path, demo_data):
+    """Si un nouveau match est détecté mais échoue à cause du réseau Riot,
+    l'exception levée est riot_unavailable même si un historique existait."""
+    puuid = "DEMO-PUUID-0009"
+    kv = FakeKV()
+
+    _run(tmp_path / "init", FakeRiotClient(["DEMO1_0000001"], puuid=puuid), kv, FakeR2())
+
+    # BrokenRiotClient lève ConnectionError sur match/timeline
+    client = BrokenRiotClient(["DEMO1_0000002", "DEMO1_0000001"], puuid=puuid)
+    with pytest.raises(errors.RiotUnavailable):
+        _run(tmp_path / "refresh", client, kv, FakeR2())
+
+
+def _models_fermes():
+    """Ce que la livraison embarque : cinq rôles chargés mais fermés."""
+    import role_scoring
+    return {role: role_scoring.RoleModel(
+        {"schema_version": 1, "model_id": "ID1", "role": role,
+         "boundary": "diamond", "features": [], "intercept": 0.0,
+         "terms": {}, "shapes": {},
+         "population": {"low": ["DIAMOND"],
+                        "high": ["GRANDMASTER", "CHALLENGER"]}},
+        {"role": role, "model_id": "ID1", "corpus": "research", "open": False},
+        None)
+        for role in ("TOP", "JUNGLE", "MIDDLE", "BOTTOM", "SUPPORT")}
+
+
+def test_un_role_ferme_publie_le_motif_et_ne_coute_aucun_appel_de_plus(
+        tmp_path, demo_data, demo_puuid):
+    ids = _demo_match_ids(3)
+    client = CountingRiotClient(ids, puuid=demo_puuid)
+    kv, r2 = FakeKV(), FakeR2()
+    riot_ingest.run(
+        {"slug": "visiteur", "riot_id": "A#B", "platform": "euw1"},
+        client=client, kv=kv, r2=r2, data_dir=tmp_path,
+        models=_models_fermes())
+
+    analysis = json.loads(kv.store["shap:visiteur:role"])
+    assert analysis["available"] is False
+    assert analysis["reason"] == "role_closed"
+    assert len(client.match_calls) == len(ids)
+
+
+def test_l_analyse_est_reecrite_a_chaque_ingestion(
+        tmp_path, demo_data, demo_puuid):
+    kv, r2 = FakeKV(), FakeR2()
+    kv.store["shap:visiteur:role"] = json.dumps(
+        {"schema_version": 1, "available": True, "role": "BOTTOM", "drivers": []})
+    riot_ingest.run(
+        {"slug": "visiteur", "riot_id": "A#B", "platform": "euw1"},
+        client=FakeRiotClient(_demo_match_ids(3), puuid=demo_puuid), kv=kv, r2=r2,
+        data_dir=tmp_path, models=_models_fermes())
+    assert json.loads(kv.store["shap:visiteur:role"])["available"] is False
+
+
+def test_l_echec_du_scoring_n_emporte_pas_l_ingestion(
+        tmp_path, demo_data, demo_puuid, monkeypatch):
+    monkeypatch.setattr(
+        riot_ingest.role_scoring, "build_window",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boum")))
+    models = _models_fermes()
+    for role, model in list(models.items()):
+        models[role] = model._replace(
+            readiness={**model.readiness, "corpus": "production", "open": True})
+    kv, r2 = FakeKV(), FakeR2()
+    riot_ingest.run(
+        {"slug": "visiteur", "riot_id": "A#B", "platform": "euw1"},
+        client=FakeRiotClient(_demo_match_ids(3), puuid=demo_puuid), kv=kv, r2=r2,
+        data_dir=tmp_path, models=models)
+    assert "silver:visiteur:games" in kv.store
+    assert "account:visiteur" in kv.store
+    reason = json.loads(kv.store["shap:visiteur:role"])["reason"]
+    assert reason in ("window_too_short", "scoring_failed")
+
+
+def test_l_index_de_scan_est_publie(tmp_path, demo_data, demo_puuid):
+    kv, r2 = FakeKV(), FakeR2()
+    riot_ingest.run(
+        {"slug": "visiteur", "riot_id": "A#B", "platform": "euw1"},
+        client=FakeRiotClient(_demo_match_ids(3), puuid=demo_puuid), kv=kv, r2=r2,
+        data_dir=tmp_path, models=_models_fermes())
+    assert "riftsense:visiteur:scan-index" in kv.store

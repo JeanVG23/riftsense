@@ -9,11 +9,21 @@
 data/*
 !data/00_static
 !data/00_static/**
+# Les cinq exports EBM et la table d'ouverture : c'est ce que le service sert.
+!data/05_model
+# .dockerignore n'est PAS .gitignore : un motif sans barre oblique ne vaut qu'a la
+# racine du contexte, donc le "*.pkl" plus bas ne couvre pas ce dossier. Sans cette
+# exclusion, reinclure data/05_model y ferait entrer 46 Mo de pickles et les .pt
+# (mesure : 58 Mo copies au lieu de 7). L'export est un format stable, le pickle ne
+# l'est pas, et il n'a aucune raison d'etre dans l'image.
+data/05_model/*
+!data/05_model/*_ebm_export.json
+!data/05_model/role_readiness.json
 docs/
 node_modules/
 web/
 tests/
 **/__pycache__/
-*.pkl
-*.parquet
+**/*.pkl
+**/*.parquet
 .env*

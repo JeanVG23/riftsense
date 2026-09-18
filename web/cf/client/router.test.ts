@@ -11,6 +11,8 @@ describe("router", () => {
   it("résout les routes publiques et les slugs encodés", () => {
     expect(resolveAppRoute("/")).toEqual({ name: "home" });
     expect(resolveAppRoute("/readme")).toEqual({ name: "readme" });
+    expect(resolveAppRoute("/case-study")).toEqual({ name: "account", slug: "spadzze" });
+    expect(resolveAppRoute("/demo")).toEqual({ name: "account", slug: "spadzze" });
     expect(resolveAppRoute("/terms")).toEqual({ name: "terms" });
     expect(resolveAppRoute("/privacy")).toEqual({ name: "privacy" });
     expect(resolveAppRoute("/register/player-euw")).toEqual({

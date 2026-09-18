@@ -88,4 +88,13 @@ describe("GlobalCoaching", () => {
     await wrapper.get("button.hist-row").trigger("click");
     expect(wrapper.emitted("review-select")?.[0]?.[0]).toMatchObject({ ts: oldReview.ts });
   });
+
+  it("compile avec les styles scoped de Vue", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json([])));
+    wrapper = mount(GlobalCoaching, {
+      props: { slug: "Spadzze", review, reviews: [review], scopeName: "ADC", outcome: "loss" },
+    });
+    await flushPromises();
+    expect(Object.keys(wrapper!.element.attributes).some(k => wrapper!.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
+  });
 });

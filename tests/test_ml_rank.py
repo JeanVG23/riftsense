@@ -11,7 +11,7 @@ def _mock_rows(monkeypatch):
     """game_to_row -> une row à une seule feature ; l'agrégat mocké somme les
     rows reçues : si le filtre ADC laissait passer une game non-BOTTOM, la somme
     trahirait la fuite."""
-    monkeypatch.setattr(ml_rank.build_dataset, "game_to_row",
+    monkeypatch.setattr(ml_rank.game_rows, "game_to_row",
                         lambda g, rank, source: {"f": g["i"]})
     monkeypatch.setattr(ml_rank.mf, "aggregate_player_features",
                         lambda rows, feats: {"f__mean": float(rows["f"].sum())})
@@ -37,7 +37,7 @@ def test_player_aggregate_drops_non_adc_roles(monkeypatch):
 def test_player_aggregate_none_below_min(monkeypatch):
     def _fail(*args, **kwargs):
         raise AssertionError("game_to_row ne doit pas être appelé sous le seuil")
-    monkeypatch.setattr(ml_rank.build_dataset, "game_to_row", _fail)
+    monkeypatch.setattr(ml_rank.game_rows, "game_to_row", _fail)
     games = [{"role": "BOTTOM", "i": float(n)}
              for n in range(ml_rank.MIN_ADC_GAMES - 1)]
     assert ml_rank.player_aggregate(games) is None

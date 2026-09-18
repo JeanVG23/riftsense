@@ -60,10 +60,11 @@ LADDER := $(LADDER_DIR)/$(SNAPSHOT_DAY).jsonl.zst
 ROLE_GAMES   := $(foreach role,$(ROLES_LC),$(DATASET)/$(role)_dataset.parquet)
 ROLE_WINDOWS := $(foreach role,$(ROLES_LC),$(DATASET)/$(role)_player_dataset.parquet)
 ROLE_METRICS := $(foreach role,$(ROLES_LC),$(MODEL)/$(role)_player_metrics.json)
+ROLE_EXPORTS := $(foreach role,$(ROLES_LC),$(MODEL)/$(role)_ebm_export.json)
 
 .PHONY: help demo demo-clean test lint fixtures generate-shared \
         pipeline plan silver gold dataset split models analyse report \
-        roles collect lp-label ladder sync sync-push graph force
+        roles verify-exports collect lp-label ladder sync sync-push graph force
 
 help:
 	@echo "Démo (0 réseau, 0 clé)"
@@ -254,13 +255,22 @@ $(ROLE_METRICS): $(MODEL)/%_player_metrics.json: $(DATASET)/%_player_dataset.par
                  $(CORE)
 	$(PY) src/02_data_science/train_role_ensemble.py --role $*
 
+# L'export est le seul artefact de modèle qui parte en production. Le supprimer
+# doit donc relancer l'entraînement du rôle. L'export est écrit en dernier par
+# save_role_artifacts, ce qui évite une relance à chaque passage avec Make 3.81.
+$(ROLE_EXPORTS): $(MODEL)/%_ebm_export.json: $(MODEL)/%_player_metrics.json
+	$(PY) src/02_data_science/train_role_ensemble.py --role $*
+
 # La table d'ouverture relit les cinq métriques : elle dépend des cinq, sinon
 # elle publierait une marge calculée sur un modèle et une autre sur un modèle
 # d'avant-hier, sans que rien ne les distingue.
-$(MODEL)/role_readiness.json: $(ROLE_METRICS) src/pipeline_ops/role_readiness.py $(CORE)
+$(MODEL)/role_readiness.json: $(ROLE_METRICS) $(ROLE_EXPORTS) src/pipeline_ops/role_readiness.py $(CORE)
 	$(PY) src/pipeline_ops/role_readiness.py
 
 roles: $(MODEL)/role_readiness.json
+
+verify-exports:
+	@$(PY) src/pipeline_ops/verify_exports.py
 
 report:
 	@$(PY) src/pipeline_ops/dataset_report.py

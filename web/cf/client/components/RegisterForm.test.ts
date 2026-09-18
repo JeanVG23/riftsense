@@ -63,4 +63,11 @@ describe("RegisterForm", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("applique les attributs de scope CSS sur le template", () => {
+    const wrapper = mount(RegisterForm);
+    const root = wrapper.get(".register-hero-widget");
+    const scopeAttr = Object.keys(root.attributes()).find((attr) => attr.startsWith("data-v-"));
+    expect(scopeAttr).toBeDefined();
+  });
 });

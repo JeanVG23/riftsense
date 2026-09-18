@@ -76,3 +76,69 @@ onBeforeUnmount(() => {
     </button>
   </div>
 </template>
+
+<style scoped>
+:host,
+auth-control {
+  display: contents;
+}
+
+.topbar-auth-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(185, 143, 83, 0.35);
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #fffdf8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.topbar-auth-btn:hover {
+  background: rgba(0, 0, 0, 0.55);
+  border-color: var(--gold);
+  color: #fbbf24;
+}
+
+.topbar-auth-logged {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-auth-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #6ee7b7;
+}
+
+.topbar-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #e6d3cf;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.topbar-logout-btn:hover {
+  color: #fecdd3;
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.4);
+}
+</style>

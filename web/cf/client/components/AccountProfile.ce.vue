@@ -4,7 +4,7 @@ import {
   formatDate,
   formatPseudo,
   rankEmblem,
-  rankGlow,
+  tierAccent,
   rankLabel,
   rankWinrate,
   summonerIcon,
@@ -280,7 +280,7 @@ onBeforeUnmount(() => {
         <span class="stat-label">Parties enregistrées</span>
         <strong class="stat-value num">{{ total }}</strong>
       </div>
-      <div class="profile-stat stat-rank" :class="rank?.tier ? rankGlow(rank.tier) : ''">
+      <div class="profile-stat stat-rank" :class="rank?.tier ? tierAccent(rank.tier) : ''">
         <div class="rank-stat-layout">
           <img v-if="rank?.tier && rankEmblem(rank.tier)" class="rank-emblem" :src="rankEmblem(rank.tier)" :alt="rank.tier" loading="eager">
           <div class="rank-stat-text">
@@ -293,7 +293,7 @@ onBeforeUnmount(() => {
       </div>
       <div
         class="profile-stat stat-ml is-clickable"
-        :class="predictedRank?.predicted_rank ? rankGlow(predictedRank.predicted_rank) : ''"
+        :class="predictedRank?.predicted_rank ? tierAccent(predictedRank.predicted_rank) : ''"
         tabindex="0"
         role="button"
         aria-label="Consulter l'explicabilité ML et le graphique SHAP"
@@ -322,3 +322,305 @@ onBeforeUnmount(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.profile-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 28px 32px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  background:
+    linear-gradient(115deg, rgba(255, 253, 248, .97) 0%, rgba(247, 244, 237, .94) 45%, rgba(247, 244, 237, .84) 100%),
+    url('/images/targon/ascension-montagne.jpg') right 22% / cover no-repeat;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+}
+
+.profile-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.profile-identity {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.summoner-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.summoner-avatar {
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--surface-alt);
+  object-fit: cover;
+  transition: var(--transition-base);
+}
+
+.summoner-level {
+  position: absolute;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.hero-avatar-wrap {
+  width: 68px;
+  height: 68px;
+}
+
+.hero-avatar {
+  width: 68px;
+  height: 68px;
+  border-width: 2.5px;
+}
+
+.hero-level {
+  bottom: -6px;
+}
+
+.hero-avatar-wrap:hover .summoner-avatar {
+  border-color: var(--gold);
+}
+
+.profile-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile-name-row h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(26px, 3vw, 34px);
+  letter-spacing: -.03em;
+  line-height: 1.15;
+  font-weight: 750;
+}
+
+.profile-actions-row {
+  display: flex;
+  align-items: center;
+}
+
+.btn-sync-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--gold-deep);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-base);
+  font-family: inherit;
+}
+
+.btn-sync-profile:hover:not(:disabled) {
+  color: var(--gold-deep);
+  border-color: var(--gold);
+  background: var(--primary-soft);
+  transform: translateY(-1px);
+}
+
+.btn-sync-profile.is-syncing {
+  opacity: .85;
+  cursor: wait;
+}
+
+.btn-sync-profile.is-cooling {
+  opacity: .65;
+  cursor: not-allowed;
+  background: var(--surface-alt);
+  border-color: var(--border);
+  color: var(--text-faint);
+  transform: none;
+}
+
+.sync-icon.spinning {
+  animation: spin .9s linear infinite;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) minmax(220px, auto) minmax(170px, auto);
+  gap: 1px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.profile-stat {
+  display: flex;
+  min-width: 0;
+  min-height: 94px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 12px 18px;
+  background: var(--surface-alt);
+}
+
+.profile-stat.stat-ml.is-clickable {
+  cursor: pointer;
+  transition: var(--transition-base);
+  position: relative;
+}
+
+.profile-stat.stat-ml.is-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px -18px rgba(126, 97, 52, .72);
+}
+
+.rank-stat-layout {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rank-emblem {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: none;
+  transition: transform 200ms ease;
+}
+
+.profile-stat:hover .rank-emblem {
+  transform: scale(1.06);
+}
+
+.rank-emblem-mini {
+  width: 40px;
+  height: 40px;
+}
+
+.rank-stat-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stat-label {
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.stat-label-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.stat-cta-pill {
+  font-size: 10px;
+  padding: 1px 5px;
+  background: var(--primary-soft);
+  color: var(--gold-deep);
+  border: 1px solid var(--primary-border);
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.stat-value {
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-note {
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-faint);
+}
+
+.rank-winrate {
+  margin-top: 3px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+@media (max-width: 860px) {
+  .profile-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .profile-stats {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .profile-name-row h1 {
+    font-size: 30px;
+  }
+  .profile-hero {
+    gap: 20px;
+    padding: 20px;
+    border-radius: 14px;
+  }
+  .profile-identity {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .profile-stats {
+    grid-template-columns: 1fr;
+  }
+  .profile-stat {
+    min-height: 64px;
+    padding: 12px 14px;
+  }
+  .rank-stat-layout {
+    gap: 12px;
+  }
+  .rank-emblem {
+    width: 44px;
+    height: 44px;
+  }
+}
+</style>

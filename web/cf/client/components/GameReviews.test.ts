@@ -74,4 +74,11 @@ describe("GameReviews", () => {
     await wrapper.get(".game-review-option").trigger("click");
     expect(wrapper.emitted("review-select")?.[0]).toEqual(["EUW1_42"]);
   });
+
+  it("compile avec les styles scoped de Vue", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(detail)).mockResolvedValueOnce(json([])));
+    wrapper = mount(GameReviews, { props: { slug: "Spadzze", reviews: [summary], total: 1 } });
+    await flushPromises();
+    expect(Object.keys(wrapper!.element.attributes).some(k => wrapper!.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
+  });
 });

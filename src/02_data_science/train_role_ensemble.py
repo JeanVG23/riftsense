@@ -7,7 +7,9 @@ reste ainsi exacte : aucune contribution cachée n'est retirée après coup.
 from __future__ import annotations
 
 import json
+import math
 import pickle
+import statistics
 import sys
 from collections import Counter
 from pathlib import Path
@@ -22,6 +24,8 @@ from sklearn.metrics import roc_auc_score  # noqa: E402
 from sklearn.model_selection import StratifiedKFold, train_test_split  # noqa: E402
 
 import cli  # noqa: E402
+import ebm_explain  # noqa: E402
+import ebm_lookup  # noqa: E402
 import ml_features as mf  # noqa: E402
 import riotlib as rl  # noqa: E402
 import role_features as rf  # noqa: E402
@@ -31,6 +35,27 @@ DATASET_DIR = rl.DATA / "04_dataset"
 MODEL_DIR = rl.DATA / "05_model"
 _LOW_OF_BOUNDARY = {"master": {"MASTER"}, "diamond": {"DIAMOND"}}
 _HIGH_TIERS = {"GRANDMASTER", "CHALLENGER"}
+
+DEFAULT_BOUNDARY = "diamond"
+"""MASTER est inséparable de DIAMOND dans cet espace de features.
+
+Sonde du 2026-09-18, cinq rôles, mêmes datasets, zéro appel API : DIAMOND contre
+GM+CHALLENGER rend 0.76 à 0.92 d'AUC held-out, DIAMOND contre MASTER seul rend
+0.53 à 0.61, soit le hasard. La frontière servie jusque-là (MASTER contre
+GM+CHALLENGER) demandait au modèle de trancher entre deux populations que la
+donnée ne distingue pas, et ses trois modèles s'y contredisaient de 0.05 à 0.19
+d'AUC. Le seul écart lisible est apex contre sous-apex."""
+
+HELDOUT_REPEATS = 10
+HELDOUT_SEEDS = tuple(SEED + offset for offset in range(HELDOUT_REPEATS))
+"""Un held-out de 28 à 60 joueurs ne se lit pas sur un seul tirage.
+
+Mesuré sur dix graines : le même modèle, sur les mêmes données, rend 0.663 ou
+0.918 en TOP selon les 28 personnes tirées. La graine reste celle de
+`cv_common` pour les modèles ; seule la DONNÉE (quels Diamants composent la
+classe basse, qui part au held-out) change d'un tirage à l'autre."""
+
+_CLASS_NAMES = ("sous-apex", "apex")
 
 
 def dataset_provenance(player_path: Path) -> dict:
@@ -82,20 +107,28 @@ def driver_stability(fold_contribs: list[dict[str, float]]) -> dict[str, float]:
     return stability
 
 
-def _balance(players: pd.DataFrame, low_tiers: set[str]) -> pd.DataFrame:
+def _balance(players: pd.DataFrame, low_tiers: set[str], *,
+             seed: int = SEED) -> pd.DataFrame:
+    """Sous-échantillonne la classe majoritaire à la taille de l'autre.
+
+    La classe haute est limitante (93 à 198 joueurs par rôle contre 271 à 389
+    Diamants) : QUELS Diamants composent la classe basse fait donc partie du
+    tirage, et `seed` rend ce choix variable pour que sa variance soit mesurée
+    au lieu d'être figée.
+    """
     high = players[players["tier"].isin(_HIGH_TIERS)]
     low = players[players["tier"].isin(low_tiers)]
     n_each = min(len(high), len(low))
     if n_each == 0:
         raise ValueError("les deux classes doivent contenir au moins un joueur")
     return pd.concat([
-        high.sample(n_each, random_state=SEED),
-        low.sample(n_each, random_state=SEED),
+        high.sample(n_each, random_state=seed),
+        low.sample(n_each, random_state=seed),
     ])
 
 
-def split_holdout(players: pd.DataFrame, frac: float = 0.15
-                  ) -> tuple[pd.DataFrame, pd.DataFrame]:
+def split_holdout(players: pd.DataFrame, frac: float = 0.15, *,
+                  seed: int = SEED) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Sépare une fraction stratifiée de joueurs, jamais vue à l'entraînement."""
     if not 0 < frac < 1:
         raise ValueError("frac doit être strictement compris entre 0 et 1")
@@ -105,7 +138,7 @@ def split_holdout(players: pd.DataFrame, frac: float = 0.15
     train_index, holdout_index = train_test_split(
         index,
         test_size=frac,
-        random_state=SEED,
+        random_state=seed,
         stratify=players["high_elo"],
     )
     return players.loc[train_index], players.loc[holdout_index]
@@ -203,18 +236,55 @@ def _auc_by_model(y_true, probabilities: dict[str, np.ndarray]) -> dict[str, flo
     return result
 
 
+def _median_by_model(draws: list[dict[str, float]]) -> dict[str, float]:
+    """Médiane par modèle sur les tirages, `seed` mis à part.
+
+    Médiane et non moyenne : un tirage aberrant sur 28 joueurs déplace la
+    moyenne de plusieurs centièmes d'AUC, ce qui est exactement le bruit qu'on
+    cherche à ne plus publier.
+    """
+    names = sorted({name for draw in draws for name in draw if name != "seed"})
+    return {name: float(statistics.median(
+        [draw[name] for draw in draws if name in draw])) for name in names}
+
+
+def _heldout_scores(games_df: pd.DataFrame, players: pd.DataFrame,
+                    holdout: pd.DataFrame, columns: list[str],
+                    role: str) -> dict[str, float]:
+    """Entraîne sur `players` purgé des matchs du held-out, puis note dessus."""
+    X_train, dropped = purged_fixed_window_features(
+        games_df, players, list(holdout.index), role)
+    y_train = players["high_elo"].drop(index=dropped, errors="ignore")
+    X_train = _feature_matrix(X_train.set_index("puuid"), columns,
+                              index=y_train.index)
+    X_holdout = _feature_matrix(holdout, columns)
+    probabilities = {}
+    for name, model in make_models().items():
+        model.fit(X_train, y_train)
+        probabilities[name] = model.predict_proba(X_holdout)[:, 1]
+    return _auc_by_model(holdout["high_elo"].to_numpy(), probabilities)
+
+
 def train_role(player_df: pd.DataFrame, games_df: pd.DataFrame, role: str, *,
-               boundary: str = "master", n_splits: int = 5,
-               holdout_frac: float = 0.15) -> dict:
-    """Retourne les diagnostics CV et les métriques du test tenu à l'écart."""
+               boundary: str = DEFAULT_BOUNDARY, n_splits: int = 5,
+               holdout_frac: float = 0.15,
+               holdout_seeds=HELDOUT_SEEDS) -> dict:
+    """Diagnostics CV, puis le test tenu à l'écart REJOUÉ sur chaque graine.
+
+    La CV reste sur le tirage canonique (elle sert la stabilité des drivers) ;
+    c'est le held-out, dont la décision d'ouverture dépend, qui est répété.
+    """
     role = rf.normalize_role(role)
     if role not in rf.ROLES:
         raise ValueError(f"rôle inconnu : {role}")
     if boundary not in _LOW_OF_BOUNDARY:
         raise ValueError(f"frontière inconnue : {boundary}")
+    if not list(holdout_seeds):
+        raise ValueError("il faut au moins une graine de held-out")
 
-    balanced = _balance(player_df.set_index("puuid"),
-                        _LOW_OF_BOUNDARY[boundary])
+    indexed = player_df.set_index("puuid")
+    low_tiers = _LOW_OF_BOUNDARY[boundary]
+    balanced = _balance(indexed, low_tiers)
     players, holdout = split_holdout(balanced, holdout_frac)
     columns = ebm_feature_columns(role)
     puuids = players.index.to_numpy()
@@ -243,19 +313,20 @@ def train_role(player_df: pd.DataFrame, games_df: pd.DataFrame, role: str, *,
 
     auc = _auc_by_model(y, oof)
 
-    # Le test final est purgé des matchs partagés avec ses joueurs.
-    X_train, dropped = purged_fixed_window_features(
-        games_df, players, list(holdout.index), role)
-    y_train = pd.Series(y, index=puuids).drop(index=dropped, errors="ignore")
-    X_train = _feature_matrix(X_train.set_index("puuid"), columns,
-                              index=y_train.index)
-    X_holdout = _feature_matrix(holdout, columns)
-    y_holdout = holdout["high_elo"].to_numpy()
-    heldout_probabilities = {}
-    for name, model in make_models().items():
-        model.fit(X_train, y_train)
-        heldout_probabilities[name] = model.predict_proba(X_holdout)[:, 1]
-    auc_heldout = _auc_by_model(y_holdout, heldout_probabilities)
+    # Un tirage par graine : chacun rejoue le sous-échantillonnage de la classe
+    # basse ET la découpe du held-out, puis purge le train des matchs partagés
+    # avec les joueurs tenus à l'écart.
+    draws = []
+    for seed in holdout_seeds:
+        drawn = _balance(indexed, low_tiers, seed=seed)
+        train_players, test_players = split_holdout(drawn, holdout_frac,
+                                                    seed=seed)
+        scores = _heldout_scores(games_df, train_players, test_players,
+                                 columns, role)
+        draws.append({"seed": int(seed),
+                      **{name: round(value, 4)
+                         for name, value in scores.items()}})
+    auc_heldout = _median_by_model(draws)
 
     return {
         "role": role,
@@ -265,8 +336,10 @@ def train_role(player_df: pd.DataFrame, games_df: pd.DataFrame, role: str, *,
         "n_window": (int(player_df["n_window"].iloc[0])
                      if len(player_df) else None),
         "auc": {name: round(value, 4) for name, value in auc.items()},
-        "auc_heldout": {name: round(value, 4)
-                        for name, value in auc_heldout.items()},
+        # Pas de clé `auc_heldout` : garder le nom en y écrivant la médiane
+        # servirait une statistique sous le nom d'une autre.
+        "auc_heldout_median": auc_heldout,
+        "auc_heldout_seeds": draws,
         "ebm_gap_vs_ensemble": round(
             auc_heldout["ebm"] - auc_heldout["ens_xgb_rf"], 4),
         "driver_stability": {
@@ -277,9 +350,81 @@ def train_role(player_df: pd.DataFrame, games_df: pd.DataFrame, role: str, *,
     }
 
 
+def _nullable(value):
+    """Valeur JSON stricte : un float non fini devient None."""
+    if value is None:
+        return None
+    number = float(value)
+    return number if math.isfinite(number) else None
+
+
+def _shape_summaries(ebm, players: pd.DataFrame,
+                     columns: list[str]) -> dict:
+    """Seuils de bascule calculés sur la distribution d'entraînement.
+
+    Ce sont des propriétés du modèle. Les recalculer à l'inférence les ferait
+    dépendre de qui s'inscrit, donc bouger sans que le modèle ait changé.
+    """
+    frame = _feature_matrix(players, columns)
+    summaries = {}
+    for index, name in enumerate(columns):
+        summary = ebm_explain.shape_summary(
+            ebm, index, frame[name], *_CLASS_NAMES)
+        summaries[name] = {
+            # None plutôt que NaN : une bascule indéterminée est une absence
+            # de seuil, pas un nombre.
+            "crossover_value": _nullable(summary.get("crossover_value")),
+            "direction": summary.get("direction"),
+            "swing_logodds": _nullable(summary.get("swing_logodds")),
+            "core_range": [
+                _nullable(value)
+                for value in (summary.get("core_range") or [None, None])
+            ],
+            "degenerate": summary.get("degenerate"),
+        }
+    return summaries
+
+
+def save_role_artifacts(player_df: pd.DataFrame, role: str, metrics: dict, *,
+                        boundary: str) -> dict:
+    """Ajuste le modèle publié, puis écrit pickle, métriques et export.
+
+    L'export part en dernier. Make 3.81 le tient pour à jour tant qu'il n'est
+    pas plus ancien que les métriques dont il dépend.
+    """
+    role = rf.normalize_role(role)
+    players = _balance(player_df.set_index("puuid"),
+                       _LOW_OF_BOUNDARY[boundary])
+    columns = ebm_feature_columns(role)
+    ebm = make_models()["ebm"]
+    ebm.fit(_feature_matrix(players, columns), players["high_elo"])
+
+    export = ebm_lookup.export_model(
+        ebm,
+        columns,
+        role=role,
+        boundary=boundary,
+        population={
+            "low": sorted(_LOW_OF_BOUNDARY[boundary]),
+            "high": sorted(_HIGH_TIERS),
+        },
+        shapes=_shape_summaries(ebm, players, columns),
+    )
+    metrics = {**metrics, "model_id": export["model_id"]}
+
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    with (MODEL_DIR / f"{role.lower()}_player_ebm.pkl").open("wb") as handle:
+        pickle.dump({"model": ebm, "features": columns}, handle)
+    (MODEL_DIR / f"{role.lower()}_player_metrics.json").write_text(
+        json.dumps(metrics, indent=2, allow_nan=False))
+    (MODEL_DIR / f"{role.lower()}_ebm_export.json").write_text(
+        json.dumps(export, indent=2, allow_nan=False))
+    return metrics
+
+
 def main() -> int:
     role = rf.normalize_role(cli.arg("--role", "BOTTOM"))
-    boundary = cli.arg("--boundary", "master").lower()
+    boundary = cli.arg("--boundary", DEFAULT_BOUNDARY).lower()
     folds = cli.int_arg("--folds", 5)
     if role not in rf.ROLES:
         print(f"rôle inconnu : {role}", file=sys.stderr)
@@ -303,20 +448,16 @@ def main() -> int:
                          n_splits=folds)
     metrics["dataset"] = dataset_provenance(player_path)
 
-    players = _balance(player_df.set_index("puuid"),
-                       _LOW_OF_BOUNDARY[boundary])
-    columns = ebm_feature_columns(role)
-    ebm = make_models()["ebm"]
-    ebm.fit(_feature_matrix(players, columns), players["high_elo"])
-    MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    with (MODEL_DIR / f"{role.lower()}_player_ebm.pkl").open("wb") as handle:
-        pickle.dump({"model": ebm, "features": columns}, handle)
-    (MODEL_DIR / f"{role.lower()}_player_metrics.json").write_text(
-        json.dumps(metrics, indent=2))
-    print(f"✓ {role} : EBM held-out {metrics['auc_heldout']['ebm']} "
-          f"(CV {metrics['auc']['ebm']}) | ensemble held-out "
-          f"{metrics['auc_heldout']['ens_xgb_rf']} | "
-          f"n held-out={metrics['n_players']}")
+    # Le modèle publié est ajusté sur le tirage canonique : les graines servent
+    # à mesurer l'incertitude de la décision, pas à choisir un modèle parmi dix.
+    metrics = save_role_artifacts(
+        player_df, role, metrics, boundary=boundary)
+    draws = [row["ebm"] for row in metrics["auc_heldout_seeds"]]
+    print(f"✓ {role} ({boundary}) : EBM held-out médiane "
+          f"{metrics['auc_heldout_median']['ebm']:.4f} "
+          f"[{min(draws):.4f}, {max(draws):.4f}] sur {len(draws)} tirages "
+          f"| CV {metrics['auc']['ebm']} "
+          f"| n held-out={metrics['n_players']}")
     return 0
 
 

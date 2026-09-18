@@ -57,8 +57,7 @@ ré-extraits depuis le raw local (0 appel API), ce qui densifie le dataset d'un 
 Le jeu est **naturellement déséquilibré** avant équilibrage (37 891 high contre 57 499 low) ;
 le dataset per-player est ramené à 491/491 par cap.
 
-Les données personnelles (26 lignes, compte `spadzze`) sont exclues de l'entraînement : elles
-ne servent qu'au coaching.
+Les profils de test et de validation utilisateur (26 lignes, compte `spadzze`) sont exclus de l'entraînement : ils ne servent qu'au coaching.
 
 ## 4. Label
 
@@ -81,7 +80,7 @@ joueur, stratifié par rang, graine fixe, 70 / 15 / 15 (train / calibration / te
 fichier sert à tous les modèles, donc aucun modèle n'a jamais vu le test d'un autre.
 
 **Purged CV.** Environ 37 % des parties des joueurs qualifiés opposent **deux joueurs du
-dataset** : leurs features sont en miroir (mon `gold diff` est l'opposé du sien). Un CV naïf
+dataset** : leurs features sont en miroir (le `gold diff` de l'un est l'opposé de l'autre). Un CV naïf
 laisse donc fuir de l'information entre folds. À chaque fold, les agrégats de train sont
 **recalculés en excluant les parties jouées contre un joueur de validation ou du holdout**
 (`purged_train_features`). Le group-CV par composantes connexes était impossible : le graphe

@@ -4,6 +4,7 @@ import { mount } from "@vue/test-utils";
 import { router } from "../router";
 import TermsPage from "./TermsPage.vue";
 import PrivacyPage from "./PrivacyPage.vue";
+import ReadmePage from "./ReadmePage.vue";
 
 describe("TermsPage", () => {
   it("affiche le titre et la citation légale Riot Games", () => {
@@ -13,6 +14,7 @@ describe("TermsPage", () => {
     expect(wrapper.text()).toContain("Conditions Générales d'Utilisation");
     expect(wrapper.text()).toContain("RiftSense isn't endorsed by Riot Games");
     expect(wrapper.text()).toContain("Zero Real-Time Gameplay Assistance");
+    expect(Object.keys(wrapper.element.attributes).some(k => wrapper.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
 
   it("détaille les sections clés de conformité Riot et contact", () => {
@@ -33,6 +35,7 @@ describe("PrivacyPage", () => {
     expect(wrapper.text()).toContain("Politique de Confidentialité");
     expect(wrapper.text()).toContain("RGPD");
     expect(wrapper.text()).toContain("Aucun mot de passe");
+    expect(Object.keys(wrapper.element.attributes).some(k => wrapper.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
 
   it("explique les données collectées et le droit à l'effacement", () => {
@@ -43,5 +46,16 @@ describe("PrivacyPage", () => {
     expect(wrapper.text()).toContain("Droit à l'effacement");
     expect(wrapper.text()).toContain("contact@jeanvg.fr");
     expect(wrapper.findAll("section.legal-card").length).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe("ReadmePage", () => {
+  it("affiche la documentation méthodologique et les onglets", () => {
+    const wrapper = mount(ReadmePage, {
+      global: { plugins: [router] },
+    });
+    expect(wrapper.text()).toContain("Comment fonctionne RiftSense");
+    expect(wrapper.text()).toContain("Le problème avec op.gg");
+    expect(Object.keys(wrapper.element.attributes).some(k => wrapper.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
 });

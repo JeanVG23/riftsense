@@ -90,4 +90,11 @@ describe("GameHistory", () => {
     expect(wrapper.text()).toContain("Jinx");
     expect(wrapper.text()).toContain("page 2 / 2");
   });
+
+  it("compile avec les styles scoped de Vue", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(page()));
+    wrapper = mount(GameHistory, { props: { slug: "Spadzze" } });
+    await flushPromises();
+    expect(Object.keys(wrapper!.element.attributes).some(k => wrapper!.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
+  });
 });

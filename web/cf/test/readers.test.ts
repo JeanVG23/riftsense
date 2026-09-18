@@ -9,6 +9,7 @@ import {
   readJsonl,
   readPred,
   readRank,
+  readRoleShap,
   readShap,
   type KVLike,
 } from "../src/readers";
@@ -30,6 +31,8 @@ describe("KEYS", () => {
     expect(KEYS.ref("challenger", "adc")).toBe("ref:challenger:adc");
     expect(KEYS.pred("spadzze")).toBe("pred:spadzze");
     expect(KEYS.shap("spadzze")).toBe("shap:spadzze:drivers");
+    expect(KEYS.role_shap("spadzze")).toBe("shap:spadzze:role");
+    expect(KEYS.scan_index("spadzze")).toBe("riftsense:spadzze:scan-index");
     expect(KEYS.reviews("spadzze")).toBe("riftsense:spadzze:reviews");
     expect(KEYS.feedback("spadzze")).toBe("riftsense:spadzze:feedback");
     expect(KEYS.chats("spadzze")).toBe("riftsense:spadzze:chats");
@@ -100,6 +103,32 @@ describe("readRank / readPred / readShap", () => {
     expect(await readShap(kv, "p")).toEqual({
       available: true, drivers: [{ feature: "gd10", sv: 0.3 }],
     });
+  });
+});
+
+describe("readRoleShap", () => {
+  it("rend l'enveloppe telle qu'elle a été publiée", async () => {
+    const kv = new MemoryKV();
+    await kv.put("shap:jean:role", JSON.stringify({
+      schema_version: 1, available: false, reason: "role_closed", role: "JUNGLE",
+    }));
+    expect(await readRoleShap(kv, "jean")).toEqual({
+      schema_version: 1, available: false, reason: "role_closed", role: "JUNGLE",
+    });
+  });
+
+  it("transforme une clé absente en motif, pour que l'interface n'ait qu'un cas", async () => {
+    // Sans ce repli, le client devrait distinguer « pas de clé » de « clé qui dit
+    // non », et finirait par afficher un vide là où il y a une raison.
+    expect(await readRoleShap(new MemoryKV(), "jean")).toEqual({
+      schema_version: 1, available: false, reason: "not_ingested", role: null,
+    });
+  });
+
+  it("refuse un contenu qui n'est pas une enveloppe", async () => {
+    const kv = new MemoryKV();
+    await kv.put("shap:jean:role", JSON.stringify([1, 2, 3]));
+    expect((await readRoleShap(kv, "jean")).reason).toBe("not_ingested");
   });
 });
 

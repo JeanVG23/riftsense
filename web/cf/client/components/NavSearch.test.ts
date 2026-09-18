@@ -74,4 +74,11 @@ describe("NavSearch", () => {
       })
     );
   });
+
+  it("applique les attributs de scope CSS sur le template", () => {
+    const wrapper = mount(NavSearch);
+    const root = wrapper.get(".nav-search-container");
+    const scopeAttr = Object.keys(root.attributes()).find((attr) => attr.startsWith("data-v-"));
+    expect(scopeAttr).toBeDefined();
+  });
 });

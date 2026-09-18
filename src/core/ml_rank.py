@@ -32,19 +32,13 @@ from __future__ import annotations
 import functools
 import json
 import pickle
-import sys
-from pathlib import Path
 
 import pandas as pd
+import game_rows
 import riotlib as rl
 
 # Voisins de src/core/ : resolus par le sys.path qui a servi a importer ce module.
 import ml_features as mf
-
-DATA_ENG = Path(__file__).resolve().parents[2] / "src" / "01_data_engineering"
-if str(DATA_ENG) not in sys.path:
-    sys.path.insert(0, str(DATA_ENG))
-import build_dataset  # noqa: E402
 
 MODEL_DIR = rl.DATA / "05_model"
 MIN_ADC_GAMES = 15
@@ -122,7 +116,7 @@ def player_aggregate(games: list[dict]) -> tuple[dict, int] | None:
     if len(adc_games) < MIN_ADC_GAMES:
         return None
     rows = pd.DataFrame([
-        build_dataset.game_to_row(g, rank=None, source="inference") for g in adc_games
+        game_rows.game_to_row(g, rank=None, source="inference") for g in adc_games
     ])
     agg = mf.aggregate_player_features(rows, mf.FEATURES)
     return agg, len(adc_games)

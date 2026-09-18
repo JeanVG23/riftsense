@@ -7,6 +7,7 @@ import { gameChampion, gameMatchId, type GameReview } from "../game-review";
 import { RECENT_ACCOUNTS_CHANGED, rememberRecentAccount } from "../recent-accounts";
 import AccountProfile from "../components/AccountProfile.ce.vue";
 import CoachingControls from "../components/CoachingControls.ce.vue";
+import DemoRecruiterBanner from "../components/DemoRecruiterBanner.vue";
 import GameHistory from "../components/GameHistory.ce.vue";
 import GameReviews from "../components/GameReviews.vue";
 import GlobalCoaching from "../components/GlobalCoaching.ce.vue";
@@ -237,6 +238,19 @@ function onSynced(): void {
   void Promise.all([loadReviews(), loadCoachingContext()]);
 }
 
+const isDemoAccount = computed(() => props.slug.toLowerCase() === "spadzze");
+
+function onDemoSelectView(newTab: Tab, newCoachingView?: CoachingView, matchId?: string): void {
+  tab.value = newTab;
+  if (newCoachingView) {
+    coachingView.value = newCoachingView;
+  }
+  if (matchId) {
+    pendingReviewId.value = matchId;
+  }
+  void updateQuery();
+}
+
 onMounted(() => {
   window.addEventListener("coach-auth-change", onAuthChange);
   void Promise.all([loadReviews(), loadCoachingContext(), saveRecentAccount()]);
@@ -245,6 +259,13 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
 </script>
 
 <template>
+  <DemoRecruiterBanner
+    v-if="isDemoAccount"
+    :current-tab="tab"
+    :current-coaching-view="coachingView"
+    :target-match-id="pendingReviewId"
+    @select-view="onDemoSelectView"
+  />
   <AccountProfile
     :slug="slug"
     :total="total"
@@ -275,3 +296,32 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
     <GameReviews v-else :slug="slug" :reviews="gameReviews" :total="gameReviewsCount" :page="gameReviewsPage" :loading="reviewsLoading" :authenticated="authenticated" :target-match-id="pendingReviewId" @reviews-loaded="syncGameReviews" @review-select="selectGameTarget" @feedback-saved="evalRevision += 1" />
   </div>
 </template>
+
+<style scoped>
+.sync-help {
+  margin: 0 0 24px;
+  padding: 0 16px;
+  color: var(--text-dim);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.sync-help summary {
+  padding: 10px 0;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.sync-help p {
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.sync-help code {
+  color: var(--gold-deep);
+  font-size: 12px;
+}
+</style>

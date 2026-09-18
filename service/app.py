@@ -18,6 +18,7 @@ from pathlib import Path
 from flask import Flask, jsonify, request
 
 import riot_ingest
+import role_scoring
 from errors import error_code_of
 from kv_client import KV
 from storage import R2Storage
@@ -69,6 +70,18 @@ def _r2() -> R2Storage:
     )
 
 
+_MODELS = None
+
+
+def _models():
+    """Charge les modèles une fois par processus du service."""
+    global _MODELS
+    if _MODELS is None:
+        _MODELS = role_scoring.load_models(Path(os.environ.get(
+            "MODEL_DIR", "/app/data/05_model")))
+    return _MODELS
+
+
 @app.post("/ingest")
 @require_secret
 def ingest():
@@ -80,7 +93,8 @@ def ingest():
         client = riot_ingest.build_client(payload["platform"])
         with tempfile.TemporaryDirectory(prefix="ingest-") as tmp:
             result = riot_ingest.run(
-                payload, client=client, kv=_kv(), r2=_r2(), data_dir=Path(tmp))
+                payload, client=client, kv=_kv(), r2=_r2(), data_dir=Path(tmp),
+                models=_models())
         return jsonify(result)
     except Exception as exc:  # noqa: BLE001 : traduit en code stable, journalisé entier
         code = error_code_of(exc)

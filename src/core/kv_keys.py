@@ -20,6 +20,14 @@ TEMPLATES = {
     "ref": "ref:{rank}:{scope}",
     "pred": "pred:{slug}",
     "shap": "shap:{slug}:drivers",
+    # Clé DISTINCTE de `shap` : celle-ci porte la décomposition de l'EBM du RÔLE
+    # (frontière DIAMOND vs GM+CHALLENGER), `shap` celle de l'EBM per-player ADC.
+    # Les fondre servirait un modèle sous le nom d'un autre.
+    "role_shap": "shap:{slug}:role",
+    # Mémoire des parties déjà classées hors rôle : sans elle, jusqu'à 80 parties
+    # écartées seraient repayées à chaque actualisation (le silver ne garde que ce
+    # qui a été extrait, donc jamais les parties d'un autre rôle).
+    "scan_index": "riftsense:{slug}:scan-index",
     "reviews": "riftsense:{slug}:reviews",
     "feedback": "riftsense:{slug}:feedback",
     "chats": "riftsense:{slug}:chats",

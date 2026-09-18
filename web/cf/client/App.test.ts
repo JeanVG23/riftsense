@@ -113,4 +113,25 @@ describe("App topbar switcher", () => {
     const name = wrapper.find(".switcher-name");
     expect(name.text()).toBe("Nouveau Joueur");
   });
+
+  it("compile avec les styles scoped de Vue", async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse([]))) as any;
+    const wrapper = mount(App, {
+      global: {
+        plugins: [router],
+        stubs: {
+          HomePage: true,
+          RegisterForm: true,
+          AccountPage: true,
+          ReadmePage: true,
+          TermsPage: true,
+          PrivacyPage: true,
+          AuthControl: true,
+          AuthModal: true,
+          NavSearch: true,
+        },
+      },
+    });
+    expect(Object.keys(wrapper.element.attributes).some(k => wrapper.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
+  });
 });

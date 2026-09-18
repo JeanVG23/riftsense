@@ -198,6 +198,13 @@ web/
                   src/curation.ts = désignation de la partie pédagogiquement utile
   cf/client/      SPA Vite/Vue Router et composants Vue TypeScript
   cf/public/      assets statiques copiés tels quels par Vite
+service/          Service d'ingestion Cloud Run (Flask + gunicorn, 1 worker/1 thread) :
+                  app.py (routes + secret partagé), riot_ingest.py (métier : profil,
+                  préflight, fenêtre du rôle), role_scoring.py (modèles par rôle),
+                  storage.py (R2), errors.py (codes stables dérivés du TYPE).
+                  L'image copie src/core/, service/, data/00_static/ et les cinq
+                  exports EBM : tout code appelé depuis le service DOIT vivre dans
+                  src/core/, sinon il est introuvable en production.
 shared/         prompts/*.txt (source de vérité, lue par prompt.py ET par le Worker)
                 + schemas/*.json (générés depuis Pydantic)
 config/           accounts.json (ignoré, données perso) + accounts.example.json (gabarit)
@@ -448,15 +455,46 @@ Entrées : `make ladder` (réseau), puis `make roles` (hors-ligne).
   tier, `label_age_days` min/p50/max, empan temporel des parties agrégées).
 - **`02_data_science/train_role_ensemble.py --role X`** : purged CV (agrégats de train
   recalculés en excluant les matchs joués avec un joueur de validation) + held-out
-  stratifié, EBM `interactions=0`. Le sens d'un driver vient de la shape function
+  stratifié **répété sur 10 graines**, EBM `interactions=0`.
+  ⚠️ `DEFAULT_BOUNDARY = "diamond"` (DIAMOND vs GM+CHALLENGER) : MASTER est
+  inséparable de DIAMOND dans cet espace de features (sonde du 2026-09-18, cinq
+  rôles : DIAMOND vs MASTER seul rend 0.53 à 0.61 d'AUC, soit le hasard), et la
+  classe limitante de `_balance` reste GM+CHALLENGER dans tous les cas. Collecter
+  des Diamants ou des Masters n'augmente donc PAS l'effectif d'entraînement.
+  ⚠️ Le held-out ne se lit JAMAIS sur un tirage : à 28 joueurs, le même modèle sur
+  les mêmes données rend 0.566 ou 0.918 selon les personnes tirées. Les métriques
+  publient `auc_heldout_median` + `auc_heldout_seeds` (un tirage par graine), et
+  PAS `auc_heldout` : garder le nom en y écrivant la médiane servirait une
+  statistique sous le nom d'une autre. Le sens d'un driver vient de la shape function
   (décile p90 moins décile p10), jamais de la moyenne des contributions rendues par
   `eval_terms` : elles sont CENTRÉES, donc leur moyenne vaut zéro et son signe est du
   bruit numérique. Reporte le sidecar de provenance dans les métriques.
 - **`pipeline_ops/role_readiness.py`** : décide l'ouverture publique.
-  `marge = AUC held-out - erreur-type (Hanley-McNeil) - 0.70`, ET `corpus ==
-  "production"`. ⚠️ `DEFAULT_CORPUS = "research"` : certifier le corpus est un geste
+  `marge = médiane des tirages - bruit - 0.70`, ET `corpus == "production"`, où
+  `bruit = max(erreur-type de Hanley-McNeil, dispersion observée sur les graines)`.
+  Retenir la plus grande des deux n'est pas un double comptage : elles estiment le
+  même bruit d'échantillonnage par deux chemins, et chacune peut sous-estimer
+  l'autre à faible effectif. `pass_rate` (part des tirages qui passeraient seuls)
+  est un diagnostic publié, pas un critère. Des métriques d'avant le held-out
+  répété font sauter le rôle avec un message, elles ne sont pas relues de travers. ⚠️ `DEFAULT_CORPUS = "research"` : certifier le corpus est un geste
   écrit à la main, jamais l'effet d'une régénération. Aucun repli sur les anciennes
   métriques `utility_*` (servir l'AUC d'un modèle sous le nom d'un autre).
+- **`service/role_scoring.py`** : sert l'EBM du rôle à un visiteur inscrit.
+  ⚠️ Le modèle n'est PAS embarqué en pickle mais en table de correspondance JSON
+  (`<role>_ebm_export.json`, écrit par `train_role_ensemble.py`) : un pickle
+  d'`interpret` ne se recharge que sur la version qui l'a écrit, et les dépendances du
+  service sont bornées en `>=`. `tests/test_ebm_lookup.py` prouve l'évaluateur sur un
+  EBM synthétique (les artefacts sont gitignorés, la CI n'en a aucun) et
+  `make verify-exports` le prouve sur les cinq artefacts réels, avant chaque build.
+  ⚠️ L'éligibilité est décidée par un PRÉFLIGHT, après les 20 parties de profil et
+  avant toute collecte supplémentaire : avec les cinq rôles fermés, un visiteur ne
+  coûte pas un appel Riot de plus qu'avant.
+  ⚠️ `shap:{slug}:role` est réécrite à CHAQUE ingestion, en union discriminée par
+  `available` : sans cela une analyse publiée survivrait à sa péremption (rang qui
+  baisse, rôle qui change, rôle qui referme).
+  Le score publié est un `logit`, jamais une `probability` : MASTER n'appartient à
+  aucune des deux classes d'entraînement et aucune calibration proba vers rang
+  n'existe pour ces modèles. C'est une proximité à l'apex, pas un rang prédit.
 
 ⚠️ **Plus aucune borne d'âge du label** (retirée le 2026-09-18) : la règle des 14 jours
 suivait le rythme des patchs LoL, pas une propriété de la donnée, et la tenir imposait
@@ -496,7 +534,10 @@ Historique complet des runs, métriques et decisions (dates, chiffres, specs) :
   réel et ne sont pas réécrites.
 - **Chaîne par rôle** 🚧 (2026-09-18) : cinq modèles per-player explicables
   (un par rôle), labellisés par snapshot DATÉ du ladder et non plus par le rang de
-  collecte ; fenêtres à profondeur fixe N=20. Held-out EBM 0.71 à 0.86 selon le rôle.
+  collecte ; fenêtres à profondeur fixe N=20. Frontière servie DIAMOND vs
+  GM+CHALLENGER depuis le 2026-09-18 : médiane held-out EBM 0.77 à 0.87 selon le
+  rôle sur 10 tirages, marge positive sur 4 rôles (TOP négatif, un tirage à 0.566
+  gonflant la dispersion).
   Les cinq rôles sont FERMÉS au public (`corpus: "research"`) : l'ouverture demande une
   certification manuelle, pas une marge positive. Détail et chiffres : `docs/PROGRESS.md`.
 - **Rang servi = per-player** (ensemble xgb+rf+ebm, hypothèse constance sur tout

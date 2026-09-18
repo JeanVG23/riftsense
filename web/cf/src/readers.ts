@@ -13,6 +13,8 @@ export const KEYS = {
   ref: (rank: string, scope: string) => `ref:${rank}:${scope}`,
   pred: (slug: string) => `pred:${slug}`,
   shap: (slug: string) => `shap:${slug}:drivers`,
+  role_shap: (slug: string) => `shap:${slug}:role`,
+  scan_index: (slug: string) => `riftsense:${slug}:scan-index`,
   reviews: (slug: string) => `riftsense:${slug}:reviews`,
   feedback: (slug: string) => `riftsense:${slug}:feedback`,
   chats: (slug: string) => `riftsense:${slug}:chats`,
@@ -95,6 +97,28 @@ export async function readShap(
   return Array.isArray(value)
     ? { available: true, drivers: value }
     : { available: false, drivers: [] };
+}
+
+export interface RoleAnalysis {
+  schema_version: number;
+  available: boolean;
+  role: string | null;
+  reason?: string;
+  [key: string]: unknown;
+}
+
+/** Analyse ML du rôle du joueur.
+ *
+ * Une clé absente devient un motif et non un null : l'interface n'a alors qu'un seul
+ * cas à traiter, « available est faux, voici pourquoi ». Le producteur réécrit cette
+ * clé à chaque ingestion, donc une analyse qui reste disponible l'est vraiment.
+ */
+export async function readRoleShap(kv: KVLike, slug: string): Promise<RoleAnalysis> {
+  const value = await readJson<Record<string, unknown>>(kv, KEYS.role_shap(slug));
+  if (!value || Array.isArray(value) || typeof value.available !== "boolean") {
+    return { schema_version: 1, available: false, reason: "not_ingested", role: null };
+  }
+  return value as unknown as RoleAnalysis;
 }
 
 export async function readJsonl<T = Record<string, unknown>>(

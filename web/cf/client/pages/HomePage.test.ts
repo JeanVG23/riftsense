@@ -32,13 +32,13 @@ describe("HomePage", () => {
     expect(wrapper.text()).toContain("Aucun compte configuré.");
   });
 
-  it("sépare distinctement Mes comptes et Comptes permanents", () => {
+  it("sépare distinctement Mes comptes et Profils de référence", () => {
     const wrapper = mount(HomePage, {
       props: { accounts: sampleAccounts, loading: false },
     });
 
     expect(wrapper.text()).toContain("Mes comptes");
-    expect(wrapper.text()).toContain("Comptes permanents");
+    expect(wrapper.text()).toContain("Profils de référence");
 
     const ownerSection = wrapper.find(".accounts-grid--owner");
     expect(ownerSection.exists()).toBe(true);
@@ -101,8 +101,30 @@ describe("HomePage", () => {
     });
 
     expect(wrapper.text()).toContain("parties enregistrées");
-    expect(wrapper.text()).toContain("EBM & EXPLICABILITÉ SHAP");
+    expect(wrapper.text()).toContain("Analyse de performance et coaching tactique");
     expect(wrapper.text()).toContain("60 parties enregistrées");
+  });
+
+  it("navigue vers le profil de démo complet Spadzze avec le match ciblé au clic", async () => {
+    const wrapper = mount(HomePage, {
+      props: { accounts: sampleAccounts, loading: false },
+    });
+    const demoLink = wrapper.find(".hero-demo-link");
+    expect(demoLink.exists()).toBe(true);
+    expect(demoLink.text()).toContain("Tester la démo complète (Spadzze#EUW)");
+
+    await demoLink.trigger("click");
+    expect(pushMock).toHaveBeenCalledWith({ path: "/c/spadzze", query: { review: "EUW1_7898084645" } });
+  });
+
+  it("intègre la toile de fond Targon transparente et ne contient pas la carte de preview Spadzze", () => {
+    const wrapper = mount(HomePage, {
+      props: { accounts: sampleAccounts, loading: false },
+    });
+    expect(wrapper.find(".hero-preview-card").exists()).toBe(false);
+    expect(wrapper.find(".home-targon-backdrop").exists()).toBe(true);
+    expect(wrapper.find(".targon-landscape-layer").exists()).toBe(true);
+    expect(wrapper.find(".targon-astrolabe-layer").exists()).toBe(true);
   });
 
   it("n'affiche PAS la section des comptes du navigateur si aucun compte local n'est présent", () => {
@@ -111,7 +133,7 @@ describe("HomePage", () => {
     });
 
     expect(wrapper.find(".home-section--browser").exists()).toBe(false);
-    expect(wrapper.text()).not.toContain("Comptes sur ce navigateur");
+    expect(wrapper.text()).not.toContain("Joueurs récemment consultés");
   });
 
   it("affiche la section des comptes du navigateur juste au-dessus de 'Mes comptes' quand des comptes locaux sont présents", () => {
@@ -124,7 +146,7 @@ describe("HomePage", () => {
 
     const browserSection = wrapper.find(".home-section--browser");
     expect(browserSection.exists()).toBe(true);
-    expect(browserSection.text()).toContain("Comptes sur ce navigateur");
+    expect(browserSection.text()).toContain("Joueurs récemment consultés");
     expect(browserSection.text()).toContain("Hide on bush#KR1");
 
     // Vérifie que la section navigateur se trouve avant "Mes comptes" dans le DOM
@@ -132,7 +154,7 @@ describe("HomePage", () => {
     expect(sections.length).toBe(3); // Browser, Owner, Permanent
     expect(sections[0].classes()).toContain("home-section--browser");
     expect(sections[1].text()).toContain("Mes comptes");
-    expect(sections[2].text()).toContain("Comptes permanents");
+    expect(sections[2].text()).toContain("Profils de référence");
   });
 
   it("ne duplique pas dans la section navigateur les comptes qui sont déjà dans Mes comptes ou Comptes permanents", () => {
@@ -166,6 +188,28 @@ describe("HomePage", () => {
 
     // Le compte retiré fait disparaître la section conditionnelle
     expect(wrapper.find(".home-section--browser").exists()).toBe(false);
+  });
+
+  it("compile avec les styles scoped de Vue", () => {
+    const wrapper = mount(HomePage, {
+      props: { accounts: sampleAccounts, loading: false },
+    });
+    expect(Object.keys(wrapper.element.attributes).some(k => wrapper.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
+  });
+
+  it("affiche les rangs sur les cartes et retire les tags 'Mon compte' et 'Référence'", () => {
+    const wrapper = mount(HomePage, {
+      props: { accounts: sampleAccounts, loading: false },
+    });
+
+    const rankBadges = wrapper.findAll(".badge-rank");
+    expect(rankBadges.length).toBeGreaterThan(0);
+    expect(wrapper.text()).toContain("Diamant II");
+    expect(wrapper.text()).toContain("Master");
+    expect(wrapper.text()).toContain("Or I");
+
+    expect(wrapper.find(".badge-owner-tag").exists()).toBe(false);
+    expect(wrapper.find(".badge-permanent-tag").exists()).toBe(false);
   });
 });
 

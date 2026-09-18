@@ -119,8 +119,8 @@ export function rankEmblem(tier?: string): string {
   return tier ? RANK_EMBLEMS[tier.toLowerCase().trim()] || "" : "";
 }
 
-export function rankGlow(tier?: string): string {
-  return tier ? `glow-${tier.toLowerCase().trim()}` : "";
+export function tierAccent(tier?: string): string {
+  return tier ? `tier-accent-${tier.toLowerCase().trim()}` : "";
 }
 
 export function titleCase(value: unknown): string {
@@ -167,6 +167,66 @@ export function rankWinrate(rank: CurrentRank | null): string | null {
   const losses = Number(rank.losses) || 0;
   const games = wins + losses;
   return games ? `${wins}V ${losses}D · ${Math.round((wins / games) * 100)}% WR` : null;
+}
+
+export const CURATED_RANKS: Record<string, CurrentRank> = {
+  spadzze: { tier: "DIAMOND", division: "II", league_points: 95 },
+  aceofspadzze: { tier: "MASTER", division: "I", league_points: 2 },
+  vangy: { tier: "GOLD", division: "I", league_points: 83 },
+  vlintter: { tier: "EMERALD", division: "II", league_points: 38 },
+  "bobby-lupo": { tier: "EMERALD", division: "I", league_points: 44 },
+  "zaza-warrior35": { tier: "EMERALD", division: "III", league_points: 42 },
+};
+
+export const TIER_NAMES_FR: Record<string, string> = {
+  iron: "Fer",
+  bronze: "Bronze",
+  silver: "Argent",
+  gold: "Or",
+  platinum: "Platine",
+  emerald: "Émeraude",
+  diamond: "Diamant",
+  master: "Master",
+  grandmaster: "Grandmaster",
+  challenger: "Challenger",
+  unranked: "Unranked",
+};
+
+export function accountRank(slugOrAccount: unknown): CurrentRank | null {
+  if (typeof slugOrAccount === "object" && slugOrAccount !== null) {
+    const acc = slugOrAccount as {
+      slug?: string;
+      tier?: string;
+      division?: string;
+      league_points?: number;
+      rank?: CurrentRank;
+    };
+    if (acc.rank?.tier) return acc.rank;
+    if (acc.tier) {
+      return {
+        tier: acc.tier,
+        division: acc.division,
+        league_points: acc.league_points,
+      };
+    }
+    if (acc.slug && CURATED_RANKS[acc.slug.toLowerCase()]) {
+      return CURATED_RANKS[acc.slug.toLowerCase()];
+    }
+  }
+  const slug = String(slugOrAccount || "").toLowerCase().trim();
+  return CURATED_RANKS[slug] || null;
+}
+
+export function formatAccountRank(rank: CurrentRank | null): string {
+  if (!rank?.tier) return "";
+  const tierKey = rank.tier.toLowerCase().trim();
+  const tierName = TIER_NAMES_FR[tierKey] || titleCase(rank.tier);
+  if (tierKey === "master" || tierKey === "grandmaster" || tierKey === "challenger") {
+    return rank.league_points != null ? `${tierName} · ${rank.league_points} LP` : tierName;
+  }
+  const div = rank.division ? ` ${rank.division}` : "";
+  const lp = rank.league_points != null ? ` · ${rank.league_points} LP` : "";
+  return `${tierName}${div}${lp}`;
 }
 
 export function formatDate(value?: string): string {

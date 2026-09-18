@@ -3,3 +3,5 @@ gunicorn>=23.0
 requests>=2.32
 zstandard>=0.23
 boto3>=1.35
+numpy>=2.0
+pandas>=2.0

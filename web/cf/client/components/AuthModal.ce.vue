@@ -132,3 +132,191 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.auth-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(20, 23, 24, .34);
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.auth-modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--panel);
+  border: 1px solid var(--border-active);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow:
+    var(--shadow-overlay);
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.auth-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.auth-modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.auth-modal-icon-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.auth-modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.auth-modal-sub {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.auth-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.auth-modal-close:hover {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.auth-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.auth-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.auth-input-wrapper {
+  position: relative;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.auth-input:focus {
+  border-color: var(--primary);
+  background: var(--panel-hover);
+  box-shadow: var(--focus-ring);
+}
+
+.auth-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--loss-soft);
+  border: 1px solid var(--loss-border);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 500;
+  animation: bannerShake 0.3s ease-in-out;
+}
+
+.auth-error-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.auth-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.auth-cancel-btn {
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes bannerShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+</style>
