@@ -43,7 +43,7 @@ describe("readGamePayloadBundle", () => {
     expect((await readGamePayloadBundle(kv, "p")).items).toEqual({});
     await kv.put(KEYS.game_payloads("p"), JSON.stringify({
       generated_at: "2026-09-06T10:00:00Z", target: "challenger", max_games: 50,
-      items: { m1: { payload_hash: "abc", benchmark_scope: "zeri", payload: { meta: {} } } },
+      items: { m1: { payload_hash: "abc", benchmark_scope: "adc", payload: { meta: {} } } },
       unavailable: [],
     }));
     expect((await readGamePayloadBundle(kv, "p")).items.m1.payload_hash).toBe("abc");

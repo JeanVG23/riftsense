@@ -4,7 +4,7 @@ build_referential — collecte les jeux de données de référence (benchmarks) 
 
 Pour chaque rang : échantillonne des joueurs (league-v4 / league-exp-v4), tire leurs
 games ranked solo récentes (filtrées Faille + patch courant), écrit la couche silver
-(games.jsonl + sources.json) puis la couche gold (agrégats par scope all/adc/zeri).
+(games.jsonl + sources.json) puis la couche gold (agrégats globaux et ADC).
 
 Usage :
     python3 build_referential.py                              # 4 rangs, 25j × 20g
@@ -24,7 +24,7 @@ from ranks import COLLECT_ORDER as ALL_RANKS
 from cli import arg
 
 APEX = {"challenger", "grandmaster", "master"}
-SCOPES = ["all", "adc", "zeri", "smolder", "jinx", "caitlyn", "ezreal", "aphelios", "kaisa"]
+SCOPES = rl.DEFAULT_BENCHMARK_SCOPES
 
 
 def has_flag(flag: str) -> bool:

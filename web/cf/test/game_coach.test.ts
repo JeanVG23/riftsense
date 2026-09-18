@@ -12,7 +12,7 @@ class MemoryKV implements KVLike {
 const PAYLOAD = {
   meta: {
     match_id: "EUW1_42", champion: "Zeri", opponent: "Jinx", role: "BOTTOM",
-    win: false, duration_min: 30, target: "challenger", scope: "zeri",
+    win: false, duration_min: 30, target: "challenger", scope: "adc",
   },
   journal: { deaths: [{ clock: "12:30" }], recalls: [] },
   benchmarks: { outcome: "loss" },
@@ -31,7 +31,7 @@ async function seed() {
   const kv = new MemoryKV();
   await kv.put(KEYS.game_payloads("spadzze"), JSON.stringify({
     generated_at: "2026-09-06", target: "challenger", max_games: 50,
-    items: { EUW1_42: { payload_hash: "abc123", benchmark_scope: "zeri", payload: PAYLOAD } },
+    items: { EUW1_42: { payload_hash: "abc123", benchmark_scope: "adc", payload: PAYLOAD } },
     unavailable: [],
   }));
   return kv;
@@ -51,7 +51,7 @@ describe("gameCoachFlow", () => {
     }, PARAMS));
     expect(events.map((event) => event.event)).toEqual(["payload", "llm", "review"]);
     const record = events[2].data;
-    expect(record).toMatchObject({ kind: "game", match_id: "EUW1_42", scope: "zeri" });
+    expect(record).toMatchObject({ kind: "game", match_id: "EUW1_42", scope: "adc" });
     expect(record.run).toMatchObject({ payload_hash: "abc123" });
     expect(record.run.prompt_version).toMatch(/^[a-f0-9]{12}$/);
     expect(record.run.schema_version).toBe(GAME_REVIEW_SCHEMA_VERSION);

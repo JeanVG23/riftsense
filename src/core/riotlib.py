@@ -60,11 +60,13 @@ BASE_RECT = {100: (0, 3500, 0, 3500), 200: (11300, MAP_W, 11300, MAP_H)}
 KIND_REF = "referentiel"
 KIND_PERSONAL = "personal"
 
-# rôle/champion → filtre de scope (gold)
+# Scopes de benchmark supportés. Les agrégats spécialisés par champion ont
+# été abandonnés : un benchmark reste global ou attaché à un rôle.
 ROLE_SCOPES = {
     "all": None, "top": "TOP", "jungle": "JUNGLE",
     "mid": "MIDDLE", "adc": "BOTTOM", "support": "UTILITY",
 }
+DEFAULT_BENCHMARK_SCOPES = ("all", "adc")
 
 PLATFORM_TO_REGIONAL = {
     "euw1": "europe", "eun1": "europe", "tr1": "europe", "ru": "europe", "me1": "europe",
@@ -861,18 +863,18 @@ def extract_all_games(match: dict, timeline: dict, rank: str | None = None) -> l
 
 # ------------------------------------------------------------- gold (agrégat)
 def filter_scope(games: list[dict], scope: str) -> list[dict]:
-    """all / role (adc, mid…) / nom de champion (zeri…).
+    """Filtre un scope global ou de rôle (adc, mid…).
 
-    Résolveur unique de scope du projet (gold ET records silver) : accès tolérants
-    (`.get`) pour rester utilisable sur des records partiels.
+    Résolveur unique de scope du projet (gold ET records silver) : les noms de
+    champions ne sont volontairement plus interprétés comme des scopes.
     """
     s = scope.lower()
-    if s == "all":
+    if s not in ROLE_SCOPES:
+        raise ValueError(f"scope de benchmark inconnu : {scope}")
+    role = ROLE_SCOPES[s]
+    if role is None:
         return list(games)
-    if s in ROLE_SCOPES:
-        role = ROLE_SCOPES[s]
-        return [g for g in games if g.get("role") == role]
-    return [g for g in games if (g.get("champion") or "").lower() == s]
+    return [g for g in games if g.get("role") == role]
 
 
 def _norm(counter: collections.Counter, total: int) -> dict:

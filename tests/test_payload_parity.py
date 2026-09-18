@@ -29,7 +29,6 @@ CASES = [
     ("adc", "overall"),
     ("adc", "win"),
     ("adc", "loss"),
-    ("zeri", "loss"),
 ]
 
 

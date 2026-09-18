@@ -167,7 +167,8 @@ def sync_account(kv: KV, slug: str, *, seed_reviews: bool = False,
 
     gold = rl.gold_base(rl.KIND_PERSONAL, slug)
     if gold.is_dir():
-        for scope_dir in sorted(path for path in gold.iterdir() if path.is_dir()):
+        for scope_dir in sorted(path for path in gold.iterdir()
+                                if path.is_dir() and path.name in rl.ROLE_SCOPES):
             aggregate = scope_dir / "aggregate.json"
             if aggregate.exists():
                 put_json(
@@ -211,7 +212,8 @@ def sync_referential(kv: KV) -> None:
     if not referential.is_dir():
         return
     for rank_dir in sorted(path for path in referential.iterdir() if path.is_dir()):
-        for scope_dir in sorted(path for path in rank_dir.iterdir() if path.is_dir()):
+        for scope_dir in sorted(path for path in rank_dir.iterdir()
+                                if path.is_dir() and path.name in rl.ROLE_SCOPES):
             aggregate = scope_dir / "aggregate.json"
             if aggregate.exists():
                 put_json(

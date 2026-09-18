@@ -159,22 +159,18 @@ def _load(gold_dir: Path, kind: str, name: str, scope: str) -> dict:
 
 
 def _review_matches_scope(record: dict, scope: str) -> bool:
-    """Une review par-game appartient à un scope rôle ou champion.
+    """Une review par-game appartient à un scope global ou de rôle.
 
     Les anciennes reviews n'ont pas toujours ``meta.role`` : leur ``record.scope``
-    reste un fallback de compatibilité, mais le champion du payload prime pour un
-    scope champion.
+    reste un fallback de compatibilité pour les scopes de rôle.
     """
     meta = (record.get("payload") or {}).get("meta") or {}
-    # `rl.filter_scope` est le résolveur unique du projet (all / rôle / champion) :
-    # une table locale de rôles est exactement ce qui avait gelé le coaching
-    # par-game sur l'ADC (cf. `filter_scope` plus bas).
-    if rl.filter_scope([{"role": meta.get("role"),
-                         "champion": meta.get("champion")}], scope):
-        return True
     wanted = scope.lower()
-    return (wanted in rl.ROLE_SCOPES
-            and str(record.get("scope") or meta.get("scope") or "").lower() == wanted)
+    if wanted not in rl.ROLE_SCOPES:
+        return False
+    if rl.filter_scope([{"role": meta.get("role")}], scope):
+        return True
+    return str(record.get("scope") or meta.get("scope") or "").lower() == wanted
 
 
 def _game_review_sample(reviews: list[dict], scope: str,
@@ -254,6 +250,9 @@ def _game_review_sample(reviews: list[dict], scope: str,
 def build(player: str, scope: str = "adc", target: str = "challenger",
           outcome: str = "loss", gold_dir=None, game_reviews=None,
           max_reviews_per_outcome: int = 2) -> dict:
+    scope = scope.lower()
+    if scope not in rl.ROLE_SCOPES:
+        raise ValueError(f"scope de benchmark inconnu : {scope}")
     gold_dir = Path(gold_dir) if gold_dir is not None else rl.gold_dir()
     me = _load(gold_dir, rl.KIND_PERSONAL, player, scope)
     ref = _load(gold_dir, rl.KIND_REF, target, scope)
@@ -413,9 +412,8 @@ def _attach_next_purchases(deaths: list[dict], recalls: list[dict]) -> list[dict
 def filter_scope(records: list[dict], scope: str) -> list[dict]:
     """Sous-liste des records du scope, ordre du fichier préservé.
 
-    Délègue à `rl.filter_scope` (table `ROLE_SCOPES`, les 5 rôles) : la table locale
-    `_SCOPE_ROLE = {"adc": "BOTTOM"}` gelait le coaching par-game sur l'ADC, et un
-    `--scope mid` retombait silencieusement sur le filtre « nom de champion ».
+    Délègue à `rl.filter_scope` (table `ROLE_SCOPES`, les 5 rôles) afin que la
+    sélection CLI et les agrégats partagent exactement la même sémantique.
     """
     return rl.filter_scope(records, scope)
 
@@ -453,6 +451,9 @@ def build_game(player: str, match_id: str | None = None, scope: str = "adc",
     (`build_game_bundle`) : la retrouver par `match_id` rebalayait tout l'historique
     à chaque game.
     """
+    scope = scope.lower()
+    if scope not in rl.ROLE_SCOPES:
+        raise ValueError(f"scope de benchmark inconnu : {scope}")
     gold_dir = Path(gold_dir) if gold_dir is not None else rl.gold_dir()
     silver_dir = Path(silver_dir) if silver_dir is not None else rl.silver_dir()
     load_raw = load_raw if load_raw is not None else rl._read_raw
@@ -510,15 +511,14 @@ _ROLE_TO_SCOPE = {role: scope for scope, role in rl.ROLE_SCOPES.items() if role}
 
 def _game_benchmark_scope(record: dict, target: str, gold_dir: Path,
                           cache: dict) -> tuple[str, dict]:
-    """Champion si disponible, sinon rôle, puis global ; retourne l'agrégat lu.
+    """Rôle si disponible, sinon global ; retourne l'agrégat lu.
 
     `cache` est le mémo des agrégats déjà lus pour CE bundle (`target` y est
     constant, il ne fait donc pas partie de la clé) : sans lui le même
     référentiel serait reparsé une fois par game.
     """
-    champion = str(record.get("champion") or "").lower()
     role_scope = _ROLE_TO_SCOPE.get(record.get("role"), "all")
-    for scope in dict.fromkeys(s for s in (champion, role_scope, "all") if s):
+    for scope in dict.fromkeys((role_scope, "all")):
         if scope not in cache:
             try:
                 cache[scope] = _load(gold_dir, rl.KIND_REF, target, scope)
@@ -528,7 +528,7 @@ def _game_benchmark_scope(record: dict, target: str, gold_dir: Path,
         if ref and ref.get("n_games", 0) > 0:
             return scope, ref
     raise BenchmarkMissing(
-        f"référentiel {target} absent pour {champion or role_scope}")
+        f"référentiel {target} absent pour {role_scope}")
 
 
 _REASONS = {RawMissing: "raw_missing",

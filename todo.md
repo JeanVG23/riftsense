@@ -74,11 +74,6 @@ titrées par catégorie). Rien n'est implémenté : ni `src/core/turrets.py`, ni
 
 ### Pas de densification à lancer actuellement
 
-- **Zeri référentiel** : déjà 454 à 1 385 games selon le rang ; les principaux buckets de
-  contexte sont au-dessus du seuil de repli. Densifier seulement après un changement de patch
-  ou si une nouvelle sous-slice tombe sous son seuil d'effectif.
-- **Zeri personnel** : 24 games pour Spadzze. Ce manque se résorbe par l'usage/collecte du
-  joueur, pas par davantage de référentiel.
 - **Équilibre binaire** : le dataset per-player est déjà équilibré à 491 high / 491 low.
   Le sujet restant est la définition de la frontière, pas un undersampling supplémentaire.
 

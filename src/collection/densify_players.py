@@ -22,7 +22,7 @@ import riotlib as rl
 from ranks import COLLECT_ORDER as ALL_RANKS
 from cli import arg
 
-SCOPES = ["all", "adc", "zeri", "smolder", "jinx", "caitlyn", "ezreal", "aphelios", "kaisa"]
+SCOPES = rl.DEFAULT_BENCHMARK_SCOPES
 
 
 def has_flag(flag: str) -> bool:

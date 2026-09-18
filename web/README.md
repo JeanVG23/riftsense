@@ -160,7 +160,7 @@ navigateur -> POST /api/coach/game -> payload KV -> Ollama Cloud -> review versi
   15 parties ADC ;
 - `GET /api/c/{slug}/reviews` — historique des coachings ; `?kind=aggregate|game` renvoie une
   page légère, et `GET /api/c/{slug}/reviews/{ts}` charge le détail d'une partie ;
-- `GET /api/c/{slug}/coaching-context` — scopes disponibles, champion principal, matchs
+- `GET /api/c/{slug}/coaching-context` — scopes globaux/par rôle, matchs
   analysables, recommandations pédagogiques et fraîcheur des bilans ;
 - `GET /api/c/{slug}/shap` — profil SHAP local ;
 - `POST /api/coach` — génération Ollama diffusée en SSE ;

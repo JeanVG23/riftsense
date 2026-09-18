@@ -1,19 +1,11 @@
 import { pedagogicTarget } from "./curation";
 import { reviewMatchesScope } from "./payload";
 import {
-  KEYS, readGamePayloadBundle, readJson, readJsonl, type KVLike,
+  KEYS, readGamePayloadBundle, readJsonl, type KVLike,
 } from "./readers";
 import { SYSTEM, SYSTEM_GAME, versionOf } from "./prompt";
 
 type JsonRecord = Record<string, any>;
-
-const MIN_TOP_CHAMPION_GAMES = 5;
-const MIN_TOP_CHAMPION_SHARE = 0.4;
-const MAX_CHAMPION_SCOPES = 2;
-
-function labelOf(champion: string): string {
-  return champion || "Champion";
-}
 
 function matchIdOf(review: JsonRecord): string {
   return String(review.match_id ?? review.payload?.meta?.match_id ?? "");
@@ -28,50 +20,13 @@ export async function buildCoachingContext(kv: KVLike, slug: string): Promise<Js
     versionOf(SYSTEM),
   ]);
   const adcGames = games.filter((game) => game.role === "BOTTOM");
-  const championCounts = new Map<string, { label: string; count: number }>();
-  for (const game of adcGames) {
-    const label = String(game.champion ?? "").trim();
-    if (!label) continue;
-    const id = label.toLowerCase();
-    const current = championCounts.get(id) ?? { label, count: 0 };
-    current.count += 1;
-    championCounts.set(id, current);
-  }
-  const candidates = [...championCounts.entries()]
-    .sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]))
-    .filter(([, info]) => info.count >= MIN_TOP_CHAMPION_GAMES)
-    .slice(0, MAX_CHAMPION_SCOPES);
-
-  const championScopes = (await Promise.all(candidates.map(async ([id, info]) => {
-    const [personal, reference] = await Promise.all([
-      readJson<JsonRecord>(kv, KEYS.gold(slug, id)),
-      readJson<JsonRecord>(kv, KEYS.ref("challenger", id)),
-    ]);
-    if (!personal || !reference || Number(personal.n_games ?? 0) < 1
-        || Number(reference.n_games ?? 0) < 1) return null;
-    return {
-      id, label: labelOf(info.label), rawLabel: labelOf(info.label),
-      kind: "champion", n_games: info.count,
-      share: adcGames.length ? info.count / adcGames.length : 0,
-    };
-  }))).filter((scope): scope is NonNullable<typeof scope> => scope !== null);
-
-  const displayedChampionScopes = championScopes.map((scope, index) => ({
-    ...scope,
-    isTop: index === 0,
-    label: `${index === 0 ? "⭐ " : ""}${scope.rawLabel} (${scope.n_games})`,
-  }));
-
-  const roleScopes = [
+  const scopes = [
     { id: "all", label: "Toutes", rawLabel: "Toutes", kind: "role", n_games: games.length,
       share: games.length ? 1 : 0 },
     { id: "adc", label: "ADC", rawLabel: "ADC", kind: "role", n_games: adcGames.length,
       share: adcGames.length ? 1 : 0 },
   ];
-  const scopes = [...roleScopes, ...displayedChampionScopes];
-  const top = displayedChampionScopes[0];
-  const defaultScope = top && top.n_games >= MIN_TOP_CHAMPION_GAMES
-    && top.share >= MIN_TOP_CHAMPION_SHARE ? top.id : "adc";
+  const defaultScope = "adc";
 
   const gameReviews = reviews.filter((review) => review.kind === "game")
     .sort((a, b) => String(b.ts ?? "").localeCompare(String(a.ts ?? "")));

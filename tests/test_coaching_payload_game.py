@@ -74,6 +74,13 @@ def test_build_game_by_match_id_and_not_found(tmp_path):
                       gold_dir=gold, silver_dir=silver, load_raw=_load_raw)
 
 
+def test_build_game_rejects_champion_scope(tmp_path):
+    silver, gold = _dirs(tmp_path)
+    with pytest.raises(ValueError, match="scope de benchmark inconnu"):
+        PL.build_game("spadzze", scope="zeri", gold_dir=gold,
+                      silver_dir=silver, load_raw=_load_raw)
+
+
 def test_build_game_never_leaks_ml_only(tmp_path):
     silver, gold = _dirs(tmp_path)
     pl = PL.build_game("spadzze", scope="adc", target="challenger",
@@ -84,15 +91,16 @@ def test_build_game_never_leaks_ml_only(tmp_path):
 
 # --- filter_scope (partagé _select_game / sélection batch) --------------------
 
-def test_filter_scope_by_role_champion_and_all():
+def test_filter_scope_by_role_and_all_only():
     records = [
         {"match_id": "m1", "role": "BOTTOM", "champion": "Zeri"},
         {"match_id": "m2", "role": "MIDDLE", "champion": "Ahri"},
         {"match_id": "m3", "role": "BOTTOM", "champion": "Jinx"},
     ]
     assert [r["match_id"] for r in PL.filter_scope(records, "adc")] == ["m1", "m3"]
-    assert [r["match_id"] for r in PL.filter_scope(records, "zeri")] == ["m1"]
     assert [r["match_id"] for r in PL.filter_scope(records, "all")] == ["m1", "m2", "m3"]
+    with pytest.raises(ValueError, match="scope de benchmark inconnu"):
+        PL.filter_scope(records, "zeri")
 
 
 # --- Items résolus et contexte de matchup ----------------------------------------
@@ -275,4 +283,17 @@ def test_game_benchmark_falls_back_from_missing_role_to_all(tmp_path):
         {"champion": "Diana", "role": "JUNGLE"}, "challenger", gold, {},
     )
     assert scope == "all"
+    assert ref["n_games"] == 1000
+
+
+def test_game_benchmark_ignores_legacy_champion_aggregate(tmp_path):
+    _, gold = _dirs(tmp_path)
+    champion = gold / "referentiel" / "challenger" / "zeri" / "aggregate.json"
+    champion.parent.mkdir(parents=True)
+    champion.write_text(json.dumps({"n_games": 9999}))
+
+    scope, ref = PL._game_benchmark_scope(
+        {"champion": "Zeri", "role": "BOTTOM"}, "challenger", gold, {},
+    )
+    assert scope == "adc"
     assert ref["n_games"] == 1000

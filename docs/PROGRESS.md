@@ -66,7 +66,7 @@
   et prompt ont changé ensemble, l'écart n'est pas attribuable au seul prompt.
 - **Coaching unitaire servi par le site** ✅ — 2026-09-07. `POST /api/coach/game` analyse UNE
   partie depuis le bundle KV de payloads, `GET /api/c/{slug}/coaching-context` dit quoi
-  analyser (scopes, champion principal, fraîcheur des bilans) et `curation.ts` désigne la
+  analyser (scopes globaux/par rôle, fraîcheur des bilans) et `curation.ts` désigne la
   partie pédagogiquement utile. Les appels payés sont protégés par mot de passe (`auth.ts`) et
   sérialisés par joueur par le Durable Object `CoachGate` : c'est la réponse au risque d'une
   « mise à jour globale » qui aurait régénéré 30 games d'un coup.
@@ -216,4 +216,3 @@
   issues) ; mauvaise gestion du retard (gold@20 en lose -1252 vs -322) ; morts = symptôme.
 - Clé **dev** (throttle ~100 req/2min, attentes 429 si saturé) → rate-limiter intégré.
   `.env` (clé `RIOT_API_ID` ; pas de `RIOT_REGION` → passer `--region euw1`), `data/` ignoré.
-

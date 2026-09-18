@@ -62,6 +62,10 @@ def test_sync_account_pushes_keys(data_root, monkeypatch):
         data_root / "03_gold" / "personal" / "p" / "adc" / "aggregate.json",
         json.dumps({"n_games": 8}),
     )
+    _write(
+        data_root / "03_gold" / "personal" / "p" / "zeri" / "aggregate.json",
+        json.dumps({"n_games": 4}),
+    )
     monkeypatch.setattr(
         ml_rank,
         "predict_rank",
@@ -89,6 +93,7 @@ def test_sync_account_pushes_keys(data_root, monkeypatch):
     assert json.loads(kv.store["silver:p:rank"]) == {"tier": "MASTER"}
     assert json.loads(kv.store["gold:p:all"]) == {"n_games": 10}
     assert json.loads(kv.store["gold:p:adc"]) == {"n_games": 8}
+    assert "gold:p:zeri" not in kv.store
     assert json.loads(kv.store["pred:p"])["predicted_rank"] == "master"
     assert json.loads(kv.store["shap:p:drivers"]) == [
         {"feature": "gd10", "contribution": -0.4},
@@ -154,9 +159,14 @@ def test_sync_referential(data_root):
         data_root / "03_gold" / "referentiel" / "challenger" / "adc" / "aggregate.json",
         json.dumps({"n_games": 100}),
     )
+    _write(
+        data_root / "03_gold" / "referentiel" / "challenger" / "zeri" / "aggregate.json",
+        json.dumps({"n_games": 20}),
+    )
     kv = FakeKV()
     sc.sync_referential(kv)
     assert json.loads(kv.store["ref:challenger:adc"]) == {"n_games": 100}
+    assert "ref:challenger:zeri" not in kv.store
 
 
 def test_dry_kv_never_calls_network(monkeypatch):

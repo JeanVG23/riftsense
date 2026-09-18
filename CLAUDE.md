@@ -194,7 +194,7 @@ web/
                   src/auth.ts = mot de passe COACH_AUTH_PASSWORD + cookie HMAC (30 j)
                   src/coach_gate.ts = Durable Object de verrou, une instance par joueur
                   src/game_coach.ts = coaching d'UNE partie (POST /api/coach/game)
-                  src/coaching_context.ts = scopes, champion principal, fraîcheur des bilans
+                  src/coaching_context.ts = scopes globaux/par rôle, fraîcheur des bilans
                   src/curation.ts = désignation de la partie pédagogiquement utile
   cf/client/      SPA Vite/Vue Router et composants Vue TypeScript
   cf/public/      assets statiques copiés tels quels par Vite
@@ -231,7 +231,7 @@ que le joueur avait (aucun proxy `ML_ONLY`).
 
 - **`build_referential.py`** — collecte les benchmarks par rang (league-v4/-exp-v4).
   `python3 src/collection/build_referential.py --region euw1 [--rank R] [--players N]`.
-- **`aggregate_games.py`** — pipeline perso : N games → silver + gold (all/adc/zeri).
+- **`aggregate_games.py`** — pipeline perso : N games → silver + gold (all/adc).
 - **`sync_cloudflare.py`** — publication des agrégats, rangs, prédictions ML, SHAP, reviews et
   feedbacks locaux vers Cloudflare KV. Fusionne l'historique distant et supporte `--dry-run`.
   `--seed-reviews` n'amorce les reviews que si la clé est absente ; `--push-coaching` fusionne
@@ -398,7 +398,7 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
     encore reviewées, dédup par `match_id`, poursuit sur échec).
   - **Chemin par-game côté web** : `payload.build_game_bundle` sérialise ces
     payloads (clé KV `riftsense:{slug}:game-payloads`, `payload_hash` +
-    `benchmark_scope` = champion sinon rôle sinon global) ; `web/cf/src/game_coach.ts`
+    `benchmark_scope` = rôle sinon global) ; `web/cf/src/game_coach.ts`
     relit l'entrée demandée, réutilise une review existante sans appel LLM et
     ne régénère que sur `force`. Les motifs d'indisponibilité publiés
     (`raw_missing`/`benchmark_missing`/`not_eligible`) sont dérivés du **type**
@@ -474,7 +474,7 @@ Features clés : **facettes win/loss** (neutralise le biais d'issue), **benchmar
 **contexte de matchup botlane** (lane_pattern + gank_exposure, benchmarkés à contexte égal),
 **benchmark positionnement** (présence/roam, over-extension, vision — timeline, 0 CV,
 COACHING_SAFE uniquement).
-Scopes : `all` · `adc` (BOTTOM) · `zeri` (champion). Filtre patch courant, SR (mapId 11),
+Scopes : `all` · `adc` (BOTTOM). Filtre patch courant, SR (mapId 11),
 ranked solo (queue 420). Spec : `docs/superpowers/specs/`.
 ⚠️ **`docs/superpowers/` (specs et plans) n'est plus versionné** (2026-09-07) : ces documents
 vivent en local, seuls `docs/MODEL_CARD.md` et `docs/PROGRESS.md` restent suivis. Toute
@@ -550,10 +550,9 @@ Historique complet des runs, métriques et decisions (dates, chiffres, specs) :
    pas reconfirmer le seuil. Ensuite **coacher le plancher** — cibler les games du
    pire décile p10 (insight ML per-player : le rang = le plancher, pas la
    moyenne) et boucle de focus inter-games (adhérence au `next_focus`).
-2. **Benchmark Zeri** densifié (sampling champion ciblé) si la slice reste trop fine.
-3. Stabiliser et valider la **robustesse ML/SHAP** (qualité des prescriptions SHAP vs
+2. Stabiliser et valider la **robustesse ML/SHAP** (qualité des prescriptions SHAP vs
    heuristiques reste à valider).
-4. Poursuivre l'industrialisation : modèles Pydantic et flux consolidé.
+3. Poursuivre l'industrialisation : modèles Pydantic et flux consolidé.
 
 ## Notes de développement
 

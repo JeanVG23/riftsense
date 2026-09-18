@@ -38,7 +38,7 @@ describe("CoachingControls", () => {
     wrapper = mount(CoachingControls, {
       props: {
         slug: "Spadzze",
-        scopes: [{ id: "all", label: "Toutes" }, { id: "jinx", label: "Jinx (4)" }],
+        scopes: [{ id: "all", label: "Toutes" }, { id: "adc", label: "ADC" }],
         scope: "all",
         outcome: "loss",
         authenticated: true,
@@ -52,7 +52,7 @@ describe("CoachingControls", () => {
     await wrapper.get(".coach-generate").trigger("click");
     await wrapper.findAll(".coach-view-tabs button")[1].trigger("click");
 
-    expect(wrapper.emitted("scope-change")?.[0]).toEqual(["jinx"]);
+    expect(wrapper.emitted("scope-change")?.[0]).toEqual(["adc"]);
     expect(wrapper.emitted("outcome-change")?.[0]).toEqual(["win"]);
     expect(wrapper.emitted("generate")).toHaveLength(1);
     expect(wrapper.emitted("view-change")?.[0]).toEqual(["games"]);

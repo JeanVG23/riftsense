@@ -326,7 +326,7 @@ def _save_failed(player: str, ts: str, raw, root=None) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--player", default="spadzze")
-    ap.add_argument("--scope", default="adc")
+    ap.add_argument("--scope", default="adc", choices=sorted(rl.ROLE_SCOPES))
     ap.add_argument("--outcome", default="loss", choices=["overall", "win", "loss"])
     ap.add_argument("--target", default="challenger")
     ap.add_argument("--model", default=None)

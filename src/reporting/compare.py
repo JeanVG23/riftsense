@@ -9,7 +9,7 @@ Compare à ISSUE ÉGALE pour neutraliser le biais win/lose (en win on meurt moin
 Usage :
     python3 compare.py                                   # spadzze, adc, loss, vs tous rangs
     python3 compare.py --scope adc --outcome loss --target challenger
-    python3 compare.py --scope zeri --outcome overall
+    python3 compare.py --scope all --outcome overall
 """
 from __future__ import annotations
 
@@ -100,9 +100,13 @@ def dpg(agg, outcome):
 
 def main() -> int:
     player = arg("--player", "spadzze")
-    scope = arg("--scope", "adc")
+    scope = arg("--scope", "adc").lower()
     outcome = arg("--outcome", "loss")
     target = arg("--target", "challenger")
+
+    if scope not in rl.ROLE_SCOPES:
+        print(f"✗ Scope de benchmark inconnu : {scope}.", file=sys.stderr)
+        return 2
 
     me = load(rl.gold_aggregate(rl.KIND_PERSONAL, player, scope))
     if not me or not me["n_games"]:

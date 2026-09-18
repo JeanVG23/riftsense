@@ -8,7 +8,7 @@ describe("parité golden payload (Python == TS)", () => {
   const files = readdirSync(goldenDirectory)
     .filter((file) => file.startsWith("payload_") && file.endsWith(".json"));
 
-  it("a des fixtures à rejouer", () => expect(files.length).toBeGreaterThanOrEqual(7));
+  it("a des fixtures à rejouer", () => expect(files.length).toBeGreaterThanOrEqual(6));
   for (const file of files) {
     const golden = JSON.parse(
       readFileSync(new URL(`./golden/${file}`, import.meta.url), "utf8"),
@@ -17,6 +17,14 @@ describe("parité golden payload (Python == TS)", () => {
       expect(buildPayload(golden.me, golden.ref, golden.args)).toEqual(golden.expected);
     });
   }
+});
+
+describe("scopes de benchmark", () => {
+  it("refuse un ancien scope champion", () => {
+    expect(() => buildPayload({}, {}, {
+      player: "p", scope: "zeri", target: "challenger", outcome: "loss",
+    })).toThrow("scope de benchmark inconnu");
+  });
 });
 
 describe("map des reviews par partie", () => {
@@ -97,7 +105,7 @@ describe("map des reviews par partie", () => {
     expect(sample.mode).toBe("balanced");
     expect(sample.available).toEqual({ total: 9, wins: 4, losses: 5 });
     expect(sample.used).toEqual({ total: 4, wins: 2, losses: 2 });
-    expect(gameReviewSample(reviews, "zeri").available.total).toBe(9);
+    expect(gameReviewSample(reviews, "zeri").available.total).toBe(0);
     expect(gameReviewSample(reviews, "jinx").mode).toBe("none");
   });
 

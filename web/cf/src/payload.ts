@@ -195,6 +195,9 @@ export function buildPayload(
   ref: JsonRecord,
   args: BuildArgs,
 ): JsonRecord {
+  if (!(args.scope.toLowerCase() in ROLE_SCOPES)) {
+    throw new Error(`scope de benchmark inconnu : ${args.scope}`);
+  }
   const meFocus = me[args.outcome];
   const refFocus = ref[args.outcome];
   const deathsPerGame: JsonRecord = {};
@@ -243,14 +246,12 @@ export function buildPayload(
 
 export function reviewMatchesScope(record: JsonRecord, scope: string): boolean {
   const wanted = scope.toLowerCase();
+  if (!(wanted in ROLE_SCOPES)) return false;
   if (wanted === "all") return true;
   const meta = record.payload?.meta ?? {};
-  if (wanted in ROLE_SCOPES) {
-    const role = ROLE_SCOPES[wanted];
-    return (role !== null && meta.role === role)
-      || String(record.scope ?? meta.scope ?? "").toLowerCase() === wanted;
-  }
-  return String(meta.champion ?? "").toLowerCase() === wanted;
+  const role = ROLE_SCOPES[wanted];
+  return (role !== null && meta.role === role)
+    || String(record.scope ?? meta.scope ?? "").toLowerCase() === wanted;
 }
 
 /** Sélection qualitative bornée avec compteurs disponibles et réellement utilisés. */

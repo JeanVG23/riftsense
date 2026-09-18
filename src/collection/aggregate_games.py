@@ -3,8 +3,8 @@
 aggregate_games — pipeline perso (médaillon raw -> silver -> gold).
 
 Tire les N dernières games ranked d'un joueur, écrit la couche silver
-(silver/personal/<player>/games.jsonl) et la couche gold (agrégats par scope
-all/adc/zeri sous gold/personal/<player>/<scope>/), puis affiche un récap.
+(silver/personal/<player>/games.jsonl) et la couche gold (agrégats globaux et ADC
+sous gold/personal/<player>/<scope>/), puis affiche un récap.
 
 Usage :
     python3 aggregate_games.py "Spadzze#euw" euw1 -n 20
@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
 import riotlib as rl
 from cli import arg
 
-SCOPES = ["all", "adc", "zeri", "smolder", "jinx", "caitlyn", "ezreal", "aphelios", "kaisa"]
+SCOPES = rl.DEFAULT_BENCHMARK_SCOPES
 
 
 def main() -> int:

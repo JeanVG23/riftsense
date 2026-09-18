@@ -106,6 +106,22 @@ describe("coachFlow", () => {
     expect(calls).toBe(0);
   });
 
+  it("refuse un ancien scope champion avant toute lecture ou appel LLM", async () => {
+    const kv = await seed();
+    await kv.put(KEYS.gold("spadzze", "zeri"), JSON.stringify(AGGREGATE(18)));
+    await kv.put(KEYS.ref("challenger", "zeri"), JSON.stringify(AGGREGATE(400)));
+    let calls = 0;
+    const events = await collect(coachFlow({
+      kv,
+      now: () => "t",
+      generate: async () => { calls += 1; return REVIEW; },
+    }, { ...PARAMS, scope: "zeri" }));
+    expect(events).toEqual([{
+      event: "error", data: { error: "scope de benchmark inconnu : zeri" },
+    }]);
+    expect(calls).toBe(0);
+  });
+
   it("première sortie invalide, deuxième valide -> review persistée", async () => {
     const kv = await seed();
     let attempt = 0;
@@ -143,10 +159,10 @@ describe("apiCoach", () => {
     } as unknown as Env;
   }
 
-  const request = (slug: string) => new Request("http://x/api/coach", {
+  const request = (slug: string, scope?: string) => new Request("http://x/api/coach", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ slug }),
+    body: JSON.stringify({ slug, scope }),
   });
 
   it("404 pour un compte inconnu", async () => {
@@ -159,5 +175,11 @@ describe("apiCoach", () => {
     const response = await apiCoach(request("spadzze"), env());
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ detail: "OLLAMA_API_KEY non configuré" });
+  });
+
+  it("422 pour un ancien scope champion", async () => {
+    const response = await apiCoach(request("spadzze", "zeri"), env("secret"));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ detail: "scope de benchmark invalide" });
   });
 });

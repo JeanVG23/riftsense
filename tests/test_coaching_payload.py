@@ -132,12 +132,15 @@ def test_game_review_sample_modes_counts_and_cap():
     assert mixed["used"] == {"total": 4, "wins": 2, "losses": 2}
 
 
-def test_game_review_sample_matches_role_and_champion_scopes():
+def test_game_review_sample_matches_role_scopes_only():
     reviews = [_review("1", False, "Zeri"), _review("2", True, "Jinx")]
     assert PL._game_review_sample(reviews, "adc")["available"]["total"] == 2
-    zeri = PL._game_review_sample(reviews, "ZeRi")
-    assert zeri["available"] == {"total": 1, "wins": 0, "losses": 1}
-    assert zeri["causes"][0]["champion"] == "Zeri"
+    assert PL._game_review_sample(reviews, "ZeRi")["available"]["total"] == 0
+
+
+def test_build_rejects_champion_scope(tmp_path):
+    with pytest.raises(ValueError, match="scope de benchmark inconnu"):
+        PL.build("spadzze", scope="zeri", gold_dir=tmp_path)
 
 
 def test_game_review_sample_counts_latest_run_once_per_match():

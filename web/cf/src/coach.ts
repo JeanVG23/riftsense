@@ -1,8 +1,8 @@
 import { readAccount } from "./accounts";
 import { generateJson } from "./llm_client";
-import { addGameReviewCauses, buildPayload, type Outcome } from "./payload";
+import { addGameReviewCauses, buildPayload, ROLE_SCOPES, type Outcome } from "./payload";
 import { render, SYSTEM, versionOf } from "./prompt";
-import { jsonError, notFound } from "./http";
+import { jsonError, notFound, unprocessable } from "./http";
 import { appendJsonl, KEYS, readJson, readJsonl, type KVLike } from "./readers";
 import { reviewJsonSchema, validateReview, type Review } from "./schema";
 import { REVIEW_SCHEMA_VERSION } from "./generated/shared";
@@ -36,6 +36,10 @@ export async function* coachFlow(
   deps: { kv: KVLike; generate: GenerateFn; now: () => string },
   params: CoachParams,
 ): AsyncGenerator<SseEvent> {
+  if (!(params.scope.toLowerCase() in ROLE_SCOPES)) {
+    yield { event: "error", data: { error: `scope de benchmark inconnu : ${params.scope}` } };
+    return;
+  }
   // Lectures indépendantes : en parallèle, un seul aller-retour KV avant le 1er event SSE.
   const [me, ref, previousReviews] = await Promise.all([
     readJson<Record<string, any>>(deps.kv, KEYS.gold(params.slug, params.scope)),
@@ -122,9 +126,11 @@ export async function apiCoach(request: Request, env: Env): Promise<Response> {
   const slug = body?.slug ?? "";
   if (!await readAccount(env.DATA, slug)) return notFound("compte inconnu");
   if (!env.OLLAMA_API_KEY) return jsonError(500, "OLLAMA_API_KEY non configuré");
+  const scope = (body?.scope ?? "adc").toLowerCase();
+  if (!(scope in ROLE_SCOPES)) return unprocessable("scope de benchmark invalide");
   const params: CoachParams = {
     slug,
-    scope: body?.scope ?? "adc",
+    scope,
     outcome: body?.outcome ?? "loss",
     target: body?.target ?? "challenger",
     model: body?.model || env.OLLAMA_MODEL || "kimi-k2.6",

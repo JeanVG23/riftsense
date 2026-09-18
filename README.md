@@ -98,7 +98,7 @@ riftsense/
 │   ├── 00_static/             # Caractéristiques des champions et validation d'axes
 │   ├── 01_raw/                # Matchs bruts Riot compressés en Zstandard (.json.zst)
 │   ├── 02_silver/             # Jeux de données nettoyés par joueur / référentiel
-│   ├── 03_gold/               # Agrégations de benchmark par rôle, champion et contexte
+│   ├── 03_gold/               # Agrégations de benchmark globales, par rôle et contexte
 │   ├── 04_dataset/            # Datasets Parquet prêts pour le machine learning
 │   ├── 05_model/              # Modèles entraînés (.pkl) et métriques de calibration
 │   └── 06_shap/               # Explications SHAP locales et globales
