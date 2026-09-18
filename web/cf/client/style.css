@@ -20,6 +20,7 @@
   --panel-hover: #213254;
   --panel-card: #141e33;
   --panel-glass: rgba(19, 29, 49, 0.90);
+  --card-surface-gradient: linear-gradient(145deg, #152035 0%, #10192a 100%);
 
   /* High-Contrast Borders */
   --border: #283a5c;
@@ -55,6 +56,13 @@
   --radius: 14px;
   --radius-sm: 8px;
   --maxw: 1200px;
+
+  /* Shared transition timings */
+  --transition-fast: all 140ms ease;
+  --transition-base: all 160ms ease;
+  --transition-transform-fast: transform 140ms ease;
+
+  --panel-gradient: linear-gradient(145deg, var(--panel-2), var(--panel));
 }
 
 /* ==========================================================================
@@ -482,7 +490,7 @@ h3 { font-size: 14px; font-weight: 650; }
   border-radius: 8px;
   color: var(--text);
   text-decoration: none;
-  transition: all 140ms ease;
+  transition: var(--transition-fast);
   border: 1px solid transparent;
 }
 .switcher-card:hover {
@@ -540,26 +548,22 @@ h3 { font-size: 14px; font-weight: 650; }
   white-space: nowrap;
 }
 
-.badge-region-mini {
-  font-size: 9px;
-  font-weight: 800;
-  color: var(--primary);
-  background: rgba(14, 187, 212, 0.14);
-  border: 1px solid rgba(14, 187, 212, 0.3);
-  padding: 0 4px;
-  border-radius: 3px;
-  letter-spacing: 0.04em;
-}
-
+.badge-region-mini,
 .badge-region-xs {
   font-size: 9px;
   font-weight: 800;
   color: var(--primary);
   background: rgba(14, 187, 212, 0.14);
   border: 1px solid rgba(14, 187, 212, 0.3);
+  letter-spacing: 0.04em;
+}
+.badge-region-mini {
+  padding: 0 4px;
+  border-radius: 3px;
+}
+.badge-region-xs {
   padding: 1px 5px;
   border-radius: 4px;
-  letter-spacing: 0.04em;
 }
 
 .switcher-card-sub {
@@ -608,7 +612,7 @@ h3 { font-size: 14px; font-weight: 650; }
   font-size: 12px;
   font-weight: 600;
   text-decoration: none;
-  transition: all 140ms ease;
+  transition: var(--transition-fast);
 }
 .switcher-home-btn:hover {
   color: var(--primary);
@@ -617,7 +621,7 @@ h3 { font-size: 14px; font-weight: 650; }
 }
 .switcher-home-arrow {
   color: var(--text-faint);
-  transition: transform 140ms ease;
+  transition: var(--transition-transform-fast);
 }
 .switcher-home-btn:hover .switcher-home-arrow {
   transform: translateX(2px);
@@ -1010,7 +1014,7 @@ shap-profile { display: block; }
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
-  transition: all 160ms ease;
+  transition: var(--transition-base);
 }
 .btn:hover:not(:disabled) {
   color: var(--text);
@@ -1251,8 +1255,8 @@ shap-profile { display: block; }
   padding: 20px;
   overflow: hidden;
   color: var(--text);
-  background: linear-gradient(145deg, #152035 0%, #10192a 100%);
-  border: 1px solid rgba(148, 175, 215, 0.22);
+  background: var(--card-surface-gradient);
+  border: 1px solid var(--border-soft);
   border-radius: 14px;
   box-shadow: var(--card-shadow);
   transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
@@ -1275,15 +1279,18 @@ shap-profile { display: block; }
   box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.6), 0 0 24px rgba(16, 185, 129, 0.14);
 }
 
-.account-card--browser::before {
+.account-card--browser::before,
+.account-card--owner::before {
   content: "";
   position: absolute;
   top: 0;
   left: 20px;
   right: 20px;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(52, 211, 153, 0.9), transparent);
   border-radius: 2px;
+}
+.account-card--browser::before {
+  background: linear-gradient(90deg, transparent, rgba(52, 211, 153, 0.9), transparent);
 }
 
 .account-card--browser:hover {
@@ -1343,14 +1350,7 @@ shap-profile { display: block; }
 }
 
 .account-card--owner::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 20px;
-  right: 20px;
-  height: 2px;
   background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.9), transparent);
-  border-radius: 2px;
 }
 
 .account-card--owner:hover {
@@ -1361,10 +1361,8 @@ shap-profile { display: block; }
 }
 
 /* Badges */
-.badge-browser-tag {
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.18);
-  border: 1px solid rgba(52, 211, 153, 0.5);
+.badge-browser-tag,
+.badge-owner-tag {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .03em;
@@ -1374,19 +1372,15 @@ shap-profile { display: block; }
   flex-shrink: 0;
   line-height: 1.4;
 }
-
+.badge-browser-tag {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+}
 .badge-owner-tag {
   color: #38bdf8;
   background: rgba(14, 165, 233, 0.18);
   border: 1px solid rgba(56, 189, 248, 0.5);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .03em;
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  line-height: 1.4;
 }
 
 .badge-owner-tag-mini {
@@ -1750,7 +1744,7 @@ shap-profile { display: block; }
   font-size: 13px;
   font-weight: 650;
   line-height: 1.25;
-  transition: all 160ms ease;
+  transition: var(--transition-base);
   text-align: center;
 }
 .tab:hover {
@@ -2751,7 +2745,7 @@ shap-profile { display: block; }
   gap: 12px;
   padding: 18px;
   margin-bottom: 20px;
-  background: linear-gradient(145deg, var(--panel-2), var(--panel));
+  background: var(--panel-gradient);
   border: 1px solid var(--border-soft);
   border-radius: 14px;
 }
@@ -2799,7 +2793,7 @@ shap-profile { display: block; }
   font-family: inherit;
   font-size: 12px;
   font-weight: 700;
-  transition: all 140ms ease;
+  transition: var(--transition-fast);
 }
 .coach-view-tabs button:hover {
   color: var(--text);
@@ -2825,7 +2819,7 @@ shap-profile { display: block; }
   margin-bottom: 22px;
   background:
     linear-gradient(120deg, var(--primary-soft), transparent 45%),
-    linear-gradient(145deg, var(--panel-2), var(--panel));
+    var(--panel-gradient);
   border: 1px solid var(--border-soft);
   border-radius: 16px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
@@ -2884,7 +2878,7 @@ shap-profile { display: block; }
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: all 140ms ease;
+  transition: var(--transition-fast);
 }
 .segmented-choice button:hover { color: var(--text); background: rgba(148, 163, 184, 0.1); }
 .segmented-choice button.selected {
@@ -2936,7 +2930,7 @@ shap-profile { display: block; }
   padding: 24px;
   background:
     linear-gradient(120deg, var(--win-soft), transparent 36%),
-    linear-gradient(145deg, var(--panel-2), var(--panel));
+    var(--panel-gradient);
   border: 1px solid var(--border-soft);
   border-radius: 16px;
   box-shadow: 0 12px 30px rgba(0,0,0,.14);
@@ -3067,7 +3061,7 @@ shap-profile { display: block; }
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  transition: all 140ms ease;
+  transition: var(--transition-fast);
 }
 .game-review-option:hover { color: var(--text); background: rgba(148, 163, 184, 0.08); }
 .game-review-option.selected {
@@ -3452,7 +3446,7 @@ shap-profile { display: block; }
   border: 1px solid var(--border);
   border-radius: 6px;
   cursor: pointer;
-  transition: all 140ms ease;
+  transition: var(--transition-fast);
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -3508,7 +3502,7 @@ shap-profile { display: block; }
   cursor: pointer;
   font-size: 11px;
   font-family: inherit;
-  transition: all 140ms ease;
+  transition: var(--transition-fast);
 }
 .tag-opt:hover { background: var(--panel-hover); color: var(--text); }
 
@@ -3697,8 +3691,8 @@ button.hist-row { width: 100%; color: inherit; background: transparent; border-r
 .readme .card {
   padding: 24px 28px;
   border-radius: 12px;
-  background: linear-gradient(145deg, #152035 0%, #10192a 100%);
-  border: 1px solid rgba(148, 175, 215, 0.22);
+  background: var(--card-surface-gradient);
+  border: 1px solid var(--border-soft);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   margin: 0;
   width: 100%;
@@ -4062,7 +4056,7 @@ button.hist-row { width: 100%; color: inherit; background: transparent; border-r
   text-decoration: none;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-soft);
-  transition: all 140ms ease;
+  transition: var(--transition-fast);
 }
 .footer-account-link:hover {
   background: var(--panel-hover);
@@ -4148,7 +4142,7 @@ button.hist-row { width: 100%; color: inherit; background: transparent; border-r
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 140ms ease;
+  transition: var(--transition-fast);
 }
 .footer-scroll-top:hover {
   color: var(--primary);
@@ -4662,7 +4656,7 @@ button.hist-row { width: 100%; color: inherit; background: transparent; border-r
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 8px;
   cursor: pointer;
-  transition: all 160ms ease;
+  transition: var(--transition-base);
   font-family: inherit;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
@@ -4786,7 +4780,7 @@ button.hist-row { width: 100%; color: inherit; background: transparent; border-r
   border-radius: 10px;
   color: var(--text);
   text-decoration: none;
-  transition: all 160ms ease;
+  transition: var(--transition-base);
 }
 .btn-demo-shap:hover {
   background: var(--panel-hover);
@@ -4967,7 +4961,7 @@ button.hist-row { width: 100%; color: inherit; background: transparent; border-r
   display: grid;
   place-items: center;
   background: #0d1627;
-  border: 2px solid rgba(148, 175, 215, 0.22);
+  border: 2px solid var(--border-soft);
   font-size: 13px;
   font-weight: 800;
   color: var(--text-faint);
@@ -5119,7 +5113,7 @@ button.hist-row { width: 100%; color: inherit; background: transparent; border-r
 }
 .status-action-btn .btn-arrow-left {
   font-size: 14px;
-  transition: transform 140ms ease;
+  transition: var(--transition-transform-fast);
 }
 .status-action-btn:hover .btn-arrow-left {
   transform: translateX(-3px);
@@ -5137,7 +5131,7 @@ button.hist-row { width: 100%; color: inherit; background: transparent; border-r
   background: rgba(12, 18, 32, 0.6);
   border: 1px solid var(--border-soft);
   text-decoration: none;
-  transition: all 160ms ease;
+  transition: var(--transition-base);
 }
 .status-secondary-btn:hover {
   background: var(--panel-hover);
@@ -5149,7 +5143,7 @@ button.hist-row { width: 100%; color: inherit; background: transparent; border-r
 .status-secondary-btn .btn-arrow-right {
   color: var(--primary);
   font-size: 13px;
-  transition: transform 140ms ease;
+  transition: var(--transition-transform-fast);
 }
 .status-secondary-btn:hover .btn-arrow-right {
   transform: translateX(3px);
