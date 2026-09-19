@@ -10,6 +10,12 @@ function goHome(): void {
 
 <template>
   <div class="legal-page">
+    <!-- Artefacts sacrés & gravures de lois sur les flancs -->
+    <div class="privacy-side-artefacts page-side-artefacts" aria-hidden="true">
+      <div class="side-artefact-item privacy-artefact--pierre"></div>
+      <div class="side-artefact-item privacy-artefact--stele"></div>
+    </div>
+
     <div class="legal-header">
       <div class="legal-breadcrumbs">
         <a href="/" @click.prevent="goHome">Accueil</a>
@@ -23,6 +29,13 @@ function goHome(): void {
         <span class="legal-sep">·</span>
         <span>Conforme RGPD (UE 2016/679) &amp; Riot API</span>
       </p>
+    </div>
+
+    <!-- Séparateur céleste Targon -->
+    <div class="celestial-divider" aria-hidden="true">
+      <span class="divider-line"></span>
+      <span class="divider-gem">✦</span>
+      <span class="divider-line"></span>
     </div>
 
     <!-- Bannière Engagement de Confidentialité -->
@@ -176,14 +189,52 @@ function goHome(): void {
 
 <style scoped>
 .legal-page {
+  position: relative;
   width: 100%;
   max-width: 100%;
   margin: 0 0 60px;
   padding: 0;
 }
 
+.privacy-side-artefacts {
+  top: 100px;
+}
+
+.privacy-artefact--pierre {
+  top: 40px;
+  left: max(10px, calc(50% - 730px));
+  width: 320px;
+  height: 380px;
+  background: url('/images/targon/grave-dans-la-pierre.jpg') center / contain no-repeat;
+  opacity: 0.09;
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(circle at center, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle at center, black 20%, transparent 70%);
+  filter: contrast(1.15) sepia(0.2);
+}
+
+.privacy-artefact--stele {
+  top: 560px;
+  right: max(10px, calc(50% - 730px));
+  width: 320px;
+  height: 440px;
+  background: url('/images/targon/stele-targon.jpg') center / contain no-repeat;
+  opacity: 0.09;
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(circle at center, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle at center, black 20%, transparent 70%);
+  filter: contrast(1.12);
+}
+
+@media (max-width: 1200px) {
+  .privacy-artefact--pierre { opacity: 0.08; left: -30px; }
+  .privacy-artefact--stele { opacity: 0.08; right: -30px; }
+}
+
 .legal-header {
-  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 12px;
 }
 
 .legal-breadcrumbs {
@@ -245,18 +296,25 @@ function goHome(): void {
 }
 
 .legal-disclaimer-card {
-  border: 1px solid var(--primary-border);
+  border: 1.5px solid rgba(195, 160, 110, 0.45);
   background: var(--surface-alt);
   margin-bottom: 24px;
   padding: 24px 28px;
   border-radius: 12px;
   width: 100%;
   box-sizing: border-box;
+  transition: var(--transition-base);
 }
 
 .legal-disclaimer-card.privacy-accent {
-  border-color: var(--win-border);
-  background: var(--win-soft);
+  border-color: rgba(87, 116, 93, 0.40);
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.98) 0%, rgba(244, 248, 245, 0.92) 100%);
+  box-shadow: 0 4px 18px rgba(20, 23, 24, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.legal-disclaimer-card.privacy-accent:hover {
+  border-color: rgba(87, 116, 93, 0.65);
+  box-shadow: 0 6px 22px rgba(87, 116, 93, 0.12), inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
 .legal-disclaimer-inner {
@@ -278,13 +336,19 @@ function goHome(): void {
 }
 
 .legal-reviewer-box {
-  border: 1px solid var(--primary-border);
+  border: 1.5px solid rgba(195, 160, 110, 0.40);
   background: var(--surface-alt);
+  box-shadow: 0 2px 10px rgba(20, 23, 24, 0.04);
   margin-bottom: 24px;
   padding: 24px 28px;
   border-radius: 12px;
   width: 100%;
   box-sizing: border-box;
+  transition: var(--transition-base);
+}
+
+.legal-reviewer-box:hover {
+  border-color: rgba(185, 143, 83, 0.55);
 }
 
 .legal-reviewer-badge {
@@ -340,6 +404,13 @@ function goHome(): void {
   margin: 0;
   width: 100%;
   box-sizing: border-box;
+  transition: var(--transition-base);
+}
+
+.legal-card:hover {
+  border-color: rgba(185, 143, 83, 0.40);
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-1px);
 }
 
 .legal-card + .legal-card {

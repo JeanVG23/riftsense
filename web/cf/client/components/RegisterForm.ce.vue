@@ -431,9 +431,11 @@ onBeforeUnmount(stopPolling);
 .status-progress-card {
   padding: 32px 28px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1.5px solid rgba(195, 160, 110, 0.45);
   border-radius: 18px;
-  box-shadow: var(--shadow-overlay);
+  box-shadow:
+    0 8px 32px rgba(20, 23, 24, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
   text-align: left;
 }
 

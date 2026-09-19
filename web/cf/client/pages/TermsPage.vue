@@ -169,14 +169,52 @@ function goHome(): void {
 
 <style scoped>
 .legal-page {
+  position: relative;
   width: 100%;
   max-width: 100%;
   margin: 0 0 60px;
   padding: 0;
 }
 
+.terms-side-artefacts {
+  top: 100px;
+}
+
+.terms-artefact--stele {
+  top: 40px;
+  left: max(10px, calc(50% - 730px));
+  width: 320px;
+  height: 440px;
+  background: url('/images/targon/stele-targon.jpg') center / contain no-repeat;
+  opacity: 0.09;
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(circle at center, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle at center, black 20%, transparent 70%);
+  filter: contrast(1.12);
+}
+
+.terms-artefact--pierre {
+  top: 560px;
+  right: max(10px, calc(50% - 730px));
+  width: 320px;
+  height: 380px;
+  background: url('/images/targon/grave-dans-la-pierre.jpg') center / contain no-repeat;
+  opacity: 0.09;
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(circle at center, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle at center, black 20%, transparent 70%);
+  filter: contrast(1.15) sepia(0.2);
+}
+
+@media (max-width: 1200px) {
+  .terms-artefact--stele { opacity: 0.08; left: -30px; }
+  .terms-artefact--pierre { opacity: 0.08; right: -30px; }
+}
+
 .legal-header {
-  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 12px;
 }
 
 .legal-breadcrumbs {
@@ -238,13 +276,20 @@ function goHome(): void {
 }
 
 .legal-disclaimer-card {
-  border: 1px solid var(--primary-border);
-  background: var(--surface-alt);
+  border: 1.5px solid rgba(195, 160, 110, 0.45);
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.98) 0%, rgba(247, 244, 237, 0.92) 100%);
+  box-shadow: 0 4px 18px rgba(20, 23, 24, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.95);
   margin-bottom: 24px;
   padding: 24px 28px;
   border-radius: 12px;
   width: 100%;
   box-sizing: border-box;
+  transition: var(--transition-base);
+}
+
+.legal-disclaimer-card:hover {
+  border-color: rgba(185, 143, 83, 0.65);
+  box-shadow: 0 6px 24px rgba(185, 143, 83, 0.12), inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
 .legal-disclaimer-inner {
@@ -274,13 +319,19 @@ function goHome(): void {
 }
 
 .legal-reviewer-box {
-  border: 1px solid var(--primary-border);
+  border: 1.5px solid rgba(195, 160, 110, 0.40);
   background: var(--surface-alt);
+  box-shadow: 0 2px 10px rgba(20, 23, 24, 0.04);
   margin-bottom: 24px;
   padding: 24px 28px;
   border-radius: 12px;
   width: 100%;
   box-sizing: border-box;
+  transition: var(--transition-base);
+}
+
+.legal-reviewer-box:hover {
+  border-color: rgba(185, 143, 83, 0.55);
 }
 
 .legal-reviewer-badge {
@@ -336,6 +387,13 @@ function goHome(): void {
   margin: 0;
   width: 100%;
   box-sizing: border-box;
+  transition: var(--transition-base);
+}
+
+.legal-card:hover {
+  border-color: rgba(185, 143, 83, 0.40);
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-1px);
 }
 
 .legal-card + .legal-card {

@@ -289,6 +289,8 @@ h4 { font-size: 15px; font-weight: 700; }
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
+  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 100px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 100px), transparent 100%);
 }
 
 .side-artefact-item {

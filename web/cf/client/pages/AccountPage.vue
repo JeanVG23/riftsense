@@ -370,38 +370,38 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
 
 .account-artefact--arme {
   top: 40px;
-  left: max(10px, calc(50% - 700px));
+  left: max(10px, calc(50% - 730px));
   width: 330px;
   height: 330px;
   background: url('/images/targon/arme-interdite.jpg') center / contain no-repeat;
-  opacity: 0.16;
-  mask-image: radial-gradient(circle at center, black 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 75%);
-  filter: contrast(1.15) drop-shadow(0 0 35px rgba(120, 32, 37, 0.28));
+  opacity: 0.13;
+  mask-image: radial-gradient(circle at center, black 22%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at center, black 22%, transparent 72%);
+  filter: contrast(1.15) drop-shadow(0 0 30px rgba(120, 32, 37, 0.22));
 }
 
 .account-artefact--solaris {
   top: 520px;
-  right: max(10px, calc(50% - 710px));
+  right: max(10px, calc(50% - 730px));
   width: 340px;
   height: 420px;
   background: url('/images/targon/solaris.jpg') center / contain no-repeat;
-  opacity: 0.16;
-  mask-image: radial-gradient(circle at center, black 28%, transparent 75%);
-  -webkit-mask-image: radial-gradient(circle at center, black 28%, transparent 75%);
-  filter: contrast(1.15) drop-shadow(0 0 35px rgba(185, 143, 83, 0.30));
+  opacity: 0.13;
+  mask-image: radial-gradient(circle at center, black 22%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at center, black 22%, transparent 72%);
+  filter: contrast(1.15) drop-shadow(0 0 30px rgba(185, 143, 83, 0.25));
 }
 
 .account-artefact--bolor {
   top: 1040px;
-  right: max(15px, calc(50% - 690px));
+  right: max(15px, calc(50% - 720px));
   width: 350px;
   height: 350px;
   background: url('/images/targon/bolor.jpg') center / contain no-repeat;
-  opacity: 0.15;
-  mask-image: radial-gradient(circle at center, black 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 75%);
-  filter: contrast(1.12) drop-shadow(0 0 30px rgba(126, 97, 52, 0.20));
+  opacity: 0.12;
+  mask-image: radial-gradient(circle at center, black 24%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at center, black 24%, transparent 72%);
+  filter: contrast(1.12) drop-shadow(0 0 25px rgba(126, 97, 52, 0.18));
 }
 
 @media (max-width: 1200px) {
