@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { formatDate } from "../account-profile";
 import { withAuthHeaders } from "../auth";
+import type { IngestSync } from "../ingest-sync";
+import {
+  boundaryLabel,
+  formatLogit,
+  parseRoleAnalysis,
+  reasonMessage,
+  roleLabel,
+  type RoleAnalysis,
+  type RoleDriver,
+} from "../role-analysis";
 
-interface ShapDriver {
-  feature: string;
-  contribution: number;
-}
-
-interface ShapReport {
-  available: boolean;
-  drivers?: ShapDriver[];
-}
-
-const props = defineProps<{ slug: string }>();
+const props = defineProps<{ slug: string; sync: IngestSync; reloadToken: number }>();
 
 /** Palette alignée sur le thème Targon : or, encre et ivoire. */
 const palette = {
@@ -24,19 +25,38 @@ const palette = {
 };
 
 const loading = ref(true);
-const report = ref<ShapReport | null>(null);
+const analysis = ref<RoleAnalysis | null>(null);
+const unavailableReason = ref<string | null>(null);
 const sort = ref<"abs" | "val">("abs");
+const categoryFilter = ref<"all" | "actionable">("all");
 const canvas = ref<HTMLCanvasElement | null>(null);
 let chart: import("chart.js").Chart | null = null;
 let requestSequence = 0;
 let chartRuntime: Promise<typeof import("chart.js")> | null = null;
 
-function sortedDrivers(): ShapDriver[] {
-  const drivers = [...(report.value?.drivers || [])];
-  drivers.sort(sort.value === "abs"
+/** Filtre de catégorie, puis tri |contribution| ou valeur, puis top 16.
+ * Le descriptif s'affiche mais ne se formule jamais en levier : le filtre
+ * « Leviers d'action uniquement » isole l'actionable, l'inverse n'existe pas. */
+function visibleDrivers(): RoleDriver[] {
+  const drivers = [...(analysis.value?.drivers || [])];
+  const kept = categoryFilter.value === "actionable"
+    ? drivers.filter((driver) => driver.category === "actionable")
+    : drivers;
+  kept.sort(sort.value === "abs"
     ? (left, right) => Math.abs(right.contribution) - Math.abs(left.contribution)
     : (left, right) => right.contribution - left.contribution);
-  return drivers.slice(0, 16);
+  return kept.slice(0, 16);
+}
+
+/** Label d'un driver : la `base` (nom technique sans suffixe d'agrégation,
+ * spec §3 « libellés français des noms de features » : le suffixe ne s'affiche
+ * pas), désambiguisée en nom complet quand deux agrégations visibles
+ * partagent la même base (« csm10__mean » et « csm10__max ») : la base seule
+ * ne permettrait plus de dire laquelle des deux est laquelle. */
+function driverLabel(driver: RoleDriver, visible: RoleDriver[]): string {
+  const base = driver.base || driver.feature;
+  const sameBase = visible.filter((other) => (other.base || other.feature) === base);
+  return sameBase.length > 1 ? driver.feature : base;
 }
 
 function destroyChart(): void {
@@ -46,16 +66,16 @@ function destroyChart(): void {
 
 async function renderChart(): Promise<void> {
   destroyChart();
-  if (!canvas.value || !report.value?.available) return;
+  if (!canvas.value || !analysis.value) return;
   chartRuntime ||= import("chart.js");
   const { Chart, registerables } = await chartRuntime;
   Chart.register(...registerables);
-  if (!canvas.value?.isConnected || !report.value?.available) return;
-  const drivers = sortedDrivers();
+  if (!canvas.value?.isConnected || !analysis.value) return;
+  const drivers = visibleDrivers();
   chart = new Chart(canvas.value, {
     type: "bar",
     data: {
-      labels: drivers.map((driver) => driver.feature),
+      labels: drivers.map((driver) => driverLabel(driver, drivers)),
       datasets: [{
         data: drivers.map((driver) => driver.contribution),
         backgroundColor: drivers.map((driver) => driver.contribution >= 0 ? palette.gold : palette.loss),
@@ -68,7 +88,15 @@ async function renderChart(): Promise<void> {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: {
-        label: (context) => `EBM ${Number(context.raw).toFixed(4)}`,
+        label: (context) => {
+          const driver = drivers[context.dataIndex];
+          if (!driver) return `EBM ${Number(context.raw).toFixed(4)}`;
+          const lines = [`Contribution ${driver.contribution.toFixed(4)}`];
+          if (driver.value !== null) lines.push(`Valeur ${driver.value}`);
+          lines.push(driver.category === "actionable" ? "Levier" : "Contexte");
+          if (driver.crossover_value !== null) lines.push(`Bascule ≈ ${driver.crossover_value}`);
+          return lines;
+        },
       } } },
       scales: {
         x: { grid: { color: palette.border }, ticks: { color: palette.dim, font: { size: 11 } } },
@@ -78,21 +106,25 @@ async function renderChart(): Promise<void> {
   });
 }
 
-async function loadReport(): Promise<void> {
+async function loadAnalysis(): Promise<void> {
   const sequence = ++requestSequence;
   loading.value = true;
-  report.value = null;
+  analysis.value = null;
+  unavailableReason.value = null;
   destroyChart();
   try {
-    const response = await fetch(`/api/c/${encodeURIComponent(props.slug)}/shap`, {
+    const response = await fetch(`/api/c/${encodeURIComponent(props.slug)}/shap-role`, {
       headers: withAuthHeaders(),
     });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    const result = await response.json() as ShapReport;
+    const payload = parseRoleAnalysis(await response.json());
     if (sequence !== requestSequence) return;
-    report.value = result;
+    if (payload.available) analysis.value = payload;
+    else unavailableReason.value = payload.reason;
   } catch {
-    if (sequence === requestSequence) report.value = { available: false, drivers: [] };
+    // Échec réseau côté client : motif propre, jamais déguisé en attente de
+    // première collecte (ce serait faux pour un simple échec de chargement).
+    if (sequence === requestSequence) unavailableReason.value = "fetch_failed";
   } finally {
     if (sequence === requestSequence) {
       loading.value = false;
@@ -107,12 +139,18 @@ async function toggleSort(): Promise<void> {
   await renderChart();
 }
 
+async function toggleCategory(): Promise<void> {
+  categoryFilter.value = categoryFilter.value === "all" ? "actionable" : "all";
+  await renderChart();
+}
+
 function goToAccount(targetSlug: string): void {
   window.dispatchEvent(new CustomEvent("coach-go", { detail: { path: `/c/${targetSlug}?tab=shap` } }));
 }
 
-watch(() => props.slug, loadReport);
-onMounted(loadReport);
+watch(() => props.slug, loadAnalysis);
+watch(() => props.reloadToken, loadAnalysis);
+onMounted(loadAnalysis);
 onBeforeUnmount(destroyChart);
 </script>
 
@@ -122,14 +160,33 @@ onBeforeUnmount(destroyChart);
       <span class="loading-spinner" aria-hidden="true"></span>
       <span>Chargement du profil ML…</span>
     </div>
-    <div v-else-if="!report?.available" class="shap-empty-card">
+    <div v-else-if="unavailableReason" class="shap-empty-card">
       <div class="shap-unavail-badge">
         <span class="badge badge-region">MODÈLE EBM &amp; SHAP</span>
       </div>
-      <h3 class="shap-unavail-title">Profil ML indisponible pour ce compte.</h3>
-      <p class="shap-unavail-sub faint">
-        L'analyse nécessite au moins 15 parties ADC dans les 20 dernières games pour que les indicateurs macro soient statistiquement robustes.
-      </p>
+      <h3 class="shap-unavail-title">Analyse ML indisponible pour ce compte.</h3>
+      <p class="shap-unavail-sub faint">{{ reasonMessage(unavailableReason) }}</p>
+
+      <!-- Le bouton vit AUSSI dans l'état indisponible : les motifs
+           collection_incomplete et scoring_failed disent « relance
+           l'actualisation », le CTA doit exister là où on l'appelle. -->
+      <div class="shap-unavail-actions">
+        <button
+          class="btn btn-sort-shap btn-refresh-shap"
+          :class="{ 'is-syncing': sync.syncing, 'is-cooling': sync.cooling }"
+          :disabled="sync.syncing || sync.cooling"
+          type="button"
+          :title="sync.cooling
+            ? 'Analyse déjà actualisée : une nouvelle est possible toutes les 15 minutes'
+            : 'Recollecter les 20 dernières parties du rôle et recalculer la décomposition'"
+          @click="sync.trigger"
+        >
+          <svg class="sync-icon-shap" :class="{ spinning: sync.syncing }" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+          </svg>
+          {{ sync.feedback || (sync.syncing ? "Actualisation…" : (sync.cooling ? sync.cooldownLabel : "Actualiser l'analyse")) }}
+        </button>
+      </div>
 
       <div class="shap-demo-guidance">
         <span class="demo-guidance-title">Explorer le modèle d'explicabilité SHAP en direct sur nos profils calibrés :</span>
@@ -153,14 +210,32 @@ onBeforeUnmount(destroyChart);
         </div>
       </div>
     </div>
-    <div v-else class="shap-active-card">
+    <div v-else-if="analysis" class="shap-active-card">
       <div class="shap-header-row">
         <div>
           <div class="eyebrow-shap">EXPLICABILITÉ DU MODÈLE</div>
           <h2>Ce qui influence ton profil ML</h2>
         </div>
         <div class="spacer"></div>
-        <button class="btn btn-sort-shap" @click="toggleSort">
+        <button
+          class="btn btn-sort-shap btn-refresh-shap"
+          :class="{ 'is-syncing': sync.syncing, 'is-cooling': sync.cooling }"
+          :disabled="sync.syncing || sync.cooling"
+          type="button"
+          :title="sync.cooling
+            ? 'Analyse déjà actualisée : une nouvelle est possible toutes les 15 minutes'
+            : 'Recollecter les 20 dernières parties du rôle et recalculer la décomposition'"
+          @click="sync.trigger"
+        >
+          <svg class="sync-icon-shap" :class="{ spinning: sync.syncing }" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+          </svg>
+          {{ sync.feedback || (sync.syncing ? "Actualisation…" : (sync.cooling ? sync.cooldownLabel : "Actualiser l'analyse")) }}
+        </button>
+        <button class="btn btn-sort-shap" type="button" @click="toggleCategory">
+          {{ categoryFilter === "all" ? "Tout" : "Leviers d'action uniquement" }}
+        </button>
+        <button class="btn btn-sort-shap" type="button" @click="toggleSort">
           <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true" style="margin-right:6px">
             <path d="M3 3a1 1 0 000 2h11a1 1 0 100-2H3zM3 7a1 1 0 000 2h7a1 1 0 100-2H3zM3 11a1 1 0 100 2h4a1 1 0 100-2H3zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z"/>
           </svg>
@@ -168,19 +243,37 @@ onBeforeUnmount(destroyChart);
         </button>
       </div>
 
+      <div class="shap-context-band">
+        <span>Analyse sur {{ analysis.sample?.role_games_used ?? "?" }} dernières parties {{ roleLabel(analysis.role) }}</span>
+        <span v-if="analysis.generated_at">générée le {{ formatDate(analysis.generated_at) }}</span>
+      </div>
+
+      <div class="shap-score-block">
+        <span class="shap-score-label">Proximité à l'apex</span>
+        <strong class="shap-score-value">{{ analysis.logit !== null && analysis.logit !== undefined ? formatLogit(analysis.logit) : "?" }}</strong>
+        <span v-if="analysis.model?.boundary" class="shap-score-boundary">Frontière {{ boundaryLabel(analysis.model.boundary) }}</span>
+        <span v-if="analysis.model?.auc_heldout_median !== undefined" class="shap-score-meta">
+          Modèle EBM {{ roleLabel(analysis.role) }} · AUC médiane {{ analysis.model.auc_heldout_median }} sur {{ analysis.model.n_seeds ?? "?" }} tirages
+        </span>
+      </div>
+
       <div class="shap-legend-strip">
         <div class="shap-legend-item">
           <span class="legend-box legend-box--gold" aria-hidden="true"></span>
-          <span><strong>Contribution positive</strong> : facteurs forts poussant vers le haut niveau (GM/Challenger)</span>
+          <span><strong>Contribution positive</strong> : facteurs qui rapprochent de l'apex</span>
         </div>
         <div class="shap-legend-item">
           <span class="legend-box legend-box--loss" aria-hidden="true"></span>
-          <span><strong>Contribution négative</strong> : facteurs limitants / axes prioritaires d'amélioration</span>
+          <span><strong>Contribution négative</strong> : facteurs qui éloignent de l'apex</span>
+        </div>
+        <div class="shap-legend-item">
+          <span class="legend-box legend-box--lever" aria-hidden="true"></span>
+          <span><strong>Levier</strong> : peut être travaillé ; <strong>Contexte</strong> : s'affiche sans jamais être formulé comme un reproche</span>
         </div>
       </div>
 
       <p class="muted shap-explainer-text">
-        Décomposition exacte du modèle Explainable Boosting Machine (EBM) : chaque barre mesure la contribution marginale (log-odds) de ton indicateur au placement de ton rang estimé par rapport au référentiel.
+        Décomposition exacte du modèle Explainable Boosting Machine (EBM) : chaque barre mesure la contribution marginale (log-odds) de l'indicateur à ta proximité à l'apex. Les barres Levier peuvent être travaillées ; les barres Contexte décrivent ta fenêtre de parties et ne se travaillent pas.
       </p>
 
       <div class="shap-wrap"><canvas ref="canvas"></canvas></div>
@@ -213,6 +306,12 @@ onBeforeUnmount(destroyChart);
   font-size: 13px;
   line-height: 1.5;
   max-width: 500px;
+  margin: 0 auto 24px;
+}
+
+.shap-unavail-actions {
+  display: flex;
+  justify-content: center;
   margin: 0 auto 24px;
 }
 
@@ -320,6 +419,72 @@ onBeforeUnmount(destroyChart);
   font-weight: 650;
 }
 
+.btn-refresh-shap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-refresh-shap:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
+.sync-icon-shap.spinning {
+  animation: spin-shap .9s linear infinite;
+}
+
+@keyframes spin-shap {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.shap-context-band {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.shap-score-block {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0 0 14px;
+}
+
+.shap-score-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.shap-score-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.shap-score-boundary {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.shap-score-meta {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
 .shap-legend-strip {
   display: flex;
   gap: 18px;
@@ -347,6 +512,9 @@ onBeforeUnmount(destroyChart);
 }
 .legend-box--gold { background: var(--gold); }
 .legend-box--loss { background: var(--danger); }
+.legend-box--lever {
+  background: var(--text-faint);
+}
 
 .shap-explainer-text {
   font-size: 13px;
