@@ -269,7 +269,7 @@ describe("ShapProfile · liste de facteurs vide", () => {
     // est descriptif : liste vide, message distinct de « aucun facteur
     // publié », avec le rappel qu'il suffit de revenir sur « Tout ».
     expect(wrapper.text()).toContain(
-      "Aucun levier d'action dans le top 16 : reviens sur « Tout » pour voir les facteurs de contexte.");
+      "Aucun levier d'action parmi les facteurs publiés : reviens sur « Tout » pour voir les facteurs de contexte.");
     expect(wrapper.find("canvas").exists()).toBe(false);
 
     await filterButton!.trigger("click");

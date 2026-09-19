@@ -99,9 +99,8 @@ export function reasonMessage(reason: string): string {
  * réponse. Les six autres motifs sont décidés par les données propres au
  * compte (`rank_out_of_scope` inclus : le service recalcule le tier et le
  * rôle dominant à chaque ingestion, cf. `service/riot_ingest.py`). */
-export const GLOBAL_CLOSURE_REASONS: ReadonlySet<string> = Object.freeze(
-  new Set(["role_closed", "model_missing", "model_mismatch"]),
-);
+export const GLOBAL_CLOSURE_REASONS: ReadonlySet<string> =
+  new Set(["role_closed", "model_missing", "model_mismatch"]);
 
 export function isGlobalClosure(reason: string): boolean {
   return GLOBAL_CLOSURE_REASONS.has(reason);

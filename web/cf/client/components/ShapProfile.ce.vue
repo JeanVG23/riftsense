@@ -324,7 +324,7 @@ onBeforeUnmount(destroyChart);
       <p v-else class="shap-empty">
         {{ analysis.drivers.length === 0
           ? "Aucun facteur n'a été publié pour cette fenêtre de parties."
-          : "Aucun levier d'action dans le top 16 : reviens sur « Tout » pour voir les facteurs de contexte." }}
+          : "Aucun levier d'action parmi les facteurs publiés : reviens sur « Tout » pour voir les facteurs de contexte." }}
       </p>
     </div>
   </div>
