@@ -528,7 +528,7 @@ function goPrivacy(): void {
 }
 
 .tabs {
-  margin: 24px 0 28px;
+  margin: 10px 0 26px;
   width: 100%;
 }
 
@@ -686,19 +686,18 @@ function goPrivacy(): void {
 .legal-visual-band {
   position: relative;
   overflow: hidden;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
   align-items: center;
-  min-height: 215px;
-  margin-bottom: 24px;
-  padding: 30px 36px;
+  min-height: 116px;
+  margin-bottom: 22px;
+  padding: 22px 32px;
   border: 1.5px solid rgba(195, 160, 110, 0.45);
-  border-radius: 16px;
+  border-radius: 14px;
   background:
-    linear-gradient(100deg, rgba(255, 253, 248, .96) 0%, rgba(247, 244, 237, .90) 48%, rgba(247, 244, 237, .32) 100%),
-    url('/images/targon/observatoire-zenith.jpg') center 28% / cover no-repeat;
+    linear-gradient(95deg, rgba(255, 253, 248, .98) 0%, rgba(255, 253, 248, .92) 52%, rgba(247, 244, 237, .35) 100%),
+    url('/images/targon/observatoire-zenith.jpg') right 12% center / cover no-repeat;
   box-shadow:
-    0 4px 20px rgba(20, 23, 24, 0.06),
+    0 4px 18px rgba(20, 23, 24, 0.05),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
   transition: var(--transition-base);
 }
@@ -706,38 +705,25 @@ function goPrivacy(): void {
 .legal-visual-band:hover {
   border-color: rgba(185, 143, 83, 0.65);
   box-shadow:
-    0 8px 28px rgba(185, 143, 83, 0.15),
+    0 8px 24px rgba(185, 143, 83, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
 .legal-visual-copy {
   position: relative;
   z-index: 1;
-  max-width: 640px;
+  max-width: 660px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.legal-visual-eyebrow {
-  align-self: flex-start;
-  padding: 4px 10px;
-  color: var(--gold-deep);
-  background: var(--primary-soft);
-  border: 1px solid var(--primary-border);
-  border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 750;
-  letter-spacing: .09em;
-  text-transform: uppercase;
+  gap: 6px;
 }
 
 .legal-visual-title {
   margin: 0;
   color: var(--ink);
-  font-size: clamp(20px, 2.5vw, 26px);
-  line-height: 1.2;
-  letter-spacing: -.028em;
+  font-size: clamp(20px, 2.2vw, 24px);
+  line-height: 1.25;
+  letter-spacing: -.025em;
   font-weight: 760;
 }
 
@@ -745,7 +731,7 @@ function goPrivacy(): void {
   margin: 0;
   color: var(--text-dim);
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
 @media (max-width: 860px) {
@@ -753,8 +739,8 @@ function goPrivacy(): void {
     min-width: 620px;
   }
   .legal-visual-band {
-    min-height: 180px;
-    padding: 22px 24px;
+    min-height: auto;
+    padding: 18px 20px;
   }
   .legal-card {
     padding: 18px 20px;
