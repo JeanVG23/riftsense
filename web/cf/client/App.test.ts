@@ -134,4 +134,67 @@ describe("App topbar switcher", () => {
     });
     expect(Object.keys(wrapper.element.attributes).some(k => wrapper.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
+
+  it("ouvre et ferme le menu mobile au clic sur le bouton hamburger", async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse([]))) as any;
+    const wrapper = mount(App, {
+      global: {
+        plugins: [router],
+        stubs: {
+          HomePage: true,
+          RegisterForm: true,
+          AccountPage: true,
+          ReadmePage: true,
+          TermsPage: true,
+          PrivacyPage: true,
+          AuthControl: true,
+          AuthModal: true,
+          NavSearch: true,
+        },
+      },
+    });
+
+    const menuBtn = wrapper.find(".mobile-menu-btn");
+    expect(menuBtn.exists()).toBe(true);
+    expect(wrapper.find(".mobile-drawer").exists()).toBe(false);
+
+    // Clic pour ouvrir
+    await menuBtn.trigger("click");
+    expect(wrapper.find(".mobile-drawer").exists()).toBe(true);
+    expect(wrapper.find(".hamburger-inner").classes()).toContain("is-active");
+
+    // Clic pour fermer
+    await menuBtn.trigger("click");
+    expect(wrapper.find(".mobile-drawer").exists()).toBe(false);
+    expect(wrapper.find(".hamburger-inner").classes()).not.toContain("is-active");
+  });
+
+  it("ferme le menu mobile avec la touche Escape", async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse([]))) as any;
+    const wrapper = mount(App, {
+      global: {
+        plugins: [router],
+        stubs: {
+          HomePage: true,
+          RegisterForm: true,
+          AccountPage: true,
+          ReadmePage: true,
+          TermsPage: true,
+          PrivacyPage: true,
+          AuthControl: true,
+          AuthModal: true,
+          NavSearch: true,
+        },
+      },
+    });
+
+    const menuBtn = wrapper.find(".mobile-menu-btn");
+    await menuBtn.trigger("click");
+    expect(wrapper.find(".mobile-drawer").exists()).toBe(true);
+
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find(".mobile-drawer").exists()).toBe(false);
+  });
 });
+

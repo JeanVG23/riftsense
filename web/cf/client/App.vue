@@ -28,6 +28,9 @@ const recentAccounts = ref<RecentAccount[]>(readRecentAccounts());
 const accountsLoading = ref(true);
 const switcherOpen = ref(false);
 const switcher = ref<HTMLElement | null>(null);
+const mobileMenuOpen = ref(false);
+const mobileMenu = ref<HTMLElement | null>(null);
+const mobileMenuBtn = ref<HTMLElement | null>(null);
 const slug = computed(() => String(route.params.slug || ""));
 const privateRecentAccounts = computed(() => {
   const publicSlugs = new Set(accounts.value.map(account => account.slug));
@@ -58,6 +61,7 @@ function scrollToTop(smooth = false): void {
 
 function go(path: string): void {
   switcherOpen.value = false;
+  mobileMenuOpen.value = false;
   if (route.path === path || route.fullPath === path) {
     scrollToTop(true);
     return;
@@ -67,7 +71,17 @@ function go(path: string): void {
 }
 function scrollTop(): void { scrollToTop(true); }
 function closeOutside(event: MouseEvent): void {
-  if (switcherOpen.value && !switcher.value?.contains(event.target as Node)) switcherOpen.value = false;
+  const target = event.target as Node;
+  if (switcherOpen.value && !switcher.value?.contains(target)) switcherOpen.value = false;
+  if (mobileMenuOpen.value && !mobileMenu.value?.contains(target) && !mobileMenuBtn.value?.contains(target)) {
+    mobileMenuOpen.value = false;
+  }
+}
+function onKeydown(event: KeyboardEvent): void {
+  if (event.key === "Escape") {
+    if (switcherOpen.value) switcherOpen.value = false;
+    if (mobileMenuOpen.value) mobileMenuOpen.value = false;
+  }
 }
 function coachGo(event: Event): void {
   const path = (event as CustomEvent).detail?.path;
@@ -114,6 +128,7 @@ watch(
 watch(
   () => route.path,
   (newPath, oldPath) => {
+    mobileMenuOpen.value = false;
     if (newPath !== oldPath) {
       scrollToTop(false);
       void nextTick(() => {
@@ -128,6 +143,7 @@ function forgetRecentAccount(accountSlug: string): void {
 
 onMounted(async () => {
   document.addEventListener("click", closeOutside);
+  window.addEventListener("keydown", onKeydown);
   window.addEventListener("coach-go", coachGo);
   window.addEventListener(RECENT_ACCOUNTS_CHANGED, refreshRecentAccounts);
   try {
@@ -137,6 +153,7 @@ onMounted(async () => {
 });
 onBeforeUnmount(() => {
   document.removeEventListener("click", closeOutside);
+  window.removeEventListener("keydown", onKeydown);
   window.removeEventListener("coach-go", coachGo);
   window.removeEventListener(RECENT_ACCOUNTS_CHANGED, refreshRecentAccounts);
 });
@@ -185,8 +202,101 @@ onBeforeUnmount(() => {
             <div class="switcher-footer"><a class="switcher-home-btn" href="/" @click.prevent="go('/')"><span>Tous les comptes</span><span class="switcher-home-arrow">→</span></a></div>
           </div>
         </div>
-        <a class="nav-link" :class="{ active: route.name === 'account' && slug === 'spadzze' }" href="/c/spadzze?review=EUW1_7898084645" @click.prevent="go('/c/spadzze?review=EUW1_7898084645')"><svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg><span>Démo interactive</span></a>
-        <a class="nav-link" :class="{ active: route.name === 'readme' }" href="/readme" @click.prevent="go('/readme')"><svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg><span>Méthodologie</span></a>
+        <div class="desktop-nav-links">
+          <a class="nav-link" :class="{ active: route.name === 'account' && slug === 'spadzze' }" href="/c/spadzze?review=EUW1_7898084645" @click.prevent="go('/c/spadzze?review=EUW1_7898084645')"><svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg><span>Démo interactive</span></a>
+          <a class="nav-link" :class="{ active: route.name === 'readme' }" href="/readme" @click.prevent="go('/readme')"><svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg><span>Méthodologie</span></a>
+        </div>
+
+        <button
+          ref="mobileMenuBtn"
+          class="mobile-menu-btn"
+          type="button"
+          :aria-expanded="mobileMenuOpen"
+          aria-label="Menu principal"
+          @click.stop="mobileMenuOpen = !mobileMenuOpen"
+        >
+          <span class="hamburger-box" aria-hidden="true">
+            <span class="hamburger-inner" :class="{ 'is-active': mobileMenuOpen }"></span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Menu mobile déroulant -->
+    <div
+      v-if="mobileMenuOpen"
+      ref="mobileMenu"
+      class="mobile-drawer"
+      role="dialog"
+      aria-label="Menu mobile de navigation"
+    >
+      <div class="mobile-drawer-inner">
+        <div class="mobile-drawer-section">
+          <div class="mobile-drawer-title">Navigation principale</div>
+          <div class="mobile-drawer-links">
+            <a
+              class="mobile-nav-card"
+              :class="{ active: route.name === 'home' }"
+              href="/"
+              @click.prevent="go('/')"
+            >
+              <div class="mobile-nav-icon-wrap">
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                </svg>
+              </div>
+              <div class="mobile-nav-info">
+                <span class="mobile-nav-heading">Accueil</span>
+                <span class="mobile-nav-desc">Tableau de bord &amp; analyse de compte</span>
+              </div>
+            </a>
+
+            <a
+              class="mobile-nav-card"
+              :class="{ active: route.name === 'account' && slug === 'spadzze' }"
+              href="/c/spadzze?review=EUW1_7898084645"
+              @click.prevent="go('/c/spadzze?review=EUW1_7898084645')"
+            >
+              <div class="mobile-nav-icon-wrap gold-glow">
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="mobile-nav-info">
+                <div class="mobile-nav-head-row">
+                  <span class="mobile-nav-heading">Démo interactive</span>
+                  <span class="badge badge-gold-glow">Spadzze</span>
+                </div>
+                <span class="mobile-nav-desc">Analyse complète et débrief tactique IA</span>
+              </div>
+            </a>
+
+            <a
+              class="mobile-nav-card"
+              :class="{ active: route.name === 'readme' }"
+              href="/readme"
+              @click.prevent="go('/readme')"
+            >
+              <div class="mobile-nav-icon-wrap">
+                <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="mobile-nav-info">
+                <span class="mobile-nav-heading">Méthodologie</span>
+                <span class="mobile-nav-desc">Architecture, modèles ML &amp; pipeline Riot</span>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <div class="mobile-drawer-footer">
+          <div class="mobile-legal-links">
+            <a href="/terms" class="mobile-legal-link" @click.prevent="go('/terms')">CGU</a>
+            <span class="footer-sep">·</span>
+            <a href="/privacy" class="mobile-legal-link" @click.prevent="go('/privacy')">Confidentialité</a>
+          </div>
+        </div>
       </div>
     </div>
   </nav>
@@ -743,27 +853,315 @@ onBeforeUnmount(() => {
 .footer-scroll-top:hover { color: #fbbf24; border-color: var(--gold); background: rgba(0, 0, 0, 0.55); }
 .footer-bottom-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
-@media (max-width: 1100px) { .topbar-center { max-width: 440px; } }
-@media (max-width: 960px) { .topbar-center { max-width: 360px; } }
-@media (max-width: 860px) {
-  .topbar-inner { gap: 14px; }
-  .topbar-center { max-width: 280px; }
+/* Navigation Desktop & Mobile Menu elements */
+.desktop-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mobile-menu-btn {
+  display: none;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  background-color: #2b060a;
+  background: var(--targon-veil-button);
+  border: 1px solid rgba(215, 175, 110, 0.50);
+  border-radius: 9px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 rgba(255, 210, 220, 0.35);
+  transition: var(--transition-base);
+  flex-shrink: 0;
+}
+
+.mobile-menu-btn:hover {
+  background: var(--targon-veil-button-hover);
+  border-color: #ffd269;
+}
+
+.hamburger-box {
+  width: 18px;
+  height: 14px;
+  position: relative;
+  display: inline-block;
+}
+
+.hamburger-inner,
+.hamburger-inner::before,
+.hamburger-inner::after {
+  width: 18px;
+  height: 2px;
+  background-color: #ffd269;
+  border-radius: 2px;
+  position: absolute;
+  transition: transform 0.2s ease, top 0.2s ease, opacity 0.2s ease;
+}
+
+.hamburger-inner {
+  top: 6px;
+  display: block;
+}
+
+.hamburger-inner::before {
+  content: "";
+  top: -6px;
+  left: 0;
+}
+
+.hamburger-inner::after {
+  content: "";
+  top: 6px;
+  left: 0;
+}
+
+.hamburger-inner.is-active {
+  background-color: transparent;
+}
+
+.hamburger-inner.is-active::before {
+  top: 0;
+  transform: rotate(45deg);
+  background-color: #fff0a8;
+}
+
+.hamburger-inner.is-active::after {
+  top: 0;
+  transform: rotate(-45deg);
+  background-color: #fff0a8;
+}
+
+/* Mobile drawer */
+.mobile-drawer {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background: rgba(22, 14, 16, 0.97);
+  border-bottom: 1.5px solid rgba(195, 160, 110, 0.40);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.50);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 99;
+  animation: mobileDrawerSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes mobileDrawerSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-drawer-inner {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 540px;
+  margin: 0 auto;
+}
+
+.mobile-drawer-title {
+  font-size: 10.5px;
+  font-weight: 750;
+  color: #f7d5a5;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.mobile-drawer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-nav-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(215, 175, 110, 0.20);
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+.mobile-nav-card:hover,
+.mobile-nav-card.active {
+  background: rgba(215, 175, 110, 0.12);
+  border-color: rgba(255, 210, 105, 0.60);
+  text-decoration: none;
+}
+
+.mobile-nav-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(215, 175, 110, 0.35);
+  color: #ffd269;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.mobile-nav-icon-wrap.gold-glow {
+  color: #ffe08a;
+  border-color: rgba(255, 210, 80, 0.65);
+  box-shadow: 0 0 12px rgba(255, 210, 80, 0.25);
+}
+
+.mobile-nav-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.mobile-nav-head-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-nav-heading {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.mobile-nav-desc {
+  font-size: 11.5px;
+  color: #c9baa8;
+}
+
+.badge-gold-glow {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(185, 143, 83, 0.30);
+  border: 1px solid rgba(255, 210, 80, 0.55);
+  color: #ffe08a;
+}
+
+.mobile-drawer-footer {
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mobile-legal-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.mobile-legal-link {
+  color: #b5a595;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.mobile-legal-link:hover {
+  color: #ffe08a;
+  text-decoration: underline;
+}
+
+@media (max-width: 1100px) {
+  .topbar-center { max-width: 440px; }
+}
+
+@media (max-width: 960px) {
+  .topbar-center { max-width: 320px; }
+  .topbar-inner { gap: 16px; padding: 0 18px; }
+  .brand-badge { display: none; }
+}
+
+@media (max-width: 800px) {
+  .topbar-inner {
+    height: auto;
+    min-height: 54px;
+    padding: 10px 16px 8px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .topbar-left {
+    order: 1;
+    flex: 1 1 auto;
+  }
+  .topbar-right {
+    order: 2;
+    margin-left: auto;
+    gap: 8px;
+  }
+  .topbar-center {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+    margin: 4px 0 2px;
+  }
+  .brand-badge {
+    display: none;
+  }
+  .desktop-nav-links {
+    display: none !important;
+  }
+  .mobile-menu-btn {
+    display: inline-flex;
+  }
+  .switcher-dropdown {
+    right: 0;
+    left: auto;
+    max-width: calc(100vw - 32px);
+    width: min(300px, calc(100vw - 32px));
+  }
+  .switcher-name {
+    max-width: 95px;
+  }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
   .footer-col-brand { grid-column: 1 / -1; padding-right: 0; }
 }
-@media (max-width: 640px) {
+
+@media (max-width: 480px) {
   .topbar-inner {
-    height: auto;
-    min-height: 58px;
-    padding: 8px 16px 10px;
-    gap: 10px;
-    flex-wrap: wrap;
+    padding: 8px 12px 6px;
+    gap: 6px;
   }
-  .topbar-left { width: auto; flex-shrink: 0; }
-  .topbar-center { order: 3; width: 100%; max-width: 100%; }
-  .topbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-  .topbar .brand { gap: 7px; font-size: 14px; }
-  .topbar-nav { width: auto; justify-content: flex-end; gap: 8px; overflow-x: visible; padding: 0; }
+  .brand-mark {
+    width: 34px;
+    height: 34px;
+  }
+  .brand-mark .brand-svg {
+    width: 22px;
+    height: 22px;
+  }
+  .brand-text {
+    font-size: 16px;
+  }
+  .switcher-label {
+    display: none;
+  }
+  .switcher-btn {
+    padding: 4px 8px;
+    gap: 6px;
+  }
+  .switcher-name {
+    max-width: 75px;
+    font-size: 12px;
+  }
   .footer-grid { grid-template-columns: 1fr; gap: 28px; }
   .footer-inner { padding: 40px 16px 24px; }
   .footer-bottom { flex-direction: column; align-items: flex-start; gap: 14px; }
