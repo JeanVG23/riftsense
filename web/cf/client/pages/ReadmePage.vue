@@ -25,7 +25,6 @@ function goPrivacy(): void {
     <div class="readme-targon-backdrop" aria-hidden="true">
       <div class="readme-stone-layer"></div>
       <div class="readme-observatory-layer"></div>
-      <div class="readme-astrolabe-layer"></div>
     </div>
 
     <!-- Artefacts sacrés de mesure et d'étude sur les flancs -->
@@ -49,7 +48,7 @@ function goPrivacy(): void {
         <span>Architecture, Data Science &amp; Pipeline IA</span>
       </p>
       <p class="legal-subline">
-        Le projet de bout en bout : de l'ingestion des données à la boucle d'évaluation. Les recommandations sont benchmarkées, vérifiables et respectent rigoureusement ce que le joueur savait réellement en cours de partie.
+        Le projet de bout en bout : de <strong>l'ingestion des données</strong> à la <strong>boucle d'évaluation</strong>. Les recommandations sont <strong>benchmarkées</strong>, <strong>vérifiables</strong> et respectent rigoureusement <strong>ce que le joueur savait réellement en cours de partie</strong>.
       </p>
     </div>
 
@@ -63,7 +62,6 @@ function goPrivacy(): void {
     <section class="legal-visual-band" aria-label="Illustration méthodologique">
       <div class="legal-visual-media" role="presentation"></div>
       <div class="legal-visual-copy">
-        <span class="legal-visual-eyebrow">Observatoire du Zénith · Méthode</span>
         <h2 class="legal-visual-title">De la donnée brute à la preuve chiffrée</h2>
         <p class="legal-visual-sub">Un pipeline documenté, une explicabilité locale et une boucle d’évaluation mesurable.</p>
       </div>
@@ -405,19 +403,6 @@ function goPrivacy(): void {
   filter: contrast(1.15) saturate(1.1);
 }
 
-.readme-astrolabe-layer {
-  position: absolute;
-  top: -20px;
-  right: calc(50% - 580px);
-  width: 480px;
-  height: 480px;
-  background: url('/images/targon/astrolabe-or.jpg') center / contain no-repeat;
-  opacity: 0.22;
-  mix-blend-mode: multiply;
-  filter: contrast(1.2) drop-shadow(0 0 40px rgba(185, 143, 83, 0.35));
-  border-radius: 50%;
-}
-
 /* Artefacts de bordure latérale spécifiques à la méthodologie */
 .readme-side-artefacts {
   top: 360px;
@@ -535,6 +520,11 @@ function goPrivacy(): void {
   line-height: 1.65;
   margin: 0 0 24px;
   max-width: 100%;
+}
+
+.legal-subline strong {
+  color: var(--text);
+  font-weight: 680;
 }
 
 .tabs {
