@@ -13,6 +13,7 @@ import GameReviews from "../components/GameReviews.vue";
 import GlobalCoaching from "../components/GlobalCoaching.ce.vue";
 import JobBanner from "../components/JobBanner.ce.vue";
 import ShapProfile from "../components/ShapProfile.ce.vue";
+import { useIngestSync } from "../ingest-sync";
 
 type Tab = "history" | "coaching" | "shap";
 type CoachingView = "overall" | "games";
@@ -45,6 +46,16 @@ const coachingContext = ref<any | null>(null);
 const scopeTouched = ref(false);
 const evalRevision = ref(0);
 let reviewsInFlight = false;
+
+const reloadToken = ref(0);
+// Un seul état de rafraîchissement pour toute la page : le bouton du hero et
+// celui de l'onglet SHAP déclenchent le même job, le même cooldown (spec §6.5).
+const sync = useIngestSync(computed(() => props.slug), {
+  onDone: () => {
+    reloadToken.value += 1;
+    void Promise.all([loadReviews(), loadCoachingContext()]);
+  },
+});
 
 function ownerViewFromQuery(): boolean {
   const asked = typeof route.query.admin === "string" ? route.query.admin : null;
@@ -234,10 +245,6 @@ function goToGameReview(matchId: string): void {
 
 function selectGameTarget(matchId: string): void { pendingReviewId.value = matchId; void updateQuery(); }
 
-function onSynced(): void {
-  void Promise.all([loadReviews(), loadCoachingContext()]);
-}
-
 const isDemoAccount = computed(() => props.slug.toLowerCase() === "spadzze");
 
 function onDemoSelectView(newTab: Tab, newCoachingView?: CoachingView, matchId?: string): void {
@@ -284,9 +291,10 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
     <AccountProfile
       :slug="slug"
       :total="total"
+      :sync="sync"
+      :reload-token="reloadToken"
       @prediction-loaded="predictedRank = $event"
       @open-shap="setTab('shap')"
-      @synced="onSynced"
     />
     <details v-if="ownerView" class="sync-help"><summary>Mettre à jour mes données</summary><p>Depuis ton terminal, lance <code>poetry run python src/collection/refresh_cloudflare.py</code>. Les nouvelles parties sont ensuite publiées automatiquement sur ce site.</p></details>
     <JobBanner :job="job" />
