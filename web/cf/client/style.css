@@ -297,6 +297,33 @@ h4 { font-size: 15px; font-weight: 700; }
   position: absolute;
   mix-blend-mode: multiply;
   pointer-events: none;
+  z-index: 0;
+}
+
+/* Isolation des sous-pages et priorité d'empilement stricte sur les ornements */
+.account-page-container,
+.legal-page,
+.readme {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Tous les conteneurs et cartes passent STRICTEMENT AU-DESSUS des ornements */
+.account-page-container > *:not(.page-side-artefacts):not(.account-targon-backdrop),
+.readme > *:not(.page-side-artefacts):not(.readme-targon-backdrop),
+.legal-page > *:not(.page-side-artefacts),
+.card,
+.game-card,
+.legal-card,
+.legal-disclaimer-card,
+.legal-reviewer-box,
+.profile-hero,
+.tabs,
+.demo-banner,
+.status-progress-card,
+.shap-wrap {
+  position: relative;
+  z-index: 2;
 }
 
 @media (max-width: 1200px) {
@@ -353,6 +380,8 @@ global-coaching { display: block; }
 
 /* Cartes et surfaces */
 .card {
+  position: relative;
+  z-index: 2;
   padding: 22px 24px;
   background-color: #fffdf9;
   background-image: linear-gradient(176deg, rgba(255, 255, 255, 0.97) 0%, rgba(251, 248, 240, 0.94) 60%, rgba(245, 239, 228, 0.90) 100%);

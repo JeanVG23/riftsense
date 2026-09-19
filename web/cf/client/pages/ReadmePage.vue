@@ -359,6 +359,13 @@ function goPrivacy(): void {
   max-width: 100%;
   margin: 0 0 60px;
   padding: 0;
+  isolation: isolate;
+}
+
+/* Tous les contenus de la page méthodologie passent au-dessus des ornements */
+.legal-page.readme > *:not(.readme-side-artefacts):not(.readme-targon-backdrop) {
+  position: relative;
+  z-index: 2;
 }
 
 /* Toile de fond unboxed pour la page méthodologie */

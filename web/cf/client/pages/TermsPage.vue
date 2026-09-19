@@ -174,10 +174,18 @@ function goHome(): void {
   max-width: 100%;
   margin: 0 0 60px;
   padding: 0;
+  isolation: isolate;
+}
+
+/* Tous les contenus de la page légale passent au-dessus des ornements */
+.legal-page > *:not(.terms-side-artefacts) {
+  position: relative;
+  z-index: 2;
 }
 
 .terms-side-artefacts {
   top: 100px;
+  z-index: 0;
 }
 
 .terms-artefact--stele {

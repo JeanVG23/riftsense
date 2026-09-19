@@ -266,11 +266,12 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
       <div class="account-sanctuary-layer"></div>
     </div>
 
-    <!-- Artefacts célestes et gardiens le long de la page joueur -->
+    <!-- Artefacts célestes et gardiens le long de la page joueur (alternance gauche-droite) -->
     <div class="account-side-artefacts page-side-artefacts" aria-hidden="true">
       <div class="side-artefact-item account-artefact--arme"></div>
       <div class="side-artefact-item account-artefact--solaris"></div>
       <div class="side-artefact-item account-artefact--bolor"></div>
+      <div class="side-artefact-item account-artefact--lunaris"></div>
     </div>
 
     <DemoRecruiterBanner
@@ -324,6 +325,13 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
 .account-page-container {
   position: relative;
   width: 100%;
+  isolation: isolate;
+}
+
+/* Tous les contenus interactifs et cartes passent STRICTEMENT AU-DESSUS des ornements */
+.account-page-container > *:not(.account-side-artefacts):not(.account-targon-backdrop) {
+  position: relative;
+  z-index: 2;
 }
 
 /* Toile d'ambiance Targon en filigrane pour la page joueur */
@@ -363,11 +371,13 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   filter: contrast(1.15) saturate(1.1);
 }
 
-/* Artefacts sacrés sur les flancs de la page joueur */
+/* Artefacts sacrés sur les flancs de la page joueur (en arrière-plan strict) */
 .account-side-artefacts {
   top: 140px;
+  z-index: 0;
 }
 
+/* 1. Haut GAUCHE : Lame sacrée */
 .account-artefact--arme {
   top: 40px;
   left: max(10px, calc(50% - 730px));
@@ -380,8 +390,9 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   filter: contrast(1.15) drop-shadow(0 0 30px rgba(120, 32, 37, 0.22));
 }
 
+/* 2. Milieu-Haut DROITE : Guerrier Solaris */
 .account-artefact--solaris {
-  top: 520px;
+  top: 560px;
   right: max(10px, calc(50% - 730px));
   width: 340px;
   height: 420px;
@@ -392,9 +403,10 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   filter: contrast(1.15) drop-shadow(0 0 30px rgba(185, 143, 83, 0.25));
 }
 
+/* 3. Milieu-Bas GAUCHE : Créature gardienne (Bolor) */
 .account-artefact--bolor {
-  top: 1040px;
-  right: max(15px, calc(50% - 720px));
+  top: 1160px;
+  left: max(10px, calc(50% - 730px));
   width: 350px;
   height: 350px;
   background: url('/images/targon/bolor.jpg') center / contain no-repeat;
@@ -404,10 +416,24 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   filter: contrast(1.12) drop-shadow(0 0 25px rgba(126, 97, 52, 0.18));
 }
 
+/* 4. Bas DROITE : Prêtresse Lunaris (réutilisée de la méthodologie) */
+.account-artefact--lunaris {
+  top: 1720px;
+  right: max(10px, calc(50% - 730px));
+  width: 340px;
+  height: 420px;
+  background: url('/images/targon/lunaris.jpg') center / contain no-repeat;
+  opacity: 0.13;
+  mask-image: radial-gradient(circle at center, black 22%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at center, black 22%, transparent 72%);
+  filter: contrast(1.15) drop-shadow(0 0 30px rgba(62, 109, 140, 0.25));
+}
+
 @media (max-width: 1200px) {
-  .account-artefact--arme { opacity: 0.10; left: -30px; }
-  .account-artefact--solaris { opacity: 0.10; right: -30px; }
-  .account-artefact--bolor { display: none; }
+  .account-artefact--arme { opacity: 0.08; left: -30px; }
+  .account-artefact--solaris { opacity: 0.08; right: -30px; }
+  .account-artefact--bolor { opacity: 0.08; left: -30px; }
+  .account-artefact--lunaris { opacity: 0.08; right: -30px; }
 }
 
 .sync-help {

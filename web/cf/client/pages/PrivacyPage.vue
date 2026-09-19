@@ -194,10 +194,18 @@ function goHome(): void {
   max-width: 100%;
   margin: 0 0 60px;
   padding: 0;
+  isolation: isolate;
+}
+
+/* Tous les contenus de la page confidentialité passent au-dessus des ornements */
+.legal-page > *:not(.privacy-side-artefacts) {
+  position: relative;
+  z-index: 2;
 }
 
 .privacy-side-artefacts {
   top: 100px;
+  z-index: 0;
 }
 
 .privacy-artefact--pierre {

@@ -443,12 +443,15 @@ onMounted(loadGames);
   font-size: 13px;
 }
 
-/* ==========================================================================
-   Game Rows (Recent Matches List)
-   ========================================================================== */
+.game-history {
+  position: relative;
+  z-index: 2;
+}
 
 .game-card {
-  background: var(--surface);
+  position: relative;
+  z-index: 2;
+  background-color: var(--surface);
   border: 1px solid var(--border-soft);
   border-left: 4px solid var(--border);
   border-radius: 10px;
@@ -459,11 +462,11 @@ onMounted(loadGames);
 
 .game-card.w {
   border-left-color: var(--win);
-  background: linear-gradient(90deg, var(--win-soft) 0%, var(--surface) 35%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--win) 10%, var(--surface)) 0%, var(--surface) 35%);
 }
 .game-card.l {
   border-left-color: var(--loss);
-  background: linear-gradient(90deg, var(--loss-soft) 0%, var(--surface) 35%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--loss) 9%, var(--surface)) 0%, var(--surface) 35%);
 }
 .game-card:hover {
   border-color: var(--border-active);
