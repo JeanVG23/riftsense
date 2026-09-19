@@ -67,6 +67,58 @@
   --targon-red-gradient: linear-gradient(135deg, #782025, #421114);
   --targon-red-glow: 0 4px 18px rgba(120, 32, 37, 0.28);
 
+  /* Effet Voile & Draperie Rouge Solari (laine tressée & armure textile) */
+  --targon-veil-drape: url("/images/targon/solari-organic-drape.jpg");
+  --targon-veil-button:
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.14) 0px,
+      rgba(0, 0, 0, 0.14) 2px,
+      transparent 2px,
+      transparent 4px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(0, 0, 0, 0.10) 0px,
+      rgba(0, 0, 0, 0.10) 2px,
+      transparent 2px,
+      transparent 4px
+    ),
+    radial-gradient(ellipse 120% 90% at 50% -20%, #7d262d 0%, #561a1f 50%, #2a0b0e 100%);
+  --targon-veil-button-hover:
+    repeating-linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.12) 0px,
+      rgba(0, 0, 0, 0.12) 2px,
+      transparent 2px,
+      transparent 4px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(0, 0, 0, 0.08) 0px,
+      rgba(0, 0, 0, 0.08) 2px,
+      transparent 2px,
+      transparent 4px
+    ),
+    radial-gradient(ellipse 120% 90% at 50% -20%, #943038 0%, #682026 50%, #340e12 100%);
+
+  /* Effet Minéral & Grain de Pierre Targon (calibré à alpha 18) */
+  --targon-mineral-grain: url("/images/targon/mineral-grain-seamless.png");
+
+  /* Or brillant céleste (reflets métalliques spéculaires) */
+  --gold-shimmer-gradient: linear-gradient(
+    135deg,
+    #bf8a36 0%,
+    #f8d575 18%,
+    #fff9dd 30%,
+    #ffffff 42%,
+    #f5ba3c 55%,
+    #ffeaa2 70%,
+    #d49226 84%,
+    #8c5713 100%
+  );
+  --gold-glow: drop-shadow(0 0 10px rgba(255, 215, 80, 0.65)) drop-shadow(0 1px 2px rgba(90, 50, 5, 0.45));
+
   /* Formes */
   --radius: 12px;
   --radius-sm: 7px;
@@ -102,7 +154,13 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--paper);
+  background-color: #f7f3eb;
+  background-image:
+    var(--targon-mineral-grain),
+    radial-gradient(ellipse 100% 70% at 20% 0%, rgba(255, 253, 248, 0.65) 0%, transparent 65%),
+    radial-gradient(ellipse 90% 80% at 85% 100%, rgba(234, 224, 206, 0.45) 0%, transparent 70%),
+    linear-gradient(180deg, #faf7f0 0%, #f4eee2 50%, #ece3d2 100%);
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
   color: var(--ink);
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
   font-size: 14px;
@@ -131,17 +189,126 @@ a:hover {
 h1, h2, h3, h4 {
   margin: 0;
   color: var(--ink);
-  font-weight: 700;
-  letter-spacing: -0.018em;
+  font-weight: 750;
+  letter-spacing: -0.02em;
 }
-h1 { font-size: 24px; line-height: 1.18; }
-h2 { font-size: 18px; line-height: 1.28; }
-h3 { font-size: 14px; font-weight: 650; }
+h1 { font-size: 30px; line-height: 1.2; }
+h2 { font-size: 24px; line-height: 1.26; }
+h3 { font-size: 18px; line-height: 1.32; font-weight: 700; }
+h4 { font-size: 15px; font-weight: 700; }
 
 .muted { color: var(--text-dim); }
 .faint { color: var(--text-faint); }
 .text-ink { color: var(--ink); }
-.text-gold { color: var(--gold-deep); }
+.text-gold {
+  color: var(--gold-deep);
+  background: var(--gold-shimmer-gradient);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(255, 215, 80, 0.65)) drop-shadow(0 1px 2px rgba(90, 50, 10, 0.4));
+  font-weight: 800;
+  display: inline-block;
+  animation: targonGoldShine 7s ease-in-out infinite alternate;
+}
+
+@keyframes targonGoldShine {
+  0% { background-position: 0% 50%; filter: drop-shadow(0 0 8px rgba(255, 210, 80, 0.6)) drop-shadow(0 1px 2px rgba(90, 50, 10, 0.4)); }
+  50% { background-position: 100% 50%; filter: drop-shadow(0 0 16px rgba(255, 225, 110, 0.9)) drop-shadow(0 1px 2px rgba(90, 50, 10, 0.5)); }
+  100% { background-position: 0% 50%; filter: drop-shadow(0 0 8px rgba(255, 210, 80, 0.6)) drop-shadow(0 1px 2px rgba(90, 50, 10, 0.4)); }
+}
+
+@keyframes celestialGemPulse {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px rgba(255, 225, 90, 0.85)) drop-shadow(0 0 18px rgba(240, 175, 45, 0.6));
+  }
+  100% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 14px rgba(255, 240, 130, 1)) drop-shadow(0 0 28px rgba(255, 195, 50, 0.9)) drop-shadow(0 0 45px rgba(220, 160, 40, 0.6));
+  }
+}
+
+/* Séparateur céleste Targon unifié */
+.celestial-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 1040px;
+  margin: 16px auto 24px;
+  padding: 0 16px;
+  position: relative;
+  z-index: 2;
+}
+
+.celestial-divider .divider-line {
+  flex: 1;
+  height: 1px;
+}
+
+.celestial-divider .divider-line:first-child {
+  background: linear-gradient(90deg, transparent, rgba(120, 32, 37, 0.35) 25%, rgba(185, 143, 83, 0.45) 70%, rgba(185, 143, 83, 0.7) 100%);
+}
+
+.celestial-divider .divider-line:last-child {
+  background: linear-gradient(90deg, rgba(185, 143, 83, 0.7) 0%, rgba(185, 143, 83, 0.45) 30%, rgba(120, 32, 37, 0.35) 75%, transparent);
+}
+
+.celestial-divider .divider-gem {
+  display: inline-block;
+  font-size: 16px;
+  line-height: 1;
+  background: linear-gradient(
+    135deg,
+    #fffbe8 0%,
+    #ffe27d 25%,
+    #ffffff 50%,
+    #f5af19 75%,
+    #b87413 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 0 8px rgba(255, 225, 90, 0.95))
+    drop-shadow(0 0 22px rgba(240, 175, 45, 0.75))
+    drop-shadow(0 0 36px rgba(210, 150, 40, 0.45));
+  user-select: none;
+  animation: celestialGemPulse 4s ease-in-out infinite alternate;
+}
+
+/* Artefacts de bordure latérale Targon (hors conteneur 1200px) */
+.page-side-artefacts {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.side-artefact-item {
+  position: absolute;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+@media (max-width: 1200px) {
+  .page-side-artefacts {
+    opacity: 0.7;
+  }
+}
+
+@media (max-width: 860px) {
+  .page-side-artefacts {
+    display: none !important;
+  }
+}
+
 .text-danger { color: var(--danger); }
 .num { font-variant-numeric: tabular-nums; }
 .rank-badge { color: var(--gold-deep); font-weight: 700; }
@@ -161,33 +328,40 @@ global-coaching { display: block; }
 .eyebrow {
   margin: 0 0 8px;
   color: var(--gold-deep);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 750;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-.page-intro { max-width: 720px; }
+.page-intro { max-width: 780px; }
 .page-intro h1 {
   margin: 0;
-  font-size: clamp(32px, 5vw, 44px);
-  line-height: 1.08;
+  font-size: clamp(36px, 5.2vw, 50px);
+  line-height: 1.1;
   letter-spacing: -0.035em;
 }
 .page-intro > p:last-child {
-  max-width: 620px;
-  margin: 14px 0 0;
+  max-width: 660px;
+  margin: 16px 0 0;
   color: var(--text-dim);
-  font-size: 16px;
+  font-size: 18px;
+  line-height: 1.6;
 }
 
 /* Cartes et surfaces */
 .card {
   padding: 22px 24px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background-color: #fffdf9;
+  background-image: linear-gradient(176deg, rgba(255, 255, 255, 0.97) 0%, rgba(251, 248, 240, 0.94) 60%, rgba(245, 239, 228, 0.90) 100%);
+  background-repeat: no-repeat;
+  border: 1px solid rgba(195, 178, 155, 0.55);
   border-radius: var(--radius);
-  box-shadow: var(--card-shadow);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 2px rgba(175, 155, 130, 0.10),
+    0 2px 8px rgba(45, 35, 22, 0.05),
+    var(--card-shadow);
 }
 .card + .card { margin-top: 16px; }
 

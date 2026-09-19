@@ -271,12 +271,17 @@ onBeforeUnmount(stopPolling);
   flex-direction: column;
   gap: 10px;
   padding: 18px 22px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background-color: #fffdfa;
+  background-image: linear-gradient(176deg, rgba(255, 255, 255, 0.97) 0%, rgba(252, 248, 240, 0.94) 60%, rgba(246, 239, 227, 0.90) 100%);
+  background-repeat: no-repeat;
+  border: 1px solid rgba(195, 178, 155, 0.60);
   border-radius: 14px;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: var(--shadow-overlay);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 2px rgba(175, 155, 130, 0.12),
+    0 20px 60px -18px rgba(20, 23, 24, 0.36);
   width: 100%;
   box-sizing: border-box;
 }
@@ -352,16 +357,22 @@ onBeforeUnmount(stopPolling);
   white-space: nowrap;
   flex-shrink: 0;
   color: #fffdf8 !important;
-  background: linear-gradient(135deg, #782025 0%, #541418 100%) !important;
-  border: 1px solid rgba(185, 143, 83, 0.45) !important;
-  box-shadow: 0 4px 14px rgba(120, 32, 37, 0.35) !important;
+  background-color: #2e1e20 !important;
+  background: var(--targon-veil-button) !important;
+  border: 1px solid rgba(215, 175, 110, 0.55) !important;
+  box-shadow:
+    0 4px 14px rgba(35, 25, 27, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.35) !important;
   transition: var(--transition-base);
 }
 .register-submit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #8f262c 0%, #68191f 100%) !important;
-  border-color: var(--gold) !important;
-  color: #ffffff !important;
-  box-shadow: 0 6px 18px rgba(120, 32, 37, 0.45) !important;
+  background: var(--targon-veil-button-hover) !important;
+  border-color: #ffd269 !important;
+  box-shadow:
+    0 6px 18px rgba(35, 25, 27, 0.40),
+    0 0 16px rgba(255, 205, 80, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
   transform: translateY(-1px);
 }
 .register-submit-btn:disabled {
@@ -369,12 +380,14 @@ onBeforeUnmount(stopPolling);
   cursor: not-allowed;
 }
 .register-btn-arrow {
-  color: #fbbf24;
+  color: #ffd269;
+  filter: drop-shadow(0 0 4px rgba(255, 210, 80, 0.75));
   transition: transform 150ms ease;
 }
 .register-submit-btn:hover:not(:disabled) .register-btn-arrow {
   transform: translateX(3px);
-  color: #fbbf24;
+  color: #fff0a8;
+  filter: drop-shadow(0 0 8px rgba(255, 220, 100, 0.95));
 }
 
 .register-err-msg {

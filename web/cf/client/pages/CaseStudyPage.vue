@@ -300,20 +300,20 @@ function goToReadme(): void {
 }
 
 .cs-title {
-  font-size: clamp(32px, 5vw, 46px);
+  font-size: clamp(38px, 5.2vw, 52px);
   line-height: 1.12;
   letter-spacing: -.03em;
-  font-weight: 800;
+  font-weight: 850;
   color: var(--text);
   margin: 0;
-  max-width: 1000px;
+  max-width: 1040px;
 }
 
 .cs-subline {
-  font-size: 16px;
-  line-height: 1.6;
+  font-size: 18px;
+  line-height: 1.62;
   color: var(--text-dim);
-  max-width: 900px;
+  max-width: 920px;
   margin: 0;
 }
 
@@ -435,8 +435,8 @@ function goToReadme(): void {
 }
 
 .cs-section-title {
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 24px;
+  font-weight: 850;
   letter-spacing: -.02em;
   color: var(--text);
   margin: 0;

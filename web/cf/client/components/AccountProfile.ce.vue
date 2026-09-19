@@ -333,11 +333,21 @@ onBeforeUnmount(() => {
   margin-bottom: 20px;
   overflow: hidden;
   background:
-    linear-gradient(115deg, rgba(255, 253, 248, .97) 0%, rgba(247, 244, 237, .94) 45%, rgba(247, 244, 237, .84) 100%),
-    url('/images/targon/ascension-montagne.jpg') right 22% / cover no-repeat;
-  border: 1px solid var(--border);
+    linear-gradient(105deg, rgba(255, 253, 248, .98) 0%, rgba(255, 253, 248, .92) 42%, rgba(247, 243, 235, .82) 72%, rgba(244, 238, 227, .30) 100%),
+    url('/images/targon/sanctuaire-solaris.jpg') right 35% / cover no-repeat;
+  border: 1.5px solid rgba(195, 160, 110, 0.48);
   border-radius: var(--radius);
-  box-shadow: var(--card-shadow);
+  box-shadow:
+    0 4px 20px rgba(20, 23, 24, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: var(--transition-base);
+}
+
+.profile-hero:hover {
+  border-color: rgba(185, 143, 83, 0.65);
+  box-shadow:
+    0 8px 26px rgba(185, 143, 83, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
 .profile-main {
@@ -416,10 +426,10 @@ onBeforeUnmount(() => {
 .profile-name-row h1 {
   margin: 0;
   color: var(--ink);
-  font-size: clamp(26px, 3vw, 34px);
+  font-size: clamp(30px, 3.6vw, 40px);
   letter-spacing: -.03em;
   line-height: 1.15;
-  font-weight: 750;
+  font-weight: 800;
 }
 
 .profile-actions-row {
@@ -474,9 +484,10 @@ onBeforeUnmount(() => {
   gap: 1px;
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--border);
-  border: 1px solid var(--border);
+  background: rgba(195, 160, 110, 0.45);
+  border: 1.5px solid rgba(195, 160, 110, 0.45);
   border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(20, 23, 24, 0.04);
 }
 
 .profile-stat {
@@ -486,7 +497,14 @@ onBeforeUnmount(() => {
   flex-direction: column;
   justify-content: center;
   padding: 12px 18px;
-  background: var(--surface-alt);
+  background: rgba(255, 253, 248, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: var(--transition-base);
+}
+
+.profile-stat:hover {
+  background: rgba(255, 255, 255, 0.98);
 }
 
 .profile-stat.stat-ml.is-clickable {

@@ -21,13 +21,27 @@ function goPrivacy(): void {
 
 <template>
   <div class="legal-page readme">
+    <!-- Toile de fond astronomique & scientifique Targon -->
+    <div class="readme-targon-backdrop" aria-hidden="true">
+      <div class="readme-stone-layer"></div>
+      <div class="readme-observatory-layer"></div>
+      <div class="readme-astrolabe-layer"></div>
+    </div>
+
+    <!-- Artefacts sacrés de mesure et d'étude sur les flancs -->
+    <div class="readme-side-artefacts page-side-artefacts" aria-hidden="true">
+      <div class="side-artefact-item readme-artefact--astrolabe"></div>
+      <div class="side-artefact-item readme-artefact--lunaris"></div>
+      <div class="side-artefact-item readme-artefact--outil"></div>
+    </div>
+
     <div class="legal-header">
       <div class="legal-breadcrumbs">
         <a href="/" @click.prevent="goHome">Accueil</a>
         <span class="legal-sep">/</span>
         <span class="current">À propos &amp; Méthode</span>
       </div>
-      <h1 class="legal-title">Comment fonctionne RiftSense</h1>
+      <h1 class="legal-title">Comment fonctionne <span class="text-gold">RiftSense</span></h1>
       <p class="legal-meta">
         <span class="badge badge-legal">Documentation &amp; Méthode</span>
         <span>Mise à jour : Saison 2026</span>
@@ -39,10 +53,17 @@ function goPrivacy(): void {
       </p>
     </div>
 
+    <!-- Séparateur céleste Targon -->
+    <div class="celestial-divider" aria-hidden="true">
+      <span class="divider-line"></span>
+      <span class="divider-gem">✦</span>
+      <span class="divider-line"></span>
+    </div>
+
     <section class="legal-visual-band" aria-label="Illustration méthodologique">
       <div class="legal-visual-media" role="presentation"></div>
       <div class="legal-visual-copy">
-        <span class="legal-visual-eyebrow">Méthode éditoriale</span>
+        <span class="legal-visual-eyebrow">Observatoire du Zénith · Méthode</span>
         <h2 class="legal-visual-title">De la donnée brute à la preuve chiffrée</h2>
         <p class="legal-visual-sub">Un pipeline documenté, une explicabilité locale et une boucle d’évaluation mesurable.</p>
       </div>
@@ -333,13 +354,113 @@ function goPrivacy(): void {
 <style scoped>
 .legal-page,
 .readme {
+  position: relative;
   width: 100%;
   max-width: 100%;
   margin: 0 0 60px;
   padding: 0;
 }
 
+/* Toile de fond unboxed pour la page méthodologie */
+.readme-targon-backdrop {
+  position: absolute;
+  top: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: 580px;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  mask-image: radial-gradient(ellipse 85% 65% at 50% 25%, black 25%, transparent 85%),
+              linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 65% at 50% 25%, black 25%, transparent 85%),
+                      linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+}
+
+.readme-stone-layer {
+  position: absolute;
+  inset: 0;
+  background: url('/images/targon/grave-dans-la-pierre.jpg') center 20% / cover no-repeat;
+  opacity: 0.13;
+  mix-blend-mode: multiply;
+  filter: contrast(1.2) sepia(0.25);
+}
+
+.readme-observatory-layer {
+  position: absolute;
+  inset: 0;
+  background: url('/images/targon/observatoire-zenith.jpg') center 15% / cover no-repeat;
+  opacity: 0.20;
+  mix-blend-mode: multiply;
+  filter: contrast(1.15) saturate(1.1);
+}
+
+.readme-astrolabe-layer {
+  position: absolute;
+  top: -20px;
+  right: calc(50% - 580px);
+  width: 480px;
+  height: 480px;
+  background: url('/images/targon/astrolabe-or.jpg') center / contain no-repeat;
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+  filter: contrast(1.2) drop-shadow(0 0 40px rgba(185, 143, 83, 0.35));
+  border-radius: 50%;
+}
+
+/* Artefacts de bordure latérale spécifiques à la méthodologie */
+.readme-side-artefacts {
+  top: 360px;
+}
+
+.readme-artefact--astrolabe {
+  top: 30px;
+  left: max(10px, calc(50% - 690px));
+  width: 320px;
+  height: 320px;
+  background: url('/images/targon/astrolabe-or.jpg') center / contain no-repeat;
+  opacity: 0.17;
+  mask-image: radial-gradient(circle at center, black 32%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle at center, black 32%, transparent 75%);
+  filter: contrast(1.15) drop-shadow(0 0 35px rgba(185, 143, 83, 0.30));
+}
+
+.readme-artefact--lunaris {
+  top: 490px;
+  right: max(10px, calc(50% - 710px));
+  width: 340px;
+  height: 420px;
+  background: url('/images/targon/lunaris.jpg') center / contain no-repeat;
+  opacity: 0.16;
+  mask-image: radial-gradient(circle at center, black 28%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle at center, black 28%, transparent 75%);
+  filter: contrast(1.15) drop-shadow(0 0 35px rgba(62, 109, 140, 0.25));
+}
+
+.readme-artefact--outil {
+  top: 980px;
+  left: max(15px, calc(50% - 680px));
+  width: 320px;
+  height: 340px;
+  background: url('/images/targon/outil-escalade.jpg') center / contain no-repeat;
+  opacity: 0.15;
+  mask-image: radial-gradient(ellipse 65% 80% at center, black 25%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 65% 80% at center, black 25%, transparent 80%);
+  filter: contrast(1.12);
+}
+
+@media (max-width: 1200px) {
+  .readme-artefact--astrolabe { opacity: 0.10; left: -30px; }
+  .readme-artefact--lunaris { opacity: 0.10; right: -30px; }
+  .readme-artefact--outil { display: none; }
+}
+
 .legal-header {
+  position: relative;
+  z-index: 1;
   margin-bottom: 24px;
 }
 
@@ -431,6 +552,13 @@ function goPrivacy(): void {
   margin: 0;
   width: 100%;
   box-sizing: border-box;
+  transition: var(--transition-base);
+}
+
+.legal-card:hover {
+  border-color: rgba(185, 143, 83, 0.42);
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-1px);
 }
 
 .legal-card + .legal-card {
@@ -564,15 +692,25 @@ function goPrivacy(): void {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  min-height: 200px;
+  min-height: 215px;
   margin-bottom: 24px;
-  padding: 28px 32px;
-  border: 1px solid var(--border);
+  padding: 30px 36px;
+  border: 1.5px solid rgba(195, 160, 110, 0.45);
   border-radius: 16px;
   background:
-    linear-gradient(100deg, rgba(255, 253, 248, .96) 0%, rgba(247, 244, 237, .82) 52%, rgba(247, 244, 237, .22) 100%),
-    url('/images/targon/ascension-montagne.jpg') center 22% / cover no-repeat;
-  box-shadow: var(--card-shadow);
+    linear-gradient(100deg, rgba(255, 253, 248, .96) 0%, rgba(247, 244, 237, .90) 48%, rgba(247, 244, 237, .32) 100%),
+    url('/images/targon/observatoire-zenith.jpg') center 28% / cover no-repeat;
+  box-shadow:
+    0 4px 20px rgba(20, 23, 24, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: var(--transition-base);
+}
+
+.legal-visual-band:hover {
+  border-color: rgba(185, 143, 83, 0.65);
+  box-shadow:
+    0 8px 28px rgba(185, 143, 83, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
 .legal-visual-copy {

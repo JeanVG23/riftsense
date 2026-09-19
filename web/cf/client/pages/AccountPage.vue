@@ -259,45 +259,157 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
 </script>
 
 <template>
-  <DemoRecruiterBanner
-    v-if="isDemoAccount"
-    :current-tab="tab"
-    :current-coaching-view="coachingView"
-    :target-match-id="pendingReviewId"
-    @select-view="onDemoSelectView"
-  />
-  <AccountProfile
-    :slug="slug"
-    :total="total"
-    @prediction-loaded="predictedRank = $event"
-    @open-shap="setTab('shap')"
-    @synced="onSynced"
-  />
-  <details v-if="ownerView" class="sync-help"><summary>Mettre à jour mes données</summary><p>Depuis ton terminal, lance <code>poetry run python src/collection/refresh_cloudflare.py</code>. Les nouvelles parties sont ensuite publiées automatiquement sur ce site.</p></details>
-  <JobBanner :job="job" />
-  <div class="tabs" role="tablist" aria-label="Sections du compte">
-    <button
-      v-for="item in ([['history', 'Parties classées'], ['shap', 'Profil ML & SHAP'], ['coaching', 'Coaching IA']] as const)"
-      :key="item[0]"
-      type="button"
-      class="tab"
-      :class="{ active: tab === item[0] }"
-      :aria-selected="tab === item[0]"
-      @click="setTab(item[0])"
-    >
-      {{ item[1] }}
-    </button>
-  </div>
-  <GameHistory v-if="tab === 'history'" :slug="slug" :game-reviews="gameReviews" :coaching-context="coachingContext" :job="job" :predicted-rank="predictedRank" :authenticated="authenticated" @games-loaded="syncGamesPage" @coach-game="gameCoachAction" @regenerate-game="game => generateGame(game, true)" />
-  <ShapProfile v-else-if="tab === 'shap'" :slug="slug" />
-  <div v-else-if="tab === 'coaching'">
-    <CoachingControls :slug="slug" :view="coachingView" :game-reviews-count="gameReviewsCount" :scopes="dynamicScopes" :scope="scope" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :eval-revision="evalRevision" @view-change="setCoachingView" @scope-change="setScope" @outcome-change="setOutcome" @generate="generateGlobal" />
-    <GlobalCoaching v-if="coachingView === 'overall'" :slug="slug" :review="review" :reviews="reviews" :loading="reviewsLoading" :scope="scope" :scope-name="scopeLabel" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :coaching-context="coachingContext" @generate="generateGlobal" @review-select="selectGlobalReview" @feedback-saved="evalRevision += 1" />
-    <GameReviews v-else :slug="slug" :reviews="gameReviews" :total="gameReviewsCount" :page="gameReviewsPage" :loading="reviewsLoading" :authenticated="authenticated" :target-match-id="pendingReviewId" @reviews-loaded="syncGameReviews" @review-select="selectGameTarget" @feedback-saved="evalRevision += 1" />
+  <div class="account-page-container">
+    <!-- Toile d'ambiance Targon en filigrane pour la page joueur -->
+    <div class="account-targon-backdrop" aria-hidden="true">
+      <div class="account-stone-layer"></div>
+      <div class="account-sanctuary-layer"></div>
+    </div>
+
+    <!-- Artefacts célestes et gardiens le long de la page joueur -->
+    <div class="account-side-artefacts page-side-artefacts" aria-hidden="true">
+      <div class="side-artefact-item account-artefact--arme"></div>
+      <div class="side-artefact-item account-artefact--solaris"></div>
+      <div class="side-artefact-item account-artefact--bolor"></div>
+    </div>
+
+    <DemoRecruiterBanner
+      v-if="isDemoAccount"
+      :current-tab="tab"
+      :current-coaching-view="coachingView"
+      :target-match-id="pendingReviewId"
+      @select-view="onDemoSelectView"
+    />
+    <AccountProfile
+      :slug="slug"
+      :total="total"
+      @prediction-loaded="predictedRank = $event"
+      @open-shap="setTab('shap')"
+      @synced="onSynced"
+    />
+    <details v-if="ownerView" class="sync-help"><summary>Mettre à jour mes données</summary><p>Depuis ton terminal, lance <code>poetry run python src/collection/refresh_cloudflare.py</code>. Les nouvelles parties sont ensuite publiées automatiquement sur ce site.</p></details>
+    <JobBanner :job="job" />
+
+    <!-- Séparateur céleste Targon -->
+    <div class="celestial-divider" aria-hidden="true">
+      <span class="divider-line"></span>
+      <span class="divider-gem">✦</span>
+      <span class="divider-line"></span>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Sections du compte">
+      <button
+        v-for="item in ([['history', 'Parties classées'], ['shap', 'Profil ML & SHAP'], ['coaching', 'Coaching IA']] as const)"
+        :key="item[0]"
+        type="button"
+        class="tab"
+        :class="{ active: tab === item[0] }"
+        :aria-selected="tab === item[0]"
+        @click="setTab(item[0])"
+      >
+        {{ item[1] }}
+      </button>
+    </div>
+    <GameHistory v-if="tab === 'history'" :slug="slug" :game-reviews="gameReviews" :coaching-context="coachingContext" :job="job" :predicted-rank="predictedRank" :authenticated="authenticated" @games-loaded="syncGamesPage" @coach-game="gameCoachAction" @regenerate-game="game => generateGame(game, true)" />
+    <ShapProfile v-else-if="tab === 'shap'" :slug="slug" />
+    <div v-else-if="tab === 'coaching'">
+      <CoachingControls :slug="slug" :view="coachingView" :game-reviews-count="gameReviewsCount" :scopes="dynamicScopes" :scope="scope" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :eval-revision="evalRevision" @view-change="setCoachingView" @scope-change="setScope" @outcome-change="setOutcome" @generate="generateGlobal" />
+      <GlobalCoaching v-if="coachingView === 'overall'" :slug="slug" :review="review" :reviews="reviews" :loading="reviewsLoading" :scope="scope" :scope-name="scopeLabel" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :coaching-context="coachingContext" @generate="generateGlobal" @review-select="selectGlobalReview" @feedback-saved="evalRevision += 1" />
+      <GameReviews v-else :slug="slug" :reviews="gameReviews" :total="gameReviewsCount" :page="gameReviewsPage" :loading="reviewsLoading" :authenticated="authenticated" :target-match-id="pendingReviewId" @reviews-loaded="syncGameReviews" @review-select="selectGameTarget" @feedback-saved="evalRevision += 1" />
+    </div>
   </div>
 </template>
 
 <style scoped>
+.account-page-container {
+  position: relative;
+  width: 100%;
+}
+
+/* Toile d'ambiance Targon en filigrane pour la page joueur */
+.account-targon-backdrop {
+  position: absolute;
+  top: -50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: 480px;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  mask-image: radial-gradient(ellipse 85% 65% at 50% 20%, black 25%, transparent 85%),
+              linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 65% at 50% 20%, black 25%, transparent 85%),
+                      linear-gradient(to bottom, black 0%, black 60%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-composite: source-in;
+}
+
+.account-stone-layer {
+  position: absolute;
+  inset: 0;
+  background: url('/images/targon/grave-dans-la-pierre.jpg') center 20% / cover no-repeat;
+  opacity: 0.12;
+  mix-blend-mode: multiply;
+  filter: contrast(1.2) sepia(0.2);
+}
+
+.account-sanctuary-layer {
+  position: absolute;
+  inset: 0;
+  background: url('/images/targon/sanctuaire-solaris.jpg') center 25% / cover no-repeat;
+  opacity: 0.16;
+  mix-blend-mode: multiply;
+  filter: contrast(1.15) saturate(1.1);
+}
+
+/* Artefacts sacrés sur les flancs de la page joueur */
+.account-side-artefacts {
+  top: 140px;
+}
+
+.account-artefact--arme {
+  top: 40px;
+  left: max(10px, calc(50% - 700px));
+  width: 330px;
+  height: 330px;
+  background: url('/images/targon/arme-interdite.jpg') center / contain no-repeat;
+  opacity: 0.16;
+  mask-image: radial-gradient(circle at center, black 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 75%);
+  filter: contrast(1.15) drop-shadow(0 0 35px rgba(120, 32, 37, 0.28));
+}
+
+.account-artefact--solaris {
+  top: 520px;
+  right: max(10px, calc(50% - 710px));
+  width: 340px;
+  height: 420px;
+  background: url('/images/targon/solaris.jpg') center / contain no-repeat;
+  opacity: 0.16;
+  mask-image: radial-gradient(circle at center, black 28%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle at center, black 28%, transparent 75%);
+  filter: contrast(1.15) drop-shadow(0 0 35px rgba(185, 143, 83, 0.30));
+}
+
+.account-artefact--bolor {
+  top: 1040px;
+  right: max(15px, calc(50% - 690px));
+  width: 350px;
+  height: 350px;
+  background: url('/images/targon/bolor.jpg') center / contain no-repeat;
+  opacity: 0.15;
+  mask-image: radial-gradient(circle at center, black 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 75%);
+  filter: contrast(1.12) drop-shadow(0 0 30px rgba(126, 97, 52, 0.20));
+}
+
+@media (max-width: 1200px) {
+  .account-artefact--arme { opacity: 0.10; left: -30px; }
+  .account-artefact--solaris { opacity: 0.10; right: -30px; }
+  .account-artefact--bolor { display: none; }
+}
+
 .sync-help {
   margin: 0 0 24px;
   padding: 0 16px;

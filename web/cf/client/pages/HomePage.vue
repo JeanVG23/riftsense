@@ -117,6 +117,7 @@ function goToDemo(): void {
     <section class="home-intro">
       <!-- Toile de fond Targon & Artefact en transparence fondue (sans cadre, sans bordure) -->
       <div class="home-targon-backdrop" aria-hidden="true">
+        <div class="targon-stone-relief-layer"></div>
         <div class="targon-landscape-layer"></div>
         <div class="targon-astrolabe-layer"></div>
       </div>
@@ -148,13 +149,6 @@ function goToDemo(): void {
       <span class="divider-line"></span>
     </div>
 
-    <!-- Artefacts sacrés le long de la page sur les côtés en transparence -->
-    <div class="home-side-artefacts" aria-hidden="true">
-      <div class="side-artefact side-artefact--relique"></div>
-      <div class="side-artefact side-artefact--armes"></div>
-      <div class="side-artefact side-artefact--stele"></div>
-    </div>
-
     <div v-if="loading" class="state home-loading-state">
       <span class="loading-spinner" aria-hidden="true"></span>
       <span>Chargement des comptes…</span>
@@ -163,6 +157,12 @@ function goToDemo(): void {
       Aucun compte configuré.
     </div>
     <div v-else class="home-sections">
+      <!-- Artefacts sacrés le long de la page sur les côtés en transparence (garantis sous la séparation) -->
+      <div class="home-side-artefacts" aria-hidden="true">
+        <div class="side-artefact side-artefact--relique"></div>
+        <div class="side-artefact side-artefact--armes"></div>
+        <div class="side-artefact side-artefact--stele"></div>
+      </div>
       <!-- Section 0 : Comptes mémorisés dans ce navigateur (Session locale) -->
       <section
         v-if="browserAccounts.length"
@@ -479,6 +479,15 @@ function goToDemo(): void {
   -webkit-mask-composite: source-in;
 }
 
+.targon-stone-relief-layer {
+  position: absolute;
+  inset: 0;
+  background: url('/images/targon/grave-dans-la-pierre.jpg') center 22% / cover no-repeat;
+  opacity: 0.16;
+  mix-blend-mode: multiply;
+  filter: contrast(1.25) sepia(0.2);
+}
+
 .targon-landscape-layer {
   position: absolute;
   inset: 0;
@@ -512,28 +521,36 @@ function goToDemo(): void {
 .hero-headline {
   margin: 0;
   color: var(--ink);
-  font-size: clamp(32px, 4.4vw, 46px);
-  line-height: 1.14;
+  font-size: clamp(38px, 5.2vw, 54px);
+  line-height: 1.12;
   letter-spacing: -.035em;
-  font-weight: 800;
+  font-weight: 850;
   width: 100%;
   text-wrap: balance;
 }
 
 .hero-headline .text-gold {
   color: var(--gold-deep);
-  background: linear-gradient(135deg, #7e6134 0%, #b98f53 100%);
+  background: var(--gold-shimmer-gradient);
+  background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 0 14px rgba(255, 215, 80, 0.75))
+    drop-shadow(0 0 30px rgba(235, 170, 45, 0.45))
+    drop-shadow(0 1px 2px rgba(80, 45, 10, 0.5));
+  font-weight: 850;
+  display: inline-block;
+  animation: targonGoldShine 7s ease-in-out infinite alternate;
 }
 
 .hero-subline {
   width: 100%;
-  max-width: 680px;
-  margin: 16px 0 20px;
+  max-width: 740px;
+  margin: 18px 0 24px;
   color: var(--text-dim);
-  font-size: 16.5px;
-  line-height: 1.6;
+  font-size: 18.5px;
+  line-height: 1.62;
 }
 
 .hero-subline strong {
@@ -545,8 +562,8 @@ function goToDemo(): void {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 18px;
-  font-size: 14px;
+  margin-top: 20px;
+  font-size: 15px;
   color: var(--text-dim);
 }
 
@@ -577,7 +594,7 @@ function goToDemo(): void {
     opacity: 0.15;
   }
   .hero-headline {
-    font-size: 28px;
+    font-size: 32px;
   }
 }
 
@@ -600,9 +617,9 @@ function goToDemo(): void {
   pointer-events: none;
 }
 
-/* Relique sacrée Solari - côté gauche vers 'Mes comptes' */
+/* Relique sacrée Solari - côté gauche vers 'Mes comptes' (commence proprement sous le séparateur) */
 .side-artefact--relique {
-  top: 500px;
+  top: 30px;
   left: max(10px, calc(50% - 690px));
   width: 320px;
   height: 320px;
@@ -615,7 +632,7 @@ function goToDemo(): void {
 
 /* Armes et lances célestes Rahorak - côté droit vers 'Méthodologie' */
 .side-artefact--armes {
-  top: 940px;
+  top: 480px;
   right: max(10px, calc(50% - 710px));
   width: 380px;
   height: 380px;
@@ -628,7 +645,7 @@ function goToDemo(): void {
 
 /* Stèle funéraire et runes ancestrales - côté gauche vers le bas */
 .side-artefact--stele {
-  top: 1320px;
+  top: 960px;
   left: max(15px, calc(50% - 670px));
   width: 300px;
   height: 440px;
@@ -687,12 +704,36 @@ function goToDemo(): void {
 }
 
 .home-hero-divider .divider-gem {
-  color: var(--gold-deep);
-  font-size: 14px;
+  display: inline-block;
+  font-size: 16px;
   line-height: 1;
-  opacity: 0.85;
-  filter: drop-shadow(0 0 6px rgba(185, 143, 83, 0.45));
+  background: linear-gradient(
+    135deg,
+    #fffbe8 0%,
+    #ffe27d 25%,
+    #ffffff 50%,
+    #f5af19 75%,
+    #b87413 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 0 8px rgba(255, 225, 90, 0.95))
+    drop-shadow(0 0 22px rgba(240, 175, 45, 0.75))
+    drop-shadow(0 0 36px rgba(210, 150, 40, 0.45));
   user-select: none;
+  animation: celestialGemPulse 4s ease-in-out infinite alternate;
+}
+
+@keyframes celestialGemPulse {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 8px rgba(255, 225, 90, 0.85)) drop-shadow(0 0 18px rgba(240, 175, 45, 0.6));
+  }
+  100% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 14px rgba(255, 240, 130, 1)) drop-shadow(0 0 28px rgba(255, 195, 50, 0.9)) drop-shadow(0 0 45px rgba(220, 160, 40, 0.6));
+  }
 }
 
 /* Sections */
@@ -711,17 +752,17 @@ function goToDemo(): void {
 .home-section-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   color: var(--gold-deep);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: .1em;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: .11em;
   text-transform: uppercase;
 }
 .home-section-eyebrow svg { color: var(--gold); }
 .eyebrow-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
-.home-section-title { font-size: 20px; font-weight: 720; color: var(--ink); }
-.home-section-subtitle { margin: 0; color: var(--text-faint); font-size: 13px; }
+.home-section-title { font-size: 24px; font-weight: 780; letter-spacing: -0.018em; color: var(--ink); }
+.home-section-subtitle { margin: 0; color: var(--text-dim); font-size: 15px; line-height: 1.5; }
 .home-section-count {
   min-width: 32px;
   padding: 4px 10px;
@@ -729,8 +770,8 @@ function goToDemo(): void {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 700;
   text-align: center;
   flex-shrink: 0;
 }
@@ -747,22 +788,42 @@ function goToDemo(): void {
   flex-direction: column;
   min-height: 142px;
   padding: 18px 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background-color: #fffdf9;
+  background-image: linear-gradient(176deg, rgba(255, 255, 255, 0.97) 0%, rgba(251, 248, 240, 0.94) 60%, rgba(246, 239, 228, 0.90) 100%);
+  background-repeat: no-repeat;
+  border: 1px solid rgba(195, 178, 155, 0.55);
   border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(20, 23, 24, .04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 2px rgba(175, 155, 130, 0.10),
+    0 2px 8px rgba(45, 35, 22, 0.05),
+    0 1px 3px rgba(20, 23, 24, .04);
   transition: var(--transition-base);
 }
 .account-card:hover,
 .account-card:focus-within {
   transform: translateY(-2px);
-  border-color: var(--border-strong);
-  box-shadow: var(--card-shadow-hover);
+  border-color: rgba(185, 143, 83, 0.65);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 2px rgba(175, 155, 130, 0.16),
+    0 10px 28px -12px rgba(35, 25, 15, 0.20),
+    0 0 14px rgba(185, 143, 83, 0.12);
 }
 .account-card-link { display: flex; flex-direction: column; gap: 14px; color: inherit; text-decoration: none; }
 .account-card-link:hover { color: inherit; text-decoration: none; }
-.account-card--browser { background: var(--surface-alt); }
-.account-card--owner { border-color: var(--primary-border); }
+.account-card--browser {
+  background-color: #f7f3ea;
+  background-image: linear-gradient(176deg, rgba(253, 250, 244, 0.96) 0%, rgba(246, 241, 232, 0.92) 100%);
+  background-repeat: no-repeat;
+}
+.account-card--owner {
+  border-color: rgba(185, 143, 83, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 2px rgba(175, 155, 130, 0.12),
+    0 3px 12px rgba(45, 35, 22, 0.07);
+}
 
 .ac-heading {
   display: flex;
@@ -823,7 +884,7 @@ function goToDemo(): void {
   gap: 8px;
 }
 .ac-slug {
-  font-size: 16px;
+  font-size: 17.5px;
   font-weight: 750;
   color: var(--ink);
   overflow: hidden;
@@ -839,7 +900,7 @@ function goToDemo(): void {
   min-height: 20px;
 }
 .ac-riot {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -866,7 +927,7 @@ function goToDemo(): void {
   padding-top: 12px;
   border-top: 1px solid var(--border-soft);
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: 13px;
 }
 .btn-remove-stored-account {
   position: absolute;
@@ -938,28 +999,33 @@ function goToDemo(): void {
 .workflow-step-card {
   position: relative;
   padding: 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background-color: #fffdf9;
+  background-image: linear-gradient(176deg, rgba(255, 255, 255, 0.97) 0%, rgba(251, 248, 240, 0.94) 60%, rgba(246, 239, 228, 0.90) 100%);
+  background-repeat: no-repeat;
+  border: 1px solid rgba(195, 178, 155, 0.55);
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(20, 23, 24, .04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 2px rgba(175, 155, 130, 0.10),
+    0 2px 8px rgba(45, 35, 22, 0.05);
 }
 .step-card-num {
   margin-bottom: 14px;
   color: var(--gold);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 800;
   letter-spacing: .12em;
 }
-.step-card-title { margin-bottom: 7px; font-size: 15px; font-weight: 700; color: var(--ink); }
-.step-card-desc { margin: 0; color: var(--text-dim); font-size: 13px; line-height: 1.55; }
+.step-card-title { margin-bottom: 8px; font-size: 17.5px; font-weight: 750; color: var(--ink); letter-spacing: -0.01em; }
+.step-card-desc { margin: 0; color: var(--text-dim); font-size: 14.5px; line-height: 1.6; }
 .step-card-footer { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
 .step-tag {
-  padding: 3px 8px;
+  padding: 3.5px 9px;
   border-radius: 999px;
   background: var(--surface-alt);
   border: 1px solid var(--border);
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: .04em;

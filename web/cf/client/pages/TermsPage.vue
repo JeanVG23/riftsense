@@ -10,6 +10,12 @@ function goHome(): void {
 
 <template>
   <div class="legal-page">
+    <!-- Artefacts sacrés & gravures de lois sur les flancs -->
+    <div class="terms-side-artefacts page-side-artefacts" aria-hidden="true">
+      <div class="side-artefact-item terms-artefact--stele"></div>
+      <div class="side-artefact-item terms-artefact--pierre"></div>
+    </div>
+
     <div class="legal-header">
       <div class="legal-breadcrumbs">
         <a href="/" @click.prevent="goHome">Accueil</a>
@@ -23,6 +29,13 @@ function goHome(): void {
         <span class="legal-sep">·</span>
         <span>Conforme aux Riot Developer Policies</span>
       </p>
+    </div>
+
+    <!-- Séparateur céleste Targon -->
+    <div class="celestial-divider" aria-hidden="true">
+      <span class="divider-line"></span>
+      <span class="divider-gem">✦</span>
+      <span class="divider-line"></span>
     </div>
 
     <!-- Bannière Riot Games Disclaimer -->

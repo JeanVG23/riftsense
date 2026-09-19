@@ -146,7 +146,7 @@ onBeforeUnmount(() => {
   <nav class="topbar" aria-label="Navigation principale">
     <div class="topbar-inner">
       <div class="topbar-left">
-        <a class="brand" href="/" aria-label="RiftSense - Accueil" @click.prevent="go('/')"><span class="brand-mark" aria-hidden="true"><img class="brand-svg" src="/logo.svg" alt="" width="18" height="18"></span><span class="brand-text">RiftSense</span><span class="brand-badge">LoL Esport Analytics</span></a>
+        <a class="brand" href="/" aria-label="RiftSense - Accueil" @click.prevent="go('/')"><span class="brand-mark" aria-hidden="true"><img class="brand-svg" src="/logo.svg" alt="RiftSense Logo" width="28" height="28"></span><span class="brand-text">RiftSense</span><span class="brand-badge">LoL Esport Analytics</span></a>
       </div>
       <div class="topbar-center">
         <NavSearch />
@@ -205,7 +205,7 @@ onBeforeUnmount(() => {
 
   <footer class="site-footer" role="contentinfo">
     <div class="footer-inner"><div class="footer-grid">
-      <div class="footer-col footer-col-brand"><div class="footer-brand"><span class="brand-mark" aria-hidden="true"><img class="brand-svg" src="/logo.svg" alt="" width="16" height="16"></span><span class="footer-brand-title">RiftSense</span><span class="brand-badge">LoL Esport Analytics</span></div><p class="footer-mission">Plateforme d'analyse de performance esportive et coaching tactique sur League of Legends, propulsée par le Machine Learning et l'explicabilité statistique.</p><div class="footer-disclaimer"><span>RiftSense isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</span></div></div>
+      <div class="footer-col footer-col-brand"><div class="footer-brand"><span class="brand-mark" aria-hidden="true"><img class="brand-svg" src="/logo.svg" alt="RiftSense Logo" width="26" height="26"></span><span class="footer-brand-title">RiftSense</span><span class="brand-badge">LoL Esport Analytics</span></div><p class="footer-mission">Plateforme d'analyse de performance esportive et coaching tactique sur League of Legends, propulsée par le Machine Learning et l'explicabilité statistique.</p><div class="footer-disclaimer"><span>RiftSense isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</span></div></div>
       <div class="footer-col"><h4 class="footer-heading">Mes comptes</h4><ul class="footer-accounts-list"><li v-for="account in ownerAccounts" :key="account.slug"><a :href="`/c/${account.slug}`" class="footer-account-link" @click.prevent="go(`/c/${account.slug}`)"><img class="footer-account-avatar" :src="summonerIcon(account)" alt="" loading="lazy"><div class="footer-account-info"><div class="row" style="gap:6px;align-items:center"><span class="footer-account-slug">{{ formatPseudo(account) }}</span><span class="badge badge-region-xs">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><span class="footer-account-games">{{ account.games_count }} parties</span></div></a></li></ul></div>
       <div class="footer-col"><h4 class="footer-heading">Stack &amp; Architecture</h4><ul class="footer-tech-list"><li><span class="tech-pill">Cloudflare Workers</span><span class="tech-desc">Serving edge &amp; API KV</span></li><li><span class="tech-pill">EBM &amp; SHAP</span><span class="tech-desc">Modèle prédictif du rang</span></li><li><span class="tech-pill">Ollama LLM</span><span class="tech-desc">Génération des revues de match</span></li><li><span class="tech-pill">Riot Games API</span><span class="tech-desc">Collecte de parties et métriques</span></li></ul></div>
     </div><div class="footer-bottom"><div class="footer-copyright"><span>© 2026 RiftSense</span><span class="footer-sep">·</span><a href="/c/spadzze?review=EUW1_7898084645" class="footer-link-subtle" @click.prevent="go('/c/spadzze?review=EUW1_7898084645')">Démo Spadzze</a><span class="footer-sep">·</span><a href="/readme" class="footer-link-subtle" @click.prevent="go('/readme')">Méthodologie</a><span class="footer-sep">·</span><a href="/terms" class="footer-link-subtle" @click.prevent="go('/terms')">CGU</a><span class="footer-sep">·</span><a href="/privacy" class="footer-link-subtle" @click.prevent="go('/privacy')">Confidentialité</a></div><div class="footer-bottom-actions"><AuthControl /><button class="footer-scroll-top" type="button" aria-label="Remonter en haut de page" @click="scrollTop"><span>Haut de page</span><svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg></button></div></div></div>
@@ -230,7 +230,7 @@ onBeforeUnmount(() => {
   max-width: var(--maxw);
   margin: 0 auto;
   padding: 0 24px;
-  height: 64px;
+  height: 70px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -252,11 +252,11 @@ onBeforeUnmount(() => {
 .topbar .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   color: var(--ink);
-  font-size: 15px;
-  font-weight: 750;
-  letter-spacing: -0.01em;
+  font-size: 17.5px;
+  font-weight: 800;
+  letter-spacing: -0.018em;
   text-decoration: none;
   flex-shrink: 0;
 }
@@ -264,36 +264,50 @@ onBeforeUnmount(() => {
 
 .brand-mark {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   color: var(--gold-deep);
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(20, 23, 24, .07);
+  border: 1.5px solid rgba(195, 160, 110, 0.48);
+  border-radius: 11px;
+  box-shadow:
+    0 2px 6px rgba(20, 23, 24, .08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
   flex-shrink: 0;
+  transition: var(--transition-fast);
 }
-.brand-mark .brand-svg { display: block; color: var(--ink); }
+.brand:hover .brand-mark {
+  border-color: #ffd269;
+  box-shadow:
+    0 3px 12px rgba(185, 143, 83, 0.3),
+    0 0 12px rgba(255, 215, 80, 0.3);
+  transform: translateY(-0.5px);
+}
+.brand-mark .brand-svg { display: block; }
 
 .brand-text {
-  font-size: 15px;
-  font-weight: 750;
-  letter-spacing: -0.01em;
+  font-size: 17.5px;
+  font-weight: 800;
+  letter-spacing: -0.018em;
   color: var(--ink);
 }
 
 .brand-badge {
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 700;
-  letter-spacing: .06em;
-  padding: 2px 7px;
-  background: linear-gradient(135deg, #782025 0%, #541418 100%);
+  letter-spacing: .065em;
+  padding: 3px 9px;
+  background-color: #2b060a;
+  background: var(--targon-veil-button);
   color: #fffdf8;
-  border: 1px solid rgba(185, 143, 83, 0.45);
-  border-radius: 4px;
+  border: 1px solid rgba(215, 175, 110, 0.55);
+  border-radius: 5px;
   text-transform: uppercase;
-  box-shadow: 0 1px 4px rgba(120, 32, 37, 0.25);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 200, 210, 0.35),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .topbar-nav { display: flex; align-items: center; gap: 10px; }
@@ -305,8 +319,9 @@ onBeforeUnmount(() => {
   padding: 6px 12px;
   min-height: 38px;
   color: #fffdf8;
-  background: linear-gradient(135deg, #782025 0%, #541418 100%);
-  border: 1px solid rgba(185, 143, 83, 0.40);
+  background-color: #2b060a;
+  background: var(--targon-veil-button);
+  border: 1px solid rgba(215, 175, 110, 0.50);
   font-size: 12.5px;
   font-weight: 650;
   border-radius: 9px;
@@ -314,31 +329,39 @@ onBeforeUnmount(() => {
   text-decoration: none;
   white-space: nowrap;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(120, 32, 37, 0.22);
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 rgba(255, 210, 220, 0.35),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.35);
 }
 .nav-link:hover {
-  background: linear-gradient(135deg, #8f262c 0%, #68191f 100%);
-  border-color: var(--gold);
+  background: var(--targon-veil-button-hover);
+  border-color: #ffd269;
   color: #ffffff;
   text-decoration: none;
-  box-shadow: 0 4px 14px rgba(120, 32, 37, 0.35);
+  box-shadow:
+    0 5px 16px rgba(120, 32, 37, 0.40),
+    inset 0 1px 0 rgba(255, 220, 230, 0.45),
+    0 0 12px rgba(255, 205, 80, 0.3);
   transform: translateY(-1px);
 }
 .nav-link.active {
-  background: linear-gradient(135deg, #59161b 0%, #3e0c0f 100%);
-  border-color: var(--gold);
+  background: var(--targon-veil-button);
+  border-color: #ffd269;
   color: #ffffff;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45), inset 0 -1px 0 rgba(255, 210, 220, 0.2);
 }
 .nav-icon {
   flex-shrink: 0;
-  color: #fbbf24;
+  color: #ffd269;
+  filter: drop-shadow(0 0 4px rgba(255, 210, 80, 0.75));
   opacity: 0.95;
 }
 .nav-link:hover .nav-icon,
 .nav-link.active .nav-icon {
   opacity: 1;
-  color: #fbbf24;
+  color: #fff0a8;
+  filter: drop-shadow(0 0 8px rgba(255, 220, 100, 0.95));
 }
 
 /* Player switcher */
@@ -347,8 +370,9 @@ onBeforeUnmount(() => {
   min-height: 38px;
   padding: 4px 12px;
   color: #fffdf8;
-  background: linear-gradient(135deg, #782025 0%, #541418 100%);
-  border: 1px solid rgba(185, 143, 83, 0.45);
+  background-color: #2b060a;
+  background: var(--targon-veil-button);
+  border: 1px solid rgba(215, 175, 110, 0.50);
   border-radius: 9px;
   font-size: 12.5px;
   font-weight: 650;
@@ -358,22 +382,28 @@ onBeforeUnmount(() => {
   gap: 8px;
   transition: var(--transition-base);
   user-select: none;
-  box-shadow: 0 2px 8px rgba(120, 32, 37, 0.25), 0 1px 2px rgba(20, 23, 24, .08);
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 rgba(255, 210, 220, 0.35),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.35);
 }
 .switcher-btn:hover,
 .switcher-btn.open {
-  background: linear-gradient(135deg, #8f262c 0%, #68191f 100%);
-  border-color: var(--gold);
+  background: var(--targon-veil-button-hover);
+  border-color: #ffd269;
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(120, 32, 37, 0.35);
+  box-shadow:
+    0 5px 16px rgba(120, 32, 37, 0.40),
+    inset 0 1px 0 rgba(255, 220, 230, 0.45),
+    0 0 12px rgba(255, 205, 80, 0.3);
   transform: translateY(-1px);
 }
 .switcher-btn.is-selected {
-  border-color: var(--gold);
-  background: linear-gradient(135deg, #62171c 0%, #420f12 100%);
+  border-color: #ffd269;
+  background: var(--targon-veil-button);
 }
 .switcher-btn.is-selected:hover {
-  border-color: #fbbf24;
+  border-color: #ffe08a;
 }
 .switcher-user-preview { display: flex; align-items: center; gap: 9px; }
 .switcher-avatar {
@@ -555,20 +585,26 @@ onBeforeUnmount(() => {
 .app-main-wrapper {
   flex: 1 0 auto;
   width: 100%;
-  background: var(--paper);
+  background: transparent;
   position: relative;
   padding-bottom: 50px;
 }
 
-/* Footer — Rouge Targon profond avec or et ivoire */
+/* Footer — Rouge Targon profond avec draperie organique Solari (tissu mat & terne) */
 .site-footer {
   margin-top: 0;
-  border-top: 3px solid var(--targon-red);
-  background: linear-gradient(180deg, #421114 0%, #29080a 100%);
+  border-top: 2px solid rgba(195, 155, 90, 0.70);
+  background-color: #2b2325;
+  background-image: var(--targon-veil-drape);
+  background-position: center top;
+  background-size: 1920px 100%;
+  background-repeat: repeat-x;
   color: #fffdf8;
   position: relative;
   clear: both;
-  box-shadow: 0 -12px 36px rgba(41, 8, 10, 0.40);
+  box-shadow:
+    0 -10px 30px rgba(25, 20, 22, 0.40),
+    inset 0 1px 0 rgba(215, 175, 100, 0.35);
 }
 .site-footer::before {
   content: "";
@@ -577,7 +613,7 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(185, 143, 83, 0.6) 50%, transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 220, 130, 0.8) 50%, transparent);
   pointer-events: none;
 }
 .footer-inner { max-width: var(--maxw); margin: 0 auto; padding: 52px 24px 30px; }
@@ -585,18 +621,23 @@ onBeforeUnmount(() => {
 .footer-col { display: flex; flex-direction: column; }
 .footer-col-brand { padding-right: 20px; }
 .footer-brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.footer-brand-title { color: #ffffff; font-size: 16px; font-weight: 750; letter-spacing: -.01em; }
+.footer-brand-title { color: #ffffff; font-size: 18.5px; font-weight: 800; letter-spacing: -.01em; }
 .footer-brand .brand-badge {
   background: rgba(185, 143, 83, 0.22);
   color: #fce7c8;
   border-color: rgba(185, 143, 83, 0.45);
 }
 .footer-brand .brand-mark {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(185, 143, 83, 0.4);
+  width: 38px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(195, 155, 90, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 .footer-brand .brand-svg {
-  filter: brightness(1.2);
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 80, 0.45));
 }
 .footer-mission { color: #e6d3cf; font-size: 13px; line-height: 1.6; margin: 0 0 16px; }
 .footer-disclaimer {
@@ -619,6 +660,10 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: .08em;
   margin: 0 0 16px;
+  background: linear-gradient(135deg, #fff4bf 0%, #f5b838 50%, #d49229 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(245, 184, 56, 0.45));
 }
 .footer-accounts-list,
 .footer-tech-list {

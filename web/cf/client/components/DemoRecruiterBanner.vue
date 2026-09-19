@@ -65,12 +65,22 @@ const emit = defineEmits<{
   margin: 0 0 24px;
   padding: 18px 22px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(195, 160, 110, 0.42);
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;
   gap: 10px;
-  box-shadow: var(--card-shadow);
+  box-shadow:
+    0 4px 16px rgba(20, 23, 24, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transition: var(--transition-base);
+}
+
+.demo-banner:hover {
+  border-color: rgba(185, 143, 83, 0.6);
+  box-shadow:
+    0 6px 20px rgba(185, 143, 83, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
 .demo-banner-top {
