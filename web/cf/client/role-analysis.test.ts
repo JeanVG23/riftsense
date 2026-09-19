@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  GLOBAL_CLOSURE_REASONS,
   REASON_MESSAGES,
   boundaryLabel,
   formatLogit,
+  isGlobalClosure,
   parseRoleAnalysis,
   reasonMessage,
   roleLabel,
@@ -98,5 +100,26 @@ describe("libellés et messages", () => {
     expect(formatLogit(-0.5)).toBe("-0.50");
     expect(formatLogit(0)).toBe("0.00");
     expect(formatLogit(-0.001)).toBe("0.00");
+  });
+});
+
+describe("isGlobalClosure", () => {
+  it("distingue les 3 motifs structurels des 6 motifs personnels", () => {
+    expect([...GLOBAL_CLOSURE_REASONS].sort()).toEqual(
+      ["model_mismatch", "model_missing", "role_closed"],
+    );
+    // Structurels : décidés par les artefacts déployés, identiques pour
+    // tout compte, jamais changés par une re-collecte.
+    expect(isGlobalClosure("role_closed")).toBe(true);
+    expect(isGlobalClosure("model_missing")).toBe(true);
+    expect(isGlobalClosure("model_mismatch")).toBe(true);
+    // Personnels : décidés par les données du compte (rank_out_of_scope
+    // inclus, cf. doc du module : recalculé à chaque ingestion).
+    expect(isGlobalClosure("not_ingested")).toBe(false);
+    expect(isGlobalClosure("rank_out_of_scope")).toBe(false);
+    expect(isGlobalClosure("window_too_short")).toBe(false);
+    expect(isGlobalClosure("collection_incomplete")).toBe(false);
+    expect(isGlobalClosure("scoring_failed")).toBe(false);
+    expect(isGlobalClosure("fetch_failed")).toBe(false);
   });
 });

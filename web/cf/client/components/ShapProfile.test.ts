@@ -154,9 +154,26 @@ describe("ShapProfile · état disponible", () => {
 
     // La base est le label affiché (nom technique sans suffixe d'agrégation,
     // spec §3) ; la paire csm10 retombe sur le nom complet pour rester
-    // distinguable, la base seule ne suffirait plus.
+    // distinguable, la base seule ne suffirait plus. Le marqueur « (contexte) »
+    // s'ajoute APRÈS cette désambiguation (ward_score est descriptive) : il ne
+    // change pas quelles bases sont jugées partagées.
     expect((chartMock.configs[0].data as { labels: string[] }).labels)
-      .toEqual(["csm10__mean", "csm10__max", "ward_score"]);
+      .toEqual(["csm10__mean", "csm10__max", "ward_score (contexte)"]);
+  });
+
+  it("marque les drivers non actionable de « (contexte) » dans le libellé, jamais les leviers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
+      drivers: [
+        { feature: "csm10__mean", base: "csm10", value: 7.3, contribution: 0.3, crossover_value: null, direction: null, category: "actionable" },
+        { feature: "map_depth__mean", base: "map_depth", value: 14, contribution: -0.1, crossover_value: null, direction: null, category: "descriptive" },
+      ],
+    }))));
+    wrapper = mountShap();
+    await flushPromises();
+    await flushPromises();
+
+    expect((chartMock.configs[0].data as { labels: string[] }).labels)
+      .toEqual(["csm10", "map_depth (contexte)"]);
   });
 
   it("filtre les leviers d'action et recrée le graphique", async () => {
@@ -171,7 +188,7 @@ describe("ShapProfile · état disponible", () => {
     await flushPromises();
     await flushPromises();
     expect((chartMock.configs[0].data as { labels: string[] }).labels)
-      .toEqual(["levier_a", "contexte_b", "levier_c"]);
+      .toEqual(["levier_a", "contexte_b (contexte)", "levier_c"]);
 
     const filterButton = wrapper.findAll("button").find((button) => button.text().includes("Tout"));
     await filterButton!.trigger("click");
@@ -218,6 +235,56 @@ describe("ShapProfile · état disponible", () => {
   });
 });
 
+describe("ShapProfile · liste de facteurs vide", () => {
+  it("available: true avec drivers vides : message dédié, aucun canvas", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({ drivers: [] }))));
+    wrapper = mountShap();
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Aucun facteur n'a été publié pour cette fenêtre de parties.");
+    expect(wrapper.find("canvas").exists()).toBe(false);
+    expect(chartMock.configs).toHaveLength(0);
+  });
+
+  it("filtre `actionable` sans aucun levier : message dédié invitant à revenir sur « Tout », puis le graphique se restaure au retour", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
+      drivers: [
+        { feature: "context_only__mean", base: "context_only", value: 1, contribution: -0.2, crossover_value: null, direction: null, category: "descriptive" },
+      ],
+    }))));
+    wrapper = mountShap();
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.find("canvas").exists()).toBe(true);
+    expect(chartMock.configs).toHaveLength(1);
+
+    const filterButton = wrapper.findAll("button").find((button) => button.text().includes("Tout"));
+    await filterButton!.trigger("click");
+    await flushPromises();
+    await flushPromises();
+
+    // Filtré sur les leviers uniquement, mais le seul driver de la fenêtre
+    // est descriptif : liste vide, message distinct de « aucun facteur
+    // publié », avec le rappel qu'il suffit de revenir sur « Tout ».
+    expect(wrapper.text()).toContain(
+      "Aucun levier d'action dans le top 16 : reviens sur « Tout » pour voir les facteurs de contexte.");
+    expect(wrapper.find("canvas").exists()).toBe(false);
+
+    await filterButton!.trigger("click");
+    await flushPromises();
+    await flushPromises();
+
+    // Retour sur « Tout » : le canvas est recréé (nouvel élément, derrière le
+    // v-if) et le graphique est rendu contre CE nouvel élément, pas un noeud
+    // détaché de l'ancien rendu.
+    expect(wrapper.find("canvas").exists()).toBe(true);
+    expect((chartMock.configs.at(-1)?.data as { labels: string[] }).labels)
+      .toEqual(["context_only (contexte)"]);
+  });
+});
+
 describe("ShapProfile · états d'indisponibilité", () => {
   it("affiche le message typé de chaque motif servi, sans télécharger Chart.js", async () => {
     const cases: Array<[string, string]> = [
@@ -259,13 +326,35 @@ describe("ShapProfile · états d'indisponibilité", () => {
     expect(wrapper.text()).toContain("maintenance_v2");
   });
 
-  it("conserve les liens démo vers les comptes calibrés", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ available: false, reason: "role_closed", role: null })));
+  it("conserve les liens démo vers les comptes calibrés pour un motif personnel", async () => {
+    // window_too_short est décidé par les données du compte (pas un motif
+    // structurel) : les comptes démo affichent réellement une analyse, le CTA
+    // reste donc honnête.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ available: false, reason: "window_too_short", role: null })));
     wrapper = mountShap({ slug: "Two" });
     await flushPromises();
 
     expect(wrapper.find("a[href='/c/spadzze?tab=shap']").exists()).toBe(true);
     expect(wrapper.find("a[href='/c/aceofspadzze?tab=shap']").exists()).toBe(true);
+  });
+
+  it("retire le bouton d'actualisation ET les liens démo pour les 3 motifs structurels (role_closed, model_missing, model_mismatch)", async () => {
+    // Ces motifs sont décidés par les artefacts déployés : identiques pour
+    // tout compte, aucune re-collecte ne les change. Le bouton promettrait un
+    // recalcul impossible et consommerait pour rien le cooldown partagé avec
+    // le hero ; les comptes démo rendraient la même carte indisponible, donc
+    // le lien promettrait un palier et une décomposition inexistants.
+    for (const reason of ["role_closed", "model_missing", "model_mismatch"]) {
+      wrapper?.unmount();
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ available: false, reason, role: null })));
+      wrapper = mountShap({ slug: "Two" });
+      await flushPromises();
+
+      expect(wrapper.find("button.btn-refresh-shap").exists()).toBe(false);
+      expect(wrapper.find(".shap-demo-guidance").exists()).toBe(false);
+      expect(wrapper.find("a[href='/c/spadzze?tab=shap']").exists()).toBe(false);
+      expect(wrapper.find("a[href='/c/aceofspadzze?tab=shap']").exists()).toBe(false);
+    }
   });
 });
 
@@ -292,10 +381,12 @@ describe("ShapProfile · bouton Actualiser l'analyse", () => {
     expect(trigger).toHaveBeenCalledTimes(1);
   });
 
-  it("rend AUSSI le bouton dans l'état indisponible : les motifs collection_incomplete et scoring_failed disent « relance l'actualisation »", async () => {
+  it("rend AUSSI le bouton et les liens démo dans l'état indisponible pour un motif personnel : collection_incomplete et scoring_failed disent « relance l'actualisation »", async () => {
     // Bug pointé en revue : le bouton ne vivait que dans la branche
     // disponible, alors que deux messages d'indisponibilité invitent
     // explicitement à relancer. Le CTA doit exister là où on l'appelle.
+    // collection_incomplete est un motif PERSONNEL (décidé par les données du
+    // compte, pas par les artefacts déployés) : bouton ET liens démo restent.
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
       response({ available: false, reason: "collection_incomplete", role: null })));
     const trigger = vi.fn();
@@ -305,6 +396,7 @@ describe("ShapProfile · bouton Actualiser l'analyse", () => {
     const button = wrapper.get("button.btn-refresh-shap");
     await button.trigger("click");
     expect(trigger).toHaveBeenCalledTimes(1);
+    expect(wrapper.find(".shap-demo-guidance").exists()).toBe(true);
   });
 
   it("n'affiche aucun bouton pendant le chargement", async () => {

@@ -93,6 +93,20 @@ export function reasonMessage(reason: string): string {
   return REASON_MESSAGES[reason] ?? `Analyse indisponible (motif : ${reason})`;
 }
 
+/** Les trois motifs structurels (parmi les neuf) : décidés par les artefacts
+ * de modèle déployés (export EBM du rôle) et par `role_readiness.json`, donc
+ * identiques pour TOUT compte du site ; aucune re-collecte ne change la
+ * réponse. Les six autres motifs sont décidés par les données propres au
+ * compte (`rank_out_of_scope` inclus : le service recalcule le tier et le
+ * rôle dominant à chaque ingestion, cf. `service/riot_ingest.py`). */
+export const GLOBAL_CLOSURE_REASONS: ReadonlySet<string> = Object.freeze(
+  new Set(["role_closed", "model_missing", "model_mismatch"]),
+);
+
+export function isGlobalClosure(reason: string): boolean {
+  return GLOBAL_CLOSURE_REASONS.has(reason);
+}
+
 /** Le logit est une proximité à l'apex (log-odds), JAMAIS converti en
  * probabilité ni en rang : MASTER n'appartient à aucune classe
  * d'entraînement et aucune calibration n'existe pour ces modèles

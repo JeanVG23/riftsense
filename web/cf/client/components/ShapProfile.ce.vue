@@ -6,6 +6,7 @@ import type { IngestSync } from "../ingest-sync";
 import {
   boundaryLabel,
   formatLogit,
+  isGlobalClosure,
   parseRoleAnalysis,
   reasonMessage,
   roleLabel,
@@ -49,10 +50,21 @@ const refreshLabel = computed(() => props.sync.feedback
     ? "Actualisation…"
     : (props.sync.cooling ? props.sync.cooldownLabel : "Actualiser l'analyse")));
 
+/** Vrai quand le motif d'indisponibilité courant est l'un des trois motifs
+ * structurels (`role_closed`, `model_missing`, `model_mismatch`) : décidés
+ * par les artefacts déployés, donc identiques pour tout compte du site.
+ * Calculé une fois ici, comme `refreshTitle`/`refreshLabel`, pour que le
+ * bouton d'actualisation et le bloc démo ne dupliquent pas cette logique. */
+const isGlobalUnavailable = computed(() =>
+  unavailableReason.value !== null && isGlobalClosure(unavailableReason.value));
+
 /** Filtre de catégorie, puis tri |contribution| ou valeur, puis top 16.
  * Le descriptif s'affiche mais ne se formule jamais en levier : le filtre
- * « Leviers d'action uniquement » isole l'actionable, l'inverse n'existe pas. */
-function visibleDrivers(): RoleDriver[] {
+ * « Leviers d'action uniquement » isole l'actionable, l'inverse n'existe pas.
+ * En computed (pas une fonction) : évite de recalculer filtre + tri + slice
+ * à chaque rendu, et sert aussi de garde d'affichage (liste vide → message
+ * dédié plutôt qu'un canvas vide de 560px, cf. template). */
+const visibleDrivers = computed<RoleDriver[]>(() => {
   const drivers = [...(analysis.value?.drivers || [])];
   const kept = categoryFilter.value === "actionable"
     ? drivers.filter((driver) => driver.category === "actionable")
@@ -61,17 +73,24 @@ function visibleDrivers(): RoleDriver[] {
     ? (left, right) => Math.abs(right.contribution) - Math.abs(left.contribution)
     : (left, right) => right.contribution - left.contribution);
   return kept.slice(0, 16);
-}
+});
 
 /** Label d'un driver : la `base` (nom technique sans suffixe d'agrégation,
  * spec §3 « libellés français des noms de features » : le suffixe ne s'affiche
  * pas), désambiguisée en nom complet quand deux agrégations visibles
  * partagent la même base (« csm10__mean » et « csm10__max ») : la base seule
- * ne permettrait plus de dire laquelle des deux est laquelle. */
+ * ne permettrait plus de dire laquelle des deux est laquelle. Le marqueur
+ * « (contexte) » est ajouté APRÈS cette désambiguation, sur le libellé déjà
+ * choisi : il ne doit jamais changer quelles bases sont considérées comme
+ * partagées, seulement le texte final affiché. Sans lui, en vue « Tout », une
+ * barre descriptive à forte contribution négative est visuellement
+ * indiscernable d'un levier (invariant PUBLIC_DESCRIPTIVE : jamais formulée
+ * comme quelque chose à travailler). */
 function driverLabel(driver: RoleDriver, visible: RoleDriver[]): string {
   const base = driver.base || driver.feature;
   const sameBase = visible.filter((other) => (other.base || other.feature) === base);
-  return sameBase.length > 1 ? driver.feature : base;
+  const label = sameBase.length > 1 ? driver.feature : base;
+  return driver.category === "actionable" ? label : `${label} (contexte)`;
 }
 
 function destroyChart(): void {
@@ -86,7 +105,7 @@ async function renderChart(): Promise<void> {
   const { Chart, registerables } = await chartRuntime;
   Chart.register(...registerables);
   if (!canvas.value?.isConnected || !analysis.value) return;
-  const drivers = visibleDrivers();
+  const drivers = visibleDrivers.value;
   chart = new Chart(canvas.value, {
     type: "bar",
     data: {
@@ -156,6 +175,11 @@ async function toggleSort(): Promise<void> {
 
 async function toggleCategory(): Promise<void> {
   categoryFilter.value = categoryFilter.value === "all" ? "actionable" : "all";
+  // Ce filtre peut faire passer visibleDrivers à/depuis zéro élément : le
+  // canvas vit derrière un v-if sur ce compte (cf. template), donc attendre
+  // le patch DOM avant renderChart() garantit que `canvas` pointe sur
+  // l'élément réel (recréé le cas échéant), jamais sur un noeud détaché.
+  await nextTick();
   await renderChart();
 }
 
@@ -184,8 +208,13 @@ onBeforeUnmount(destroyChart);
 
       <!-- Le bouton vit AUSSI dans l'état indisponible : les motifs
            collection_incomplete et scoring_failed disent « relance
-           l'actualisation », le CTA doit exister là où on l'appelle. -->
-      <div class="shap-unavail-actions">
+           l'actualisation », le CTA doit exister là où on l'appelle. Retiré
+           pour les trois motifs structurels (role_closed, model_missing,
+           model_mismatch) : décidés par les artefacts déployés, une
+           re-collecte ne peut rien y changer, et le clic consommerait pour
+           rien le cooldown partagé avec le bouton « Actualiser les données »
+           du hero (une seule instance de sync pour toute la page). -->
+      <div v-if="!isGlobalUnavailable" class="shap-unavail-actions">
         <button
           class="btn btn-sort-shap btn-refresh-shap"
           :class="{ 'is-syncing': sync.syncing, 'is-cooling': sync.cooling }"
@@ -201,7 +230,12 @@ onBeforeUnmount(destroyChart);
         </button>
       </div>
 
-      <div class="shap-demo-guidance">
+      <!-- Les comptes démo montrent une analyse EN DIRECT. Pour les trois
+           motifs structurels, ces comptes rendraient la MÊME carte
+           indisponible (motif global, identique pour tout compte) : le CTA
+           promettrait un palier et une décomposition que la destination ne
+           peut pas montrer, retiré pour ces trois motifs uniquement. -->
+      <div v-if="!isGlobalUnavailable" class="shap-demo-guidance">
         <span class="demo-guidance-title">Explorer le modèle d'explicabilité SHAP en direct sur nos profils calibrés :</span>
         <div class="demo-guidance-buttons">
           <a class="btn btn-demo-shap" href="/c/spadzze?tab=shap" @click.prevent="goToAccount('spadzze')">
@@ -278,16 +312,20 @@ onBeforeUnmount(destroyChart);
           <span><strong>Contribution négative</strong> : facteurs qui éloignent de l'apex</span>
         </div>
         <div class="shap-legend-item">
-          <span class="legend-box legend-box--lever" aria-hidden="true"></span>
-          <span><strong>Levier</strong> : peut être travaillé ; <strong>Contexte</strong> : s'affiche sans jamais être formulé comme un reproche</span>
+          <span><strong>« (contexte) »</strong> dans un libellé : décrit ta fenêtre de parties, ne se formule jamais comme un levier à travailler</span>
         </div>
       </div>
 
       <p class="muted shap-explainer-text">
-        Décomposition exacte du modèle Explainable Boosting Machine (EBM) : chaque barre mesure la contribution marginale (log-odds) de l'indicateur à ta proximité à l'apex. Les barres Levier peuvent être travaillées ; les barres Contexte décrivent ta fenêtre de parties et ne se travaillent pas.
+        Décomposition exacte du modèle Explainable Boosting Machine (EBM) : chaque barre mesure la contribution marginale (log-odds) de l'indicateur à ta proximité à l'apex. Les facteurs marqués « (contexte) » décrivent ta fenêtre de parties et ne se travaillent pas ; les autres sont des leviers.
       </p>
 
-      <div class="shap-wrap"><canvas ref="canvas"></canvas></div>
+      <div v-if="visibleDrivers.length" class="shap-wrap"><canvas ref="canvas"></canvas></div>
+      <p v-else class="shap-empty">
+        {{ analysis.drivers.length === 0
+          ? "Aucun facteur n'a été publié pour cette fenêtre de parties."
+          : "Aucun levier d'action dans le top 16 : reviens sur « Tout » pour voir les facteurs de contexte." }}
+      </p>
     </div>
   </div>
 </template>
@@ -523,9 +561,6 @@ onBeforeUnmount(destroyChart);
 }
 .legend-box--gold { background: var(--gold); }
 .legend-box--loss { background: var(--danger); }
-.legend-box--lever {
-  background: var(--text-faint);
-}
 
 .shap-explainer-text {
   font-size: 13px;
