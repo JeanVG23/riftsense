@@ -149,21 +149,24 @@ function goToDemo(): void {
       <span class="divider-line"></span>
     </div>
 
-    <!-- Artefacts sacrés le long de la page sur les flancs (Haut Gauche, Milieu Droite, Bas Gauche) -->
-    <div class="home-side-artefacts page-side-artefacts" aria-hidden="true">
-      <div class="side-artefact side-artefact--relique"></div>
-      <div class="side-artefact side-artefact--armes"></div>
-      <div class="side-artefact side-artefact--stele"></div>
-    </div>
+    <!-- Conteneur inférieur : tous les éléments sous la séparation céleste -->
+    <div class="home-lower-content">
+      <!-- Artefacts sacrés le long de la page sur les côtés en transparence (garantis strictement sous la séparation) -->
+      <div class="home-side-artefacts page-side-artefacts" aria-hidden="true">
+        <div class="side-artefact side-artefact--relique"></div>
+        <div class="side-artefact side-artefact--armes"></div>
+        <div class="side-artefact side-artefact--stele"></div>
+      </div>
 
-    <div v-if="loading" class="state home-loading-state">
-      <span class="loading-spinner" aria-hidden="true"></span>
-      <span>Chargement des comptes…</span>
-    </div>
-    <div v-else-if="!accounts.length" class="state">
-      Aucun compte configuré.
-    </div>
-    <div v-else class="home-sections">
+      <div v-if="loading" class="state home-loading-state">
+        <span class="loading-spinner" aria-hidden="true"></span>
+        <span>Chargement des comptes…</span>
+      </div>
+      <div v-else-if="!accounts.length" class="state">
+        Aucun compte configuré.
+      </div>
+      <div v-else class="home-sections">
+
       <!-- Section 0 : Comptes mémorisés dans ce navigateur (Session locale) -->
       <section
         v-if="browserAccounts.length"
@@ -438,6 +441,7 @@ function goToDemo(): void {
         </div>
       </div>
     </section>
+    </div>
   </div>
 </template>
 
@@ -449,10 +453,18 @@ function goToDemo(): void {
   flex-direction: column;
   gap: 36px;
   width: 100%;
+}
+
+.home-lower-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  width: 100%;
   isolation: isolate;
 }
 
-.home-page-container > *:not(.home-side-artefacts) {
+.home-lower-content > *:not(.home-side-artefacts) {
   position: relative;
   z-index: 2;
 }
@@ -606,19 +618,19 @@ function goToDemo(): void {
   }
 }
 
-/* Artefacts Targon sacrés en filigrane le long de la page sur les côtés */
+/* Artefacts Targon sacrés en filigrane le long de la page sur les côtés (strictement sous la séparation) */
 .home-side-artefacts {
   position: absolute;
-  top: 480px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
   width: 100vw;
-  height: calc(100% - 480px);
+  height: 100%;
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
-  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 100px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 100px), transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 90px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 90px), transparent 100%);
 }
 
 .side-artefact {
@@ -628,9 +640,9 @@ function goToDemo(): void {
   z-index: 0;
 }
 
-/* 1. Haut GAUCHE : Relique sacrée Solari vers 'Mes comptes' */
+/* 1. Haut GAUCHE : Relique sacrée Solari vers 'Mes comptes' (strictement sous la séparation) */
 .side-artefact--relique {
-  top: 20px;
+  top: 35px;
   left: max(10px, calc(50% - 720px));
   width: 320px;
   height: 320px;
@@ -643,7 +655,7 @@ function goToDemo(): void {
 
 /* 2. Milieu DROITE : Armes et lances célestes Rahorak */
 .side-artefact--armes {
-  top: 380px;
+  top: 480px;
   right: max(10px, calc(50% - 720px));
   width: 360px;
   height: 360px;
@@ -656,7 +668,7 @@ function goToDemo(): void {
 
 /* 3. Bas GAUCHE : Stèle sacrée Targon (vers la section méthodologie et workflow) */
 .side-artefact--stele {
-  top: 740px;
+  bottom: 60px;
   left: max(10px, calc(50% - 720px));
   width: 320px;
   height: 440px;
@@ -1066,7 +1078,7 @@ function goToDemo(): void {
 }
 @media (max-width: 720px) {
   .home-page-container { gap: 28px; }
-  .home-sections, .home-section { gap: 22px; }
+  .home-lower-content, .home-sections, .home-section { gap: 22px; }
   .home-section-header { align-items: flex-start; flex-direction: column; }
   .preview-rank-badge { align-items: flex-start; }
   .preview-metrics-grid { grid-template-columns: 1fr; }
