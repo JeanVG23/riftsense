@@ -149,6 +149,13 @@ function goToDemo(): void {
       <span class="divider-line"></span>
     </div>
 
+    <!-- Artefacts sacrés le long de la page sur les flancs (Haut Gauche, Milieu Droite, Bas Gauche) -->
+    <div class="home-side-artefacts page-side-artefacts" aria-hidden="true">
+      <div class="side-artefact side-artefact--relique"></div>
+      <div class="side-artefact side-artefact--armes"></div>
+      <div class="side-artefact side-artefact--stele"></div>
+    </div>
+
     <div v-if="loading" class="state home-loading-state">
       <span class="loading-spinner" aria-hidden="true"></span>
       <span>Chargement des comptes…</span>
@@ -157,12 +164,6 @@ function goToDemo(): void {
       Aucun compte configuré.
     </div>
     <div v-else class="home-sections">
-      <!-- Artefacts sacrés le long de la page sur les côtés en transparence (garantis sous la séparation) -->
-      <div class="home-side-artefacts" aria-hidden="true">
-        <div class="side-artefact side-artefact--relique"></div>
-        <div class="side-artefact side-artefact--armes"></div>
-        <div class="side-artefact side-artefact--stele"></div>
-      </div>
       <!-- Section 0 : Comptes mémorisés dans ce navigateur (Session locale) -->
       <section
         v-if="browserAccounts.length"
@@ -443,10 +444,17 @@ function goToDemo(): void {
 <style scoped>
 /* Targon Éditorial — home */
 .home-page-container {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 36px;
   width: 100%;
+  isolation: isolate;
+}
+
+.home-page-container > *:not(.home-side-artefacts) {
+  position: relative;
+  z-index: 2;
 }
 
 .hero-banner {
@@ -601,78 +609,82 @@ function goToDemo(): void {
 /* Artefacts Targon sacrés en filigrane le long de la page sur les côtés */
 .home-side-artefacts {
   position: absolute;
-  top: 0;
+  top: 480px;
   left: 50%;
   transform: translateX(-50%);
   width: 100vw;
-  height: 100%;
+  height: calc(100% - 480px);
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
+  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 100px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 100px), transparent 100%);
 }
 
 .side-artefact {
   position: absolute;
   mix-blend-mode: multiply;
   pointer-events: none;
+  z-index: 0;
 }
 
-/* Relique sacrée Solari - côté gauche vers 'Mes comptes' (commence proprement sous le séparateur) */
+/* 1. Haut GAUCHE : Relique sacrée Solari vers 'Mes comptes' */
 .side-artefact--relique {
-  top: 30px;
-  left: max(10px, calc(50% - 690px));
+  top: 20px;
+  left: max(10px, calc(50% - 720px));
   width: 320px;
   height: 320px;
   background: url('/images/targon/relique-sacree.jpg') center / contain no-repeat;
-  opacity: 0.17;
-  mask-image: radial-gradient(circle at center, black 32%, transparent 75%);
-  -webkit-mask-image: radial-gradient(circle at center, black 32%, transparent 75%);
-  filter: contrast(1.15) drop-shadow(0 0 35px rgba(185, 143, 83, 0.30));
-}
-
-/* Armes et lances célestes Rahorak - côté droit vers 'Méthodologie' */
-.side-artefact--armes {
-  top: 480px;
-  right: max(10px, calc(50% - 710px));
-  width: 380px;
-  height: 380px;
-  background: url('/images/targon/armes-rahoraks.jpg') center / contain no-repeat;
   opacity: 0.16;
   mask-image: radial-gradient(circle at center, black 28%, transparent 75%);
   -webkit-mask-image: radial-gradient(circle at center, black 28%, transparent 75%);
+  filter: contrast(1.15) drop-shadow(0 0 35px rgba(185, 143, 83, 0.30));
+}
+
+/* 2. Milieu DROITE : Armes et lances célestes Rahorak */
+.side-artefact--armes {
+  top: 380px;
+  right: max(10px, calc(50% - 720px));
+  width: 360px;
+  height: 360px;
+  background: url('/images/targon/armes-rahoraks.jpg') center / contain no-repeat;
+  opacity: 0.15;
+  mask-image: radial-gradient(circle at center, black 25%, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle at center, black 25%, transparent 75%);
   filter: contrast(1.15) drop-shadow(0 0 35px rgba(120, 32, 37, 0.25));
 }
 
-/* Stèle funéraire et runes ancestrales - côté gauche vers le bas */
+/* 3. Bas GAUCHE : Stèle sacrée Targon (vers la section méthodologie et workflow) */
 .side-artefact--stele {
-  top: 960px;
-  left: max(15px, calc(50% - 670px));
-  width: 300px;
+  top: 740px;
+  left: max(10px, calc(50% - 720px));
+  width: 320px;
   height: 440px;
   background: url('/images/targon/stele-targon.jpg') center / contain no-repeat;
   opacity: 0.14;
-  mask-image: radial-gradient(ellipse 65% 80% at center, black 25%, transparent 80%);
-  -webkit-mask-image: radial-gradient(ellipse 65% 80% at center, black 25%, transparent 80%);
-  filter: contrast(1.12);
+  mask-image: radial-gradient(ellipse 70% 80% at center, black 25%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 80% at center, black 25%, transparent 78%);
+  filter: contrast(1.15) drop-shadow(0 0 25px rgba(185, 143, 83, 0.20));
 }
 
 @media (max-width: 1200px) {
   .side-artefact--relique {
-    opacity: 0.09;
-    left: -40px;
+    opacity: 0.08;
+    left: -30px;
   }
   .side-artefact--armes {
-    opacity: 0.09;
-    right: -40px;
+    opacity: 0.08;
+    right: -30px;
   }
   .side-artefact--stele {
-    display: none;
+    opacity: 0.08;
+    left: -30px;
   }
 }
 
 @media (max-width: 800px) {
   .home-side-artefacts {
-    display: none;
+    display: none !important;
   }
 }
 
