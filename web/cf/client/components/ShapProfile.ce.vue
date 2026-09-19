@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { formatDate } from "../account-profile";
 import { withAuthHeaders } from "../auth";
 import type { IngestSync } from "../ingest-sync";
@@ -33,6 +33,21 @@ const canvas = ref<HTMLCanvasElement | null>(null);
 let chart: import("chart.js").Chart | null = null;
 let requestSequence = 0;
 let chartRuntime: Promise<typeof import("chart.js")> | null = null;
+
+/** Info-bulle du bouton d'actualisation, partagée par les deux branches du
+ * template (états disponible et indisponible) : le markup reste dupliqué,
+ * la chaîne vit ici une seule fois. */
+const refreshTitle = computed(() => props.sync.cooling
+  ? "Analyse déjà actualisée : une nouvelle est possible toutes les 15 minutes"
+  : "Recollecter les 20 dernières parties du rôle et recalculer la décomposition");
+
+/** Libellé du bouton d'actualisation, partagé par les deux branches du
+ * template : feedback du composable d'abord, sinon l'état (collecte en
+ * cours, cooldown avec décompte, repos). */
+const refreshLabel = computed(() => props.sync.feedback
+  || (props.sync.syncing
+    ? "Actualisation…"
+    : (props.sync.cooling ? props.sync.cooldownLabel : "Actualiser l'analyse")));
 
 /** Filtre de catégorie, puis tri |contribution| ou valeur, puis top 16.
  * Le descriptif s'affiche mais ne se formule jamais en levier : le filtre
@@ -176,15 +191,13 @@ onBeforeUnmount(destroyChart);
           :class="{ 'is-syncing': sync.syncing, 'is-cooling': sync.cooling }"
           :disabled="sync.syncing || sync.cooling"
           type="button"
-          :title="sync.cooling
-            ? 'Analyse déjà actualisée : une nouvelle est possible toutes les 15 minutes'
-            : 'Recollecter les 20 dernières parties du rôle et recalculer la décomposition'"
+          :title="refreshTitle"
           @click="sync.trigger"
         >
           <svg class="sync-icon-shap" :class="{ spinning: sync.syncing }" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
           </svg>
-          {{ sync.feedback || (sync.syncing ? "Actualisation…" : (sync.cooling ? sync.cooldownLabel : "Actualiser l'analyse")) }}
+          {{ refreshLabel }}
         </button>
       </div>
 
@@ -222,15 +235,13 @@ onBeforeUnmount(destroyChart);
           :class="{ 'is-syncing': sync.syncing, 'is-cooling': sync.cooling }"
           :disabled="sync.syncing || sync.cooling"
           type="button"
-          :title="sync.cooling
-            ? 'Analyse déjà actualisée : une nouvelle est possible toutes les 15 minutes'
-            : 'Recollecter les 20 dernières parties du rôle et recalculer la décomposition'"
+          :title="refreshTitle"
           @click="sync.trigger"
         >
           <svg class="sync-icon-shap" :class="{ spinning: sync.syncing }" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
           </svg>
-          {{ sync.feedback || (sync.syncing ? "Actualisation…" : (sync.cooling ? sync.cooldownLabel : "Actualiser l'analyse")) }}
+          {{ refreshLabel }}
         </button>
         <button class="btn btn-sort-shap" type="button" @click="toggleCategory">
           {{ categoryFilter === "all" ? "Tout" : "Leviers d'action uniquement" }}
