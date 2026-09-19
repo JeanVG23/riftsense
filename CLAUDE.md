@@ -197,6 +197,11 @@ web/
                   src/coaching_context.ts = scopes globaux/par rôle, fraîcheur des bilans
                   src/curation.ts = désignation de la partie pédagogiquement utile
   cf/client/      SPA Vite/Vue Router et composants Vue TypeScript
+                  ingest-sync.ts = composable unique de rafraîchissement (bouton hero +
+                  onglet SHAP : même job, même cooldown, une instance dans AccountPage) ;
+                  role-analysis.ts = contrat shap:{slug}:role (union discriminée available,
+                  un message typé par motif, logit affiché en proximité à l'apex, jamais
+                  converti en probabilité ni rang)
   cf/public/      assets statiques copiés tels quels par Vite
 service/          Service d'ingestion Cloud Run (Flask + gunicorn, 1 worker/1 thread) :
                   app.py (routes + secret partagé), riot_ingest.py (métier : profil,

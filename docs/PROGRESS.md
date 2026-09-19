@@ -5,6 +5,15 @@
 > Résumé actif (à jour) : voir la section « État d'avancement » de `CLAUDE.md`.
 
 
+- **Analyse ML par rôle branchée sur le site** ✅ (2026-09-19) : l'onglet SHAP consomme
+  désormais `shap:{slug}:role` (union discriminée `available`, message typé par motif,
+  `role-analysis.ts`) au lieu du per-player ADC ; composable `useIngestSync` partagé entre
+  le bouton du hero et un bouton « Actualiser l'analyse » dans l'onglet (même job, même
+  cooldown, une seule instance dans AccountPage) ; carte hero « Proximité à l'apex » avec
+  repli sur `pred:{slug}` puis « — ». Rôles toujours fermés (`corpus: "research"`) : le
+  site affiche `role_closed` pour tous tant que la certification manuelle (édition de
+  `data/05_model/role_readiness.json` + redéploiement du service) n'a pas eu lieu.
+
 - **Chaîne par rôle, labellisée par snapshot du ladder** 🚧 (2026-09-18) : cinq
   modèles per-player (TOP/JUNGLE/MIDDLE/BOTTOM/SUPPORT), entraînés sur les seules
   features publiables, destinés à devenir l'analyse ML publique. Le label vient d'un
