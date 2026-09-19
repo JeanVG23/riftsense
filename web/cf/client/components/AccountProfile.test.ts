@@ -38,17 +38,22 @@ describe("AccountProfile", () => {
         ? jsonResponse({ slug: "Spadzze", region: "euw1", icon: 6282, level: 758 })
         : path.endsWith("/rank")
           ? jsonResponse({ tier: "DIAMOND", division: "II", league_points: 64, wins: 12, losses: 8 })
-          : jsonResponse({ predicted_rank: "master", predicted_lp: 120, proba: 0.81, n_games_used: 20 })));
+          : path.endsWith("/shap-role")
+            ? jsonResponse({ available: false, reason: "role_closed", role: null })
+            : jsonResponse({ predicted_rank: "master", predicted_lp: 120, proba: 0.81, n_games_used: 20 })));
     vi.stubGlobal("fetch", fetchMock);
 
     wrapper = mount(AccountProfile, { props: { slug: "Spadzze", total: 42, sync: fakeSync(), reloadToken: 0 } });
     await flushPromises();
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // (le corps du test est celui de la Task 3, seules les deux attentes
+    // ci-dessous changent : 4 appels au lieu de 3, et l'URL shap-role en plus)
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls.map(([path]) => path)).toEqual(expect.arrayContaining([
       "/api/c/Spadzze/account",
       "/api/c/Spadzze/rank",
       "/api/c/Spadzze/predicted-rank",
+      "/api/c/Spadzze/shap-role",
     ]));
     expect(wrapper.text()).toContain("Diamond II · 64 LP");
     expect(wrapper.text()).toContain("12V 8D · 60% WR");
@@ -78,14 +83,14 @@ describe("AccountProfile", () => {
     await wrapper.setProps({ total: 99 });
 
     expect(wrapper.text()).toContain("99");
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("recharge le profil quand reloadToken change (fin de collecte)", async () => {
     // Le niveau et l'icône changent avec les parties : la collecte que le
     // composable déclenche doit se voir sans recharger la page. Le compteur
-    // est multiplié pour rester exact quand loadProfile passera à 4 appels
-    // (Task 4).
+    // est multiplié pour rester exact quel que soit le nombre d'appels
+    // de loadProfile.
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
     vi.stubGlobal("fetch", fetchMock);
     wrapper = mount(AccountProfile, { props: { slug: "spadzze", sync: fakeSync(), reloadToken: 0 } });
@@ -115,6 +120,102 @@ describe("AccountProfile", () => {
 
     expect(wrapper.get(".stat-ml .stat-value").text()).toBe("—");
     expect(wrapper.text()).not.toContain("Master");
+  });
+});
+
+describe("AccountProfile · carte ML", () => {
+  const card = (w: VueWrapper) => w.get(".stat-ml");
+
+  function availableRolePayload(): Record<string, unknown> {
+    return {
+      schema_version: 1,
+      generated_at: "2026-09-19T10:00:00Z",
+      available: true,
+      role: "JUNGLE",
+      model: { model_id: "jungle-ebm", boundary: "diamond", auc_heldout_median: 0.83, n_seeds: 10 },
+      sample: { role_games_used: 20 },
+      logit: 0.62,
+      drivers: [
+        { feature: "csm10__mean", base: "csm10", value: 7.3, contribution: 0.21,
+          crossover_value: 7.14, direction: "valeur haute → apex", category: "actionable" },
+      ],
+    };
+  }
+
+  it("priorise la proximité à l'apex quand l'analyse de rôle est disponible", async () => {
+    vi.stubGlobal("fetch", vi.fn((path: string) => Promise.resolve(
+      path.endsWith("/shap-role")
+        ? jsonResponse(availableRolePayload())
+        : path.endsWith("/account")
+          ? jsonResponse({ slug: "Spadzze", region: "euw1" })
+          : path.endsWith("/rank")
+            ? jsonResponse({})
+            : jsonResponse({ predicted_rank: "master", proba: 0.81 }))));
+    wrapper = mount(AccountProfile, { props: { slug: "Spadzze", sync: fakeSync(), reloadToken: 0 } });
+    await flushPromises();
+
+    expect(card(wrapper).text()).toContain("Proximité à l'apex");
+    expect(card(wrapper).text()).toContain("+0.62");
+    expect(card(wrapper).text()).toContain("Jungle · frontière Diamond ↔ GM+");
+    // Priorité absolue : l'ancienne estimation ne doit pas rester affichée.
+    expect(card(wrapper).text()).not.toContain("Estimation ML");
+    expect(card(wrapper).text()).not.toContain("Master");
+    expect(card(wrapper).find("img.rank-emblem-mini").exists()).toBe(false);
+    // Invariant logit : aucune probabilité n'apparaît.
+    expect(card(wrapper).text()).not.toContain("%");
+  });
+
+  it("repli sur l'estimation ML quand l'analyse de rôle est indisponible", async () => {
+    vi.stubGlobal("fetch", vi.fn((path: string) => Promise.resolve(
+      path.endsWith("/shap-role")
+        ? jsonResponse({ available: false, reason: "role_closed", role: "JUNGLE" })
+        : path.endsWith("/account")
+          ? jsonResponse({ slug: "Spadzze", region: "euw1" })
+          : path.endsWith("/rank")
+            ? jsonResponse({})
+            : jsonResponse({ predicted_rank: "emerald", proba: 0.7 }))));
+    wrapper = mount(AccountProfile, { props: { slug: "Spadzze", sync: fakeSync(), reloadToken: 0 } });
+    await flushPromises();
+
+    expect(card(wrapper).text()).toContain("Estimation ML");
+    expect(card(wrapper).text()).toContain("Emerald");
+    expect(card(wrapper).text()).toContain("Confiance 70%");
+  });
+
+  it("affiche un repli honnête quand ni l'analyse ni l'estimation n'existent", async () => {
+    vi.stubGlobal("fetch", vi.fn((path: string) => Promise.resolve(
+      path.endsWith("/account")
+        ? jsonResponse({ slug: "Spadzze", region: "euw1" })
+        : path.endsWith("/shap-role")
+          ? jsonResponse({ available: false, reason: "not_ingested", role: null })
+          : jsonResponse({}))));
+    wrapper = mount(AccountProfile, { props: { slug: "Spadzze", sync: fakeSync(), reloadToken: 0 } });
+    await flushPromises();
+
+    expect(card(wrapper).text()).toContain("Estimation ML");
+    expect(card(wrapper).text()).toContain("—");
+  });
+
+  it("efface la proximité à l'apex du compte précédent au changement de slug", async () => {
+    // Même bug qu'en Task 3, étendu à l'analyse de rôle : la réponse qui ne
+    // revient jamais doit laisser une carte vidée, pas la proximité à l'apex
+    // d'un autre joueur sous le pseudo du nouveau.
+    vi.stubGlobal("fetch", vi.fn((path: string) => Promise.resolve(
+      path.endsWith("/shap-role")
+        ? jsonResponse(availableRolePayload())
+        : path.endsWith("/account")
+          ? jsonResponse({ slug: "Spadzze", region: "euw1" })
+          : jsonResponse({}))));
+    wrapper = mount(AccountProfile, { props: { slug: "Spadzze", sync: fakeSync(), reloadToken: 0 } });
+    await flushPromises();
+    expect(card(wrapper).text()).toContain("Proximité à l'apex");
+
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
+    await wrapper.setProps({ slug: "autre" });
+
+    expect(card(wrapper).find(".stat-value").text()).toBe("—");
+    expect(card(wrapper).text()).not.toContain("Proximité à l'apex");
+    expect(card(wrapper).text()).not.toContain("+0.62");
   });
 });
 

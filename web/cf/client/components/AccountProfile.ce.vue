@@ -15,6 +15,13 @@ import {
 } from "../account-profile";
 import { withAuthHeaders } from "../auth";
 import type { IngestSync } from "../ingest-sync";
+import {
+  boundaryLabel,
+  formatLogit,
+  parseRoleAnalysis,
+  roleLabel,
+  type RoleAnalysisPayload,
+} from "../role-analysis";
 
 const props = withDefaults(defineProps<{
   slug: string;
@@ -42,12 +49,45 @@ interface AccountRecord {
 const account = ref<AccountRecord | null>(null);
 const rank = ref<CurrentRank | null>(null);
 const predictedRank = ref<PredictedRank | null>(null);
+const roleAnalysis = ref<RoleAnalysisPayload | null>(null);
 const rankLoading = ref(true);
 let requestSequence = 0;
 
 /** Identité affichée. Le slug seul ne sert que de repli le temps du
  * chargement : il ne porte ni l'icône ni le niveau du joueur. */
 const profile = computed(() => summonerProfile(account.value ?? props.slug));
+
+/** Priorité de la carte ML (spec §5.3) : analyse de rôle disponible →
+ * proximité à l'apex ; sinon prédiction ML publiée (comptes curés) ;
+ * sinon repli honnête. Le logit ne se convertit JAMAIS en probabilité ni
+ * en rang : MASTER n'est dans aucune classe d'entraînement. */
+interface MlCard { label: string; value: string; note: string; tier: string; emblem: string; }
+
+const mlCard = computed<MlCard>(() => {
+  const analysis = roleAnalysis.value;
+  if (analysis?.available) {
+    return {
+      label: "Proximité à l'apex",
+      value: analysis.logit !== null && analysis.logit !== undefined ? formatLogit(analysis.logit) : "?",
+      note: analysis.model?.boundary
+        ? `${roleLabel(analysis.role)} · frontière ${boundaryLabel(analysis.model.boundary)}`
+        : roleLabel(analysis.role),
+      tier: "",
+      emblem: "",
+    };
+  }
+  const prediction = predictedRank.value;
+  if (prediction?.predicted_rank) {
+    return {
+      label: "Estimation ML",
+      value: titleCase(prediction.predicted_rank),
+      note: prediction.proba ? `Confiance ${Math.round(prediction.proba * 100)}%` : "",
+      tier: tierAccent(prediction.predicted_rank),
+      emblem: rankEmblem(prediction.predicted_rank) || "",
+    };
+  }
+  return { label: "Estimation ML", value: "—", note: "", tier: "", emblem: "" };
+});
 
 async function getJson<T>(path: string): Promise<T | null> {
   try {
@@ -63,15 +103,17 @@ async function loadProfile(): Promise<void> {
   const sequence = ++requestSequence;
   rankLoading.value = true;
   const encodedSlug = encodeURIComponent(props.slug);
-  const [nextAccount, nextRank, nextPrediction] = await Promise.all([
+  const [nextAccount, nextRank, nextPrediction, nextRoleRaw] = await Promise.all([
     getJson<AccountRecord>(`/api/c/${encodedSlug}/account`),
     getJson<CurrentRank>(`/api/c/${encodedSlug}/rank`),
     getJson<PredictedRank>(`/api/c/${encodedSlug}/predicted-rank`),
+    getJson<unknown>(`/api/c/${encodedSlug}/shap-role`),
   ]);
   if (sequence !== requestSequence) return;
   account.value = nextAccount;
   rank.value = nextRank;
   predictedRank.value = nextPrediction;
+  roleAnalysis.value = parseRoleAnalysis(nextRoleRaw);
   rankLoading.value = false;
   emit("predictionLoaded", nextPrediction);
 }
@@ -83,6 +125,7 @@ watch(() => props.slug, () => {
   account.value = null;
   rank.value = null;
   predictedRank.value = null;
+  roleAnalysis.value = null;
   rankLoading.value = true;
   void loadProfile();
 });
@@ -145,7 +188,7 @@ onMounted(() => { void loadProfile(); });
       </div>
       <div
         class="profile-stat stat-ml is-clickable"
-        :class="predictedRank?.predicted_rank ? tierAccent(predictedRank.predicted_rank) : ''"
+        :class="mlCard.tier"
         tabindex="0"
         role="button"
         aria-label="Consulter l'explicabilité ML et le graphique SHAP"
@@ -155,19 +198,19 @@ onMounted(() => { void loadProfile(); });
       >
         <div class="rank-stat-layout">
           <img
-            v-if="predictedRank?.predicted_rank && rankEmblem(predictedRank.predicted_rank)"
+            v-if="mlCard.emblem"
             class="rank-emblem rank-emblem-mini"
-            :src="rankEmblem(predictedRank.predicted_rank)"
-            :alt="predictedRank.predicted_rank"
+            :src="mlCard.emblem"
+            alt=""
             loading="eager"
           >
           <div class="rank-stat-text">
             <div class="stat-label-with-action">
-              <span class="stat-label">Estimation ML</span>
+              <span class="stat-label">{{ mlCard.label }}</span>
               <span class="stat-cta-pill">SHAP →</span>
             </div>
-            <strong class="stat-value">{{ predictedRank?.predicted_rank ? titleCase(predictedRank.predicted_rank) : "—" }}</strong>
-            <span v-if="predictedRank?.proba" class="stat-note">Confiance {{ Math.round(predictedRank.proba * 100) }}%</span>
+            <strong class="stat-value">{{ mlCard.value }}</strong>
+            <span v-if="mlCard.note" class="stat-note">{{ mlCard.note }}</span>
           </div>
         </div>
       </div>
