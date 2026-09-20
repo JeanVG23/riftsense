@@ -57,6 +57,11 @@ LADDER_DIR := $(RAW_DIR)/rank_snapshots/$(PLATFORM)
 SNAPSHOT_DAY ?= $(shell python3 -c "import json,pathlib; p=pathlib.Path('$(LADDER_DIR)/manifest.json'); m=json.loads(p.read_text()) if p.exists() else {}; print(max((d for d, v in m.items() if v.get('complete')), default=''))" 2>/dev/null)
 LADDER := $(LADDER_DIR)/$(SNAPSHOT_DAY).jsonl.zst
 
+# La certification d'ouverture d'un rôle. Hors de $(DATA) : c'est une décision
+# du dépôt, versionnée, et non une couche du médaillon. Surchargeable pour que
+# les tests du graphe la datent où ils veulent sans toucher au fichier réel.
+ROLE_CORPUS ?= config/role_corpus.json
+
 ROLE_GAMES   := $(foreach role,$(ROLES_LC),$(DATASET)/$(role)_dataset.parquet)
 ROLE_WINDOWS := $(foreach role,$(ROLES_LC),$(DATASET)/$(role)_player_dataset.parquet)
 ROLE_METRICS := $(foreach role,$(ROLES_LC),$(MODEL)/$(role)_player_metrics.json)
@@ -263,8 +268,12 @@ $(ROLE_EXPORTS): $(MODEL)/%_ebm_export.json: $(MODEL)/%_player_metrics.json
 
 # La table d'ouverture relit les cinq métriques : elle dépend des cinq, sinon
 # elle publierait une marge calculée sur un modèle et une autre sur un modèle
-# d'avant-hier, sans que rien ne les distingue.
-$(MODEL)/role_readiness.json: $(ROLE_METRICS) $(ROLE_EXPORTS) src/pipeline_ops/role_readiness.py $(CORE)
+# d'avant-hier, sans que rien ne les distingue. Elle relit aussi la
+# certification : sans cette dépendance, éditer $(ROLE_CORPUS) ne périmerait
+# rien et `make roles` répondrait « rien à faire » juste après la décision qui
+# compte, laissant partir en image une table qui dit encore `research`.
+$(MODEL)/role_readiness.json: $(ROLE_METRICS) $(ROLE_EXPORTS) $(ROLE_CORPUS) \
+                              src/pipeline_ops/role_readiness.py $(CORE)
 	$(PY) src/pipeline_ops/role_readiness.py
 
 roles: $(MODEL)/role_readiness.json

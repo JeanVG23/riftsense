@@ -55,7 +55,7 @@ async function fetchRanks(): Promise<void> {
     try {
       const res = await fetch(`/api/c/${encodeURIComponent(acc.slug)}/rank`);
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as CurrentRank;
         if (data?.tier) dynamicRanks.value[acc.slug] = data;
       }
     } catch {

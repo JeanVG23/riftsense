@@ -213,6 +213,7 @@ service/          Service d'ingestion Cloud Run (Flask + gunicorn, 1 worker/1 th
 shared/         prompts/*.txt (source de vérité, lue par prompt.py ET par le Worker)
                 + schemas/*.json (générés depuis Pydantic)
 config/           accounts.json (ignoré, données perso) + accounts.example.json (gabarit)
+                  role_corpus.json (VERSIONNÉ : certification d'ouverture par rôle)
 ```
 ⚠️ `web/backend/` (FastAPI, ère Fly.io) a été SUPPRIMÉ le 2026-09-04. Les trois modules
 qui n'étaient pas du serving et que la collecte locale utilise toujours ont migré :
@@ -481,9 +482,23 @@ Entrées : `make ladder` (réseau), puis `make roles` (hors-ligne).
   même bruit d'échantillonnage par deux chemins, et chacune peut sous-estimer
   l'autre à faible effectif. `pass_rate` (part des tirages qui passeraient seuls)
   est un diagnostic publié, pas un critère. Des métriques d'avant le held-out
-  répété font sauter le rôle avec un message, elles ne sont pas relues de travers. ⚠️ `DEFAULT_CORPUS = "research"` : certifier le corpus est un geste
-  écrit à la main, jamais l'effet d'une régénération. Aucun repli sur les anciennes
-  métriques `utility_*` (servir l'AUC d'un modèle sous le nom d'un autre).
+  répété font sauter le rôle avec un message, elles ne sont pas relues de travers.
+  Aucun repli sur les anciennes métriques `utility_*` (servir l'AUC d'un modèle
+  sous le nom d'un autre).
+  ⚠️ **La certification vit dans `config/role_corpus.json`, versionné**, pas dans
+  `role_readiness.json`, que `make roles` réécrit en entier : posée là, elle
+  disparaîtrait au premier réentraînement, sans bruit et sans trace. Chaque entrée
+  porte le `model_id` qu'elle certifie, et ce `model_id` est l'empreinte de la
+  FONCTION DE SCORE (`ebm_lookup.compute_model_id` : sha256 de role/boundary/
+  features/intercept/terms), pas un identifiant de run. La certification survit
+  donc à une reconstruction identique (`make roles` sur les mêmes données rend les
+  mêmes `model_id`, mesuré le 2026-09-20) et meurt dès que le modèle calcule autre
+  chose, ce qui referme le rôle de lui-même. Sans ce lien, certifier ouvrirait au
+  public le modèle SUIVANT, que personne n'a lu. Il n'y a plus de
+  drapeau `--corpus` : un drapeau certifie sans laisser de trace dans un diff, et
+  ferait une seconde source de vérité. Le fichier est une dépendance make de la
+  table (`ROLE_CORPUS`), sinon éditer la certification ne périmerait rien et
+  `make roles` répondrait « rien à faire » juste après la décision qui compte.
 - **`service/role_scoring.py`** : sert l'EBM du rôle à un visiteur inscrit.
   ⚠️ Le modèle n'est PAS embarqué en pickle mais en table de correspondance JSON
   (`<role>_ebm_export.json`, écrit par `train_role_ensemble.py`) : un pickle

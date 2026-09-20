@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import fnmatch
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -132,3 +134,58 @@ def test_fnmatch_n_est_pas_la_semantique_docker():
     """Pourquoi ce module traduit les motifs au lieu d'appeler fnmatch."""
     assert fnmatch.fnmatch("data/05_model/x.pkl", "*.pkl")
     assert not _exclu("data/05_model/x.pkl", ["*.pkl"])
+
+
+def test_un_seul_dockerfile_decrit_le_service():
+    """Deux Dockerfile, c'est un qui ment. Lequel ? Celui qu'on ne teste pas.
+
+    `service/Dockerfile` a survécu au déplacement du contexte de build à la
+    racine : figé sur `--timeout 300`, sans `COPY data/05_model/`. Construire
+    depuis celui-là rend les cinq rôles `model_missing`, et rien ne le dirait
+    avant la première analyse vide en production.
+    """
+    trouves = sorted(str(p.relative_to(ROOT)) for p in ROOT.rglob("Dockerfile")
+                     if ".venv" not in p.parts and "node_modules" not in p.parts)
+    assert trouves == ["Dockerfile"], trouves
+
+
+@pytest.mark.skipif(shutil.which("gcloud") is None, reason="gcloud absent")
+def test_le_contexte_televerse_par_gcloud_porte_les_exports():
+    """`.dockerignore` et `.gcloudignore` decident du MEME contenu d'image.
+
+    Deux fichiers, deux syntaxes (Docker et gitignore), et un seul d'entre eux
+    etait a jour : `.dockerignore` a recu les exports le 2026-09-18, pas
+    `.gcloudignore`. Un `gcloud run deploy --source .` televersait donc un
+    contexte sans `data/05_model/`, ou le `COPY` du Dockerfile echoue.
+
+    Le test interroge gcloud lui-meme plutot que de relire les motifs : la
+    regle « un parent exclu ne se reinclut pas » de gitignore est exactement
+    le genre de detail qu'une relecture manque.
+    """
+    listing = subprocess.run(["gcloud", "meta", "list-files-for-upload"],
+                             cwd=ROOT, capture_output=True, text=True, check=True)
+    televerses = set(listing.stdout.split())
+    attendus = {"data/05_model/role_readiness.json"} | {
+        f"data/05_model/{role}_ebm_export.json"
+        for role in ("top", "jungle", "middle", "bottom", "support")}
+    manquants = sorted(attendus - televerses)
+    assert not manquants, f"absents du contexte televerse : {manquants}"
+
+
+@pytest.mark.skipif(shutil.which("gcloud") is None, reason="gcloud absent")
+def test_le_contexte_televerse_n_emporte_ni_pickles_ni_donnees_perso():
+    """Le pendant du test precedent : reinclure trop est aussi un defaut.
+
+    `config/accounts.json` porte les comptes Riot personnels et n'a rien a
+    faire dans un build distant ; les pickles pesent 46 Mo que l'export existe
+    precisement pour eviter.
+    """
+    listing = subprocess.run(["gcloud", "meta", "list-files-for-upload"],
+                             cwd=ROOT, capture_output=True, text=True, check=True)
+    televerses = set(listing.stdout.split())
+    indesirables = sorted(
+        chemin for chemin in televerses
+        if chemin.endswith(".pkl") or chemin.endswith(".pt")
+        or chemin == "config/accounts.json"
+        or chemin.startswith((".pytest_cache/", ".ruff_cache/", "poc/")))
+    assert not indesirables, f"televerses a tort : {indesirables}"

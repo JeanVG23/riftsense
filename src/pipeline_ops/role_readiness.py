@@ -21,6 +21,46 @@ DEFAULT_CORPUS = "research"
 capture du rang (`label_age_days` le mesure sans le refuser) ; annoncer
 production doit donc rester un geste écrit à la main."""
 
+CORPUS_FILE = rl.ROOT / "config" / "role_corpus.json"
+"""Où vit ce geste. Pas dans `role_readiness.json`, que `make roles` réécrit en
+entier : une certification posée là disparaîtrait au premier réentraînement,
+sans bruit et sans trace. Ici elle est versionnée, donc datée et attribuée par
+git. Sous `ROOT` et non sous `DATA` : c'est une décision du dépôt, pas une
+couche du médaillon, et `COACHING_DATA_DIR` n'a pas à la déplacer."""
+
+
+def load_corpus_table(path=None) -> dict:
+    """Certifications par rôle, ou une table vide si le fichier manque.
+
+    Un clone frais n'a pas à porter ce fichier pour que `make roles` tourne, et
+    un JSON cassé ferme les rôles au lieu de faire tomber la régénération : les
+    deux échecs rendent la table vide, donc `research` partout.
+    """
+    path = Path(path) if path is not None else CORPUS_FILE
+    try:
+        raw = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    return {rf.normalize_role(role): entry for role, entry in raw.items()
+            if isinstance(entry, dict)}
+
+
+def resolve_corpus(role: str, model_id: str | None, table: dict) -> str:
+    """Corpus certifié pour ce rôle CE modèle-ci, sinon `research`.
+
+    La certification porte le `model_id` qu'elle certifie. Un réentraînement en
+    produit un autre, donc périme la certification et referme le rôle de
+    lui-même. Sans ce lien, la certification voyagerait vers le modèle suivant
+    et ouvrirait au public des chiffres que personne n'a lus.
+    """
+    entry = table.get(rf.normalize_role(role)) or {}
+    certified = entry.get("model_id")
+    if entry.get("corpus") == "production" and certified and certified == model_id:
+        return "production"
+    return DEFAULT_CORPUS
+
 
 def _stderr(auc: float, n_players: int) -> float:
     """Approximation de Hanley-McNeil pour un échantillon équilibré."""
@@ -84,7 +124,9 @@ def readiness(metrics: dict, *, threshold: float = THRESHOLD,
 
 def main() -> int:
     threshold = float(cli.arg("--threshold", THRESHOLD))
-    corpus = cli.arg("--corpus", DEFAULT_CORPUS)
+    # Aucun `--corpus` : un drapeau certifierait sans laisser de trace dans un
+    # diff, et ferait une seconde source de vérité à côté du fichier.
+    table = load_corpus_table(CORPUS_FILE)
     rows = []
     for role in rf.ROLES:
         # Aucun repli sur `utility_player_metrics.json` : ces métriques ne sont
@@ -94,12 +136,15 @@ def main() -> int:
         if not path.exists():
             print(f"  ⚠ {role} : métriques absentes ({path.name})")
             continue
+        metrics = json.loads(path.read_text())
+        # Le rôle du NOM DE FICHIER, pas celui des métriques : c'est le fichier
+        # que `make roles` régénère, et donc l'entrée que l'on certifie.
+        corpus = resolve_corpus(role, metrics.get("model_id"), table)
         # Des métriques d'avant le held-out répété n'ont pas de médiane.
         # Prendre leur `auc_heldout` pour une servirait un tirage unique sous
         # le nom d'une statistique robuste : on saute le rôle et on le dit.
         try:
-            rows.append(readiness(json.loads(path.read_text()),
-                                  threshold=threshold, corpus=corpus))
+            rows.append(readiness(metrics, threshold=threshold, corpus=corpus))
         except KeyError:
             print(f"  ⚠ {role} : métriques d'un seul tirage, relancer "
                   f"train_role_ensemble.py --role {role.lower()}")

@@ -1,22 +1,36 @@
 .gcloudignore
 .git
 .gitignore
+.DS_Store
 
 # Python & virtualenv
 .venv/
 venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.ruff_cache/
 
-# Secrets
+# Secrets et données personnelles
 .env*
 r2_secret
+config/accounts.json
 
 # Données : exclure tout data/* SAUF data/00_static (catalogue statique nécessaire au service)
 data/*
 !data/00_static
 !data/00_static/**
-poc/output/
+# ... et SAUF les artefacts servis, exactement ceux que .dockerignore réinclut.
+# Deux fichiers, deux syntaxes : ici c'est gitignore, où un parent exclu ne se
+# réinclut pas par ses enfants. Il faut donc rendre `data/05_model` d'abord,
+# puis ré-exclure son contenu (46 Mo de pickles), puis rendre les six fichiers.
+# `tests/test_service_packaging.py` interroge `gcloud meta list-files-for-upload`
+# plutôt que de relire ces motifs : c'est ce détail-là qu'une relecture manque.
+!data/05_model
+data/05_model/*
+!data/05_model/*_ebm_export.json
+!data/05_model/role_readiness.json
+poc/
 *.parquet
 *.duckdb
 *.rofl

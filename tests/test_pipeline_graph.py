@@ -7,7 +7,9 @@ tient debout et que l'ordre topologique est celui du pipeline medallion.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -131,3 +133,90 @@ def test_le_jour_retenu_est_le_dernier_snapshot_complet(tmp_path):
         "2026-09-17": {"complete": True, "n_rows": 10},
         "2026-09-18": {"complete": False}}))
     assert _var("SNAPSHOT_DAY", tmp_path) == "2026-09-17"
+
+
+# --- la certification par role ----------------------------------------------
+
+ROLES_LC = ("top", "jungle", "middle", "bottom", "support")
+SNAPSHOT = "2026-09-17"
+
+
+def _chaine_par_role_a_jour(data: Path) -> float:
+    """Fabrique une chaine par role entierement fraiche, et rend son horodatage.
+
+    Tous les artefacts sont dates APRES le code du depot : sans cela, make les
+    reconstruirait a cause d'un `src/core/*.py` plus recent, et le test passerait
+    pour une raison qui n'a rien a voir avec ce qu'il mesure.
+    """
+    ladder = data / "01_raw" / "rank_snapshots" / "euw1"
+    ladder.mkdir(parents=True)
+    (ladder / "manifest.json").write_text(
+        json.dumps({SNAPSHOT: {"complete": True, "n_rows": 10}}))
+
+    fichiers = [data / ".stamps" / "raw", data / ".stamps" / "silver",
+                ladder / f"{SNAPSHOT}.jsonl.zst", ladder / "manifest.json",
+                data / "05_model" / "role_readiness.json"]
+    for role in ROLES_LC:
+        fichiers += [data / "04_dataset" / f"{role}_dataset.parquet",
+                     data / "04_dataset" / f"{role}_player_dataset.parquet",
+                     data / "05_model" / f"{role}_player_metrics.json",
+                     data / "05_model" / f"{role}_ebm_export.json"]
+
+    horodatage = max(p.stat().st_mtime for p in (ROOT / "src").rglob("*.py")) + 1000
+    for chemin in fichiers:
+        chemin.parent.mkdir(parents=True, exist_ok=True)
+        if not chemin.exists():
+            chemin.write_text("x")
+        os.utime(chemin, (horodatage, horodatage))
+    return horodatage
+
+
+def _roles_a_relancer(data: Path, corpus: Path) -> list[str]:
+    """Ce que `make roles` relancerait. `-o force` masque le temoin du raw, qui
+    est reevalue a chaque invocation et rendrait toute chaine perimee sous -n."""
+    out = subprocess.run(
+        ["make", "-n", "-o", "force", "roles", f"DATA={data}",
+         f"ROLE_CORPUS={corpus}"],
+        cwd=ROOT, capture_output=True, text=True, check=True)
+    return [ln.strip() for ln in out.stdout.splitlines() if "src/" in ln]
+
+
+def test_une_chaine_par_role_a_jour_ne_relance_rien(tmp_path):
+    """Temoin du test suivant : sans lui, « make relance » ne prouverait rien."""
+    horodatage = _chaine_par_role_a_jour(tmp_path)
+    corpus = tmp_path / "role_corpus.json"
+    corpus.write_text("{}")
+    os.utime(corpus, (horodatage - 100, horodatage - 100))
+
+    assert _roles_a_relancer(tmp_path, corpus) == []
+
+
+def test_certifier_un_role_perime_la_table_d_ouverture(tmp_path):
+    """Certifier un role sans regenerer la table, c'est deployer l'ancienne.
+
+    La certification vit dans un fichier versionne ; si make ne la connait pas,
+    `make roles` repond « rien a faire » apres l'edition et l'image part avec
+    une table qui dit encore `research`.
+    """
+    horodatage = _chaine_par_role_a_jour(tmp_path)
+    corpus = tmp_path / "role_corpus.json"
+    corpus.write_text('{"BOTTOM": {"corpus": "production"}}')
+    os.utime(corpus, (horodatage + 100, horodatage + 100))
+
+    assert _roles_a_relancer(tmp_path, corpus) == [
+        "poetry run python3 src/pipeline_ops/role_readiness.py"]
+
+
+def test_le_makefile_et_le_script_designent_la_meme_certification(tmp_path):
+    """Deux chemins pour un seul fichier : ils doivent rester le meme.
+
+    Le Makefile s'en sert pour perimer la table, le script pour la lire. S'ils
+    divergent, make perime sur un fichier que personne ne lit, et l'edition qui
+    compte ne perime plus rien.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "rr_graph", ROOT / "src" / "pipeline_ops" / "role_readiness.py")
+    rr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(rr)
+
+    assert Path(_var("ROLE_CORPUS", tmp_path)) == rr.CORPUS_FILE.relative_to(ROOT)

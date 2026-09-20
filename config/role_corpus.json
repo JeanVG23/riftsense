@@ -1,0 +1,24 @@
+{
+  "_comment": "Certification d'ouverture publique, un rôle par entrée. Lu par src/pipeline_ops/role_readiness.py, qui n'ouvre un rôle que si corpus vaut production ET que model_id est celui du modèle courant ET que la marge est positive. Le model_id se lit dans data/05_model/<role>_player_metrics.json : c'est l'empreinte de la fonction de score, donc une reconstruction à l'identique le conserve et seul un modèle qui calcule autre chose referme le rôle. Certifier est un geste manuel : on écrit ici ce qu'on a lu dans la table d'ouverture, on ne le déduit pas d'une marge.",
+  "TOP": {
+    "corpus": "research"
+  },
+  "JUNGLE": {
+    "corpus": "production",
+    "certified_on": "2026-09-20",
+    "model_id": "3ba28259bc3ef6e7"
+  },
+  "MIDDLE": {
+    "corpus": "research"
+  },
+  "BOTTOM": {
+    "corpus": "production",
+    "certified_on": "2026-09-20",
+    "model_id": "d6682718b95938a6"
+  },
+  "SUPPORT": {
+    "corpus": "production",
+    "certified_on": "2026-09-20",
+    "model_id": "4959329a45fe6613"
+  }
+}
