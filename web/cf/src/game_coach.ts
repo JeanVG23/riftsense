@@ -33,12 +33,14 @@ export async function* gameCoachFlow(
   deps: { kv: KVLike; generate: GameGenerateFn; now: () => string },
   params: GameCoachParams,
 ): AsyncGenerator<GameSseEvent> {
-  const [bundle, reviews] = await Promise.all([
+  const [bundle, reviews, promptVersion] = await Promise.all([
     readGamePayloadBundle(deps.kv, params.slug),
     readJsonl<JsonRecord>(deps.kv, KEYS.reviews(params.slug)),
+    versionOf(SYSTEM_GAME),
   ]);
   const cached = [...reviews].reverse().find((record) =>
     record.kind === "game" && (record.match_id ?? record.payload?.meta?.match_id) === params.matchId
+    && record.run?.prompt_version === promptVersion
   );
   if (cached && !params.force) {
     yield { event: "review", data: { ...cached, cached: true } };
@@ -47,7 +49,7 @@ export async function* gameCoachFlow(
 
   const entry = bundle.items[params.matchId];
   if (!entry) {
-    yield { event: "error", data: { error: "partie non analysable — relance le sync local" } };
+    yield { event: "error", data: { error: "this game cannot be analyzed — refresh the account data" } };
     return;
   }
 
@@ -63,11 +65,11 @@ export async function* gameCoachFlow(
       ));
     }
   } catch (error) {
-    yield { event: "error", data: { error: `génération LLM : ${errorMessage(error)}` } };
+    yield { event: "error", data: { error: `LLM generation: ${errorMessage(error)}` } };
     return;
   }
   if (review === null) {
-    yield { event: "error", data: { error: "sortie LLM non conforme après 2 tentatives" } };
+    yield { event: "error", data: { error: "LLM output did not match the schema after 2 attempts" } };
     return;
   }
 
@@ -100,12 +102,12 @@ export async function apiGameCoach(request: Request, env: Env): Promise<Response
     slug?: unknown; match_id?: unknown; model?: unknown; force?: unknown;
   } | null;
   if (!body || typeof body.slug !== "string" || typeof body.match_id !== "string") {
-    return unprocessable("slug ou match_id invalide");
+    return unprocessable("invalid slug or match_id");
   }
-  if (!await readAccount(env.DATA, body.slug)) return notFound("compte inconnu");
-  if (!env.OLLAMA_API_KEY) return jsonError(500, "OLLAMA_API_KEY non configuré");
+  if (!await readAccount(env.DATA, body.slug)) return notFound("unknown account");
+  if (!env.OLLAMA_API_KEY) return jsonError(500, "OLLAMA_API_KEY is not configured");
   if (body.force !== undefined && typeof body.force !== "boolean") {
-    return unprocessable("force doit être un booléen");
+    return unprocessable("force must be a boolean");
   }
   const params: GameCoachParams = {
     slug: body.slug,

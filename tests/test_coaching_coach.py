@@ -113,11 +113,11 @@ def test_specialized_review_runs_two_axes_then_chief_without_rewriting(monkeypat
     }
 
     def fake_generate(model, system, user, schema, **kwargs):
-        if "agent chef" in system:
+        if "lead agent" in system:
             return _gen(chief)
-        if "MORTS & POSITIONNEMENT" in system:
+        if "DEATHS & POSITIONING" in system:
             return _gen(death)
-        if "ÉCONOMIE & BUILD" in system:
+        if "ECONOMY & BUILD" in system:
             return _gen(economy)
         raise AssertionError(system)
 

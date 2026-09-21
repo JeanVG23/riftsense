@@ -120,7 +120,7 @@ export function roleLabel(role?: string): string {
 export function queueLabel(queue?: number): string {
   if (queue === 420) return "Solo/Duo";
   if (queue === 440) return "Flex";
-  return "Partie";
+  return "Game";
 }
 
 const count = (value: number | unknown[] | undefined): number => Array.isArray(value) ? value.length : Number(value || 0);
@@ -159,9 +159,9 @@ export function formatGold(value: unknown): string {
 export function zoneLabel(zone?: string): string {
   const labels: Record<string, string> = {
     MID: "Mid lane", BOT: "Bot lane", TOP: "Top lane",
-    "JUNGLE/RIVER": "Jungle / Rivière", BASE: "Base alliée", ENEMY_BASE: "Base ennemie",
+    "JUNGLE/RIVER": "Jungle / River", BASE: "Allied base", ENEMY_BASE: "Enemy base",
   };
-  return zone ? labels[zone] || zone : "Zone inconnue";
+  return zone ? labels[zone] || zone : "Unknown area";
 }
 
 function teamPlayers(game: GameSummary, side: "self" | "enemy"): TeamPlayer[] {
@@ -185,10 +185,10 @@ export function sideSummary(game: GameSummary): string | null {
   if (!sides?.ally_start && !sides?.enemy_start) return null;
   const allyBotWeak = sides.ally_weakside === "BOT";
   const enemyBotWeak = sides.enemy_weakside === "BOT";
-  if (allyBotWeak && enemyBotWeak) return "Double Weakside bot : les deux junglers jouent vers le Top en early (0-4m).";
-  if (!allyBotWeak && !enemyBotWeak) return "Double Strongside bot : les deux junglers jouent vers le Bot en early (0-4m).";
-  if (!allyBotWeak && enemyBotWeak) return "Avantage Bot : ton jungler joue vers le Bot (Strongside), le jungler adverse joue vers le Top (Weakside).";
-  return "Attention Bot : ton jungler joue vers le Top (Weakside), le jungler adverse joue vers le Bot (Strongside).";
+  if (allyBotWeak && enemyBotWeak) return "Double bot weakside: both junglers path toward top in the early game (0–4 min).";
+  if (!allyBotWeak && !enemyBotWeak) return "Double bot strongside: both junglers path toward bot in the early game (0–4 min).";
+  if (!allyBotWeak && enemyBotWeak) return "Bot advantage: your jungler paths bot (strongside), while the enemy jungler paths top (weakside).";
+  return "Bot warning: your jungler paths top (weakside), while the enemy jungler paths bot (strongside).";
 }
 
 export function objectiveIcon(objective: GameObjective): string {
@@ -210,29 +210,29 @@ export function objectiveLabel(objective: GameObjective): string {
   if (objective.type === "DRAGON") {
     const sub = objective.sub_type || "";
     const variants: Array<[string, string]> = [
-      ["FIRE", "Dragon Infernal"], ["WATER", "Dragon des Océans"], ["EARTH", "Dragon des Montagnes"],
-      ["AIR", "Dragon des Nuages"], ["HEXTECH", "Dragon Hextech"], ["CHEMTECH", "Dragon Chimico"],
-      ["ELDER", "Dragon Ancestral"],
+      ["FIRE", "Infernal Drake"], ["WATER", "Ocean Drake"], ["EARTH", "Mountain Drake"],
+      ["AIR", "Cloud Drake"], ["HEXTECH", "Hextech Drake"], ["CHEMTECH", "Chemtech Drake"],
+      ["ELDER", "Elder Dragon"],
     ];
     return variants.find(([key]) => sub.includes(key))?.[1] || "Dragon";
   }
-  if (objective.type === "HORDE") return "Larves du Néant";
-  if (objective.type === "RIFTHERALD") return "Héraut de la Faille";
+  if (objective.type === "HORDE") return "Void Grubs";
+  if (objective.type === "RIFTHERALD") return "Rift Herald";
   if (objective.type === "BARON_NASHOR") return "Baron Nashor";
   if (objective.type === "TURRET") {
-    const lane = ({ BOT_LANE: "Bot", MID_LANE: "Mid", TOP_LANE: "Top" } as Record<string, string>)[objective.lane || ""] || "Tour";
+    const lane = ({ BOT_LANE: "Bot", MID_LANE: "Mid", TOP_LANE: "Top" } as Record<string, string>)[objective.lane || ""] || "Turret";
     const tower = ({ OUTER_TURRET: "T1", INNER_TURRET: "T2", BASE_TURRET: "T3", NEXUS_TURRET: "T4" } as Record<string, string>)[objective.tower_type || ""] || "";
-    return `Tour ${lane} ${tower}`.trim();
+    return `${lane} Turret ${tower}`.trim();
   }
-  return objective.type || "Objectif";
+  return objective.type || "Objective";
 }
 
 export function combatEvents(game: GameSummary, filter: CombatFilter): CombatEvent[] {
   const source = (value: number | TimelineEvent[] | undefined): TimelineEvent[] => Array.isArray(value) ? value : [];
   const events: CombatEvent[] = [
-    ...source(game.kills).map((event) => ({ ...event, type: "kill" as const, champ: event.victim_champ || "Ennemi" })),
-    ...source(game.deaths).map((event) => ({ ...event, type: "death" as const, champ: event.killer_champ || "Ennemi" })),
-    ...source(game.assists).map((event) => ({ ...event, type: "assist" as const, champ: event.victim_champ || "Ennemi" })),
+    ...source(game.kills).map((event) => ({ ...event, type: "kill" as const, champ: event.victim_champ || "Enemy" })),
+    ...source(game.deaths).map((event) => ({ ...event, type: "death" as const, champ: event.killer_champ || "Enemy" })),
+    ...source(game.assists).map((event) => ({ ...event, type: "assist" as const, champ: event.victim_champ || "Enemy" })),
   ];
   const rank: Record<CombatEvent["type"], number> = { kill: 1, assist: 2, death: 3 };
   events.sort((left, right) => left.minute - right.minute || rank[left.type] - rank[right.type]);
@@ -251,7 +251,7 @@ export function formatGameDate(value?: number | string | null): string {
   const num = typeof value === "number" ? value : Number(value);
   const date = !Number.isNaN(num) && num > 0 ? new Date(num) : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -263,7 +263,7 @@ export function formatFullDate(value?: number | string | null): string {
   const num = typeof value === "number" ? value : Number(value);
   const date = !Number.isNaN(num) && num > 0 ? new Date(num) : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     day: "numeric",
     month: "long",

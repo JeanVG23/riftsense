@@ -43,8 +43,8 @@ describe("RegisterForm", () => {
     const wrapper = mount(RegisterForm, { props: { mode: "status" } });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Ce Riot ID est introuvable");
-    expect(wrapper.text()).toContain("Revenir au formulaire");
+    expect(wrapper.text()).toContain("We couldn't find this Riot ID");
+    expect(wrapper.text()).toContain("Back to the form");
   });
 
   it("arrête le sondage au démontage", async () => {

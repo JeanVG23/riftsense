@@ -92,16 +92,16 @@ export async function isAuthorized(request: Request, env: Env): Promise<boolean>
 export async function apiLogin(request: Request, env: Env): Promise<Response> {
   const secret = env.COACH_AUTH_PASSWORD;
   if (!secret) {
-    return jsonError(500, "COACH_AUTH_PASSWORD non configuré sur le serveur");
+    return jsonError(500, "COACH_AUTH_PASSWORD is not configured on the server");
   }
 
   const body = await request.json().catch(() => null) as { password?: unknown } | null;
   if (!body || typeof body.password !== "string" || !body.password) {
-    return unprocessable("mot de passe requis");
+    return unprocessable("password is required");
   }
 
   if (!verifyPassword(body.password, secret)) {
-    return unauthorized("Mot de passe incorrect");
+    return unauthorized("Incorrect password");
   }
 
   const token = await createAuthToken(secret);

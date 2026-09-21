@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { gameCoachFlow, type GameCoachParams } from "../src/game_coach";
 import { KEYS, readJsonl, type KVLike } from "../src/readers";
 import { GAME_REVIEW_SCHEMA_VERSION } from "../src/generated/shared";
+import { SYSTEM_GAME, versionOf } from "../src/prompt";
 
 class MemoryKV implements KVLike {
   store = new Map<string, string>();
@@ -60,7 +61,10 @@ describe("gameCoachFlow", () => {
 
   it("retourne le cache sans appeler le LLM", async () => {
     const kv = new MemoryKV();
-    const cached = { ts: "old", kind: "game", match_id: "EUW1_42", review: REVIEW };
+    const cached = {
+      ts: "old", kind: "game", match_id: "EUW1_42", review: REVIEW,
+      run: { prompt_version: await versionOf(SYSTEM_GAME) },
+    };
     await kv.put(KEYS.reviews("spadzze"), JSON.stringify(cached));
     let calls = 0;
     const events = await collect(gameCoachFlow({
@@ -69,6 +73,20 @@ describe("gameCoachFlow", () => {
     expect(calls).toBe(0);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ event: "review", data: { ts: "old", cached: true } });
+  });
+
+  it("ignore une review issue d'un ancien prompt", async () => {
+    const kv = await seed();
+    await kv.put(KEYS.reviews("spadzze"), JSON.stringify({
+      ts: "old", kind: "game", match_id: "EUW1_42", review: REVIEW,
+      run: { prompt_version: "legacy-french-prompt" },
+    }));
+    let calls = 0;
+    const events = await collect(gameCoachFlow({
+      kv, generate: async () => { calls += 1; return REVIEW; }, now: () => "new",
+    }, PARAMS));
+    expect(calls).toBe(1);
+    expect(events.map((event) => event.event)).toEqual(["payload", "llm", "review"]);
   });
 
   it("force une nouvelle génération sans écraser l'ancienne", async () => {

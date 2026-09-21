@@ -95,13 +95,13 @@ describe("ShapProfile · état disponible", () => {
     await flushPromises();
 
     expect(fetchMock.mock.calls[0][0]).toBe("/api/c/Spadzze/shap-role");
-    expect(wrapper.text()).toContain("Ce qui influence ton profil ML");
-    expect(wrapper.text()).toContain("20 dernières parties Jungle");
-    expect(wrapper.text()).toContain("générée le");
-    expect(wrapper.text()).toContain("Proximité à l'apex");
+    expect(wrapper.text()).toContain("What shapes your ML profile");
+    expect(wrapper.text()).toContain("latest 20 Jungle games");
+    expect(wrapper.text()).toContain("generated");
+    expect(wrapper.text()).toContain("Apex proximity");
     expect(wrapper.text()).toContain("+0.62");
-    expect(wrapper.text()).toContain("Frontière Diamond ↔ GM+");
-    expect(wrapper.text()).toContain("AUC médiane 0.83 sur 10 tirages");
+    expect(wrapper.text()).toContain("Diamond ↔ GM+ boundary");
+    expect(wrapper.text()).toContain("median AUC 0.83 across 10 runs");
     expect(chartMock.configs).toHaveLength(1);
     expect((chartMock.configs[0].data as { labels: string[] }).labels).toHaveLength(16);
   });
@@ -117,7 +117,7 @@ describe("ShapProfile · état disponible", () => {
     expect(wrapper.text()).not.toContain("Challenger");
   });
 
-  it("enrichit le tooltip : contribution, valeur, catégorie, bascule", async () => {
+  it("enrichit le tooltip avec valeur formatée, définition et nom technique", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
       drivers: [
         { feature: "csm10__mean", base: "csm10", value: 7.3, contribution: 0.21, crossover_value: 7.14, direction: "valeur haute → apex", category: "actionable" },
@@ -131,16 +131,25 @@ describe("ShapProfile · état disponible", () => {
     const label = chartMock.configs[0].options.plugins.tooltip.callbacks.label;
     expect(label({ dataIndex: 0, raw: 0.21 })).toEqual([
       "Contribution 0.2100",
-      "Valeur 7.3",
-      "Levier",
-      "Bascule ≈ 7.14",
+      "Value 7.3 CS/min",
+      "Actionable factor",
+      "Crossover ≈ 7.14 CS/min",
     ]);
     const descriptive = label({ dataIndex: 1, raw: -0.05 });
-    expect(descriptive).toContain("Contexte");
-    expect(descriptive).not.toContain("Bascule");
+    expect(descriptive).toContain("Context only");
+    expect(descriptive.some((line: string) => line.startsWith("Crossover"))).toBe(false);
+
+    const afterLabel = chartMock.configs[0].options.plugins.tooltip.callbacks.afterLabel;
+    const details = afterLabel({ dataIndex: 0 });
+    expect(details.at(-1)).toBe("Technical feature: csm10__mean");
+    expect(details.slice(0, -1).join(" ")).toBe(
+      "Definition: Your farming pace during the first 10 minutes, including lane minions and jungle monsters.");
+    expect(chartMock.configs[0].options.interaction).toEqual({
+      mode: "index", axis: "y", intersect: false,
+    });
   });
 
-  it("labellise par la base, désambiguisée quand deux agrégations la partagent", async () => {
+  it("affiche le libellé anglais et rend toujours l'agrégation explicite", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
       drivers: [
         { feature: "csm10__mean", base: "csm10", value: 7.3, contribution: 0.3, crossover_value: null, direction: null, category: "actionable" },
@@ -152,16 +161,15 @@ describe("ShapProfile · état disponible", () => {
     await flushPromises();
     await flushPromises();
 
-    // La base est le label affiché (nom technique sans suffixe d'agrégation,
-    // spec §3) ; la paire csm10 retombe sur le nom complet pour rester
-    // distinguable, la base seule ne suffirait plus. Le marqueur « (contexte) »
-    // s'ajoute APRÈS cette désambiguation (ward_score est descriptive) : il ne
-    // change pas quelles bases sont jugées partagées.
     expect((chartMock.configs[0].data as { labels: string[] }).labels)
-      .toEqual(["csm10__mean", "csm10__max", "ward_score (contexte)"]);
+      .toEqual([
+        "CS per minute at 10 minutes — average",
+        "CS per minute at 10 minutes — max",
+        "Ward score — average (context)",
+      ]);
   });
 
-  it("marque les drivers non actionable de « (contexte) » dans le libellé, jamais les leviers", async () => {
+  it("marque les drivers non actionable de « (context) » dans le libellé, jamais les leviers", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
       drivers: [
         { feature: "csm10__mean", base: "csm10", value: 7.3, contribution: 0.3, crossover_value: null, direction: null, category: "actionable" },
@@ -173,7 +181,10 @@ describe("ShapProfile · état disponible", () => {
     await flushPromises();
 
     expect((chartMock.configs[0].data as { labels: string[] }).labels)
-      .toEqual(["csm10", "map_depth (contexte)"]);
+      .toEqual([
+        "CS per minute at 10 minutes — average",
+        "Map depth — average (context)",
+      ]);
   });
 
   it("filtre les leviers d'action et recrée le graphique", async () => {
@@ -188,16 +199,20 @@ describe("ShapProfile · état disponible", () => {
     await flushPromises();
     await flushPromises();
     expect((chartMock.configs[0].data as { labels: string[] }).labels)
-      .toEqual(["levier_a", "contexte_b (contexte)", "levier_c"]);
+      .toEqual([
+        "Levier a — average",
+        "Contexte b — average (context)",
+        "Levier c — average",
+      ]);
 
-    const filterButton = wrapper.findAll("button").find((button) => button.text().includes("Tout"));
+    const filterButton = wrapper.findAll("button").find((button) => button.text().includes("All"));
     await filterButton!.trigger("click");
     await flushPromises();
     await flushPromises();
 
     expect((chartMock.configs.at(-1)?.data as { labels: string[] }).labels)
-      .toEqual(["levier_a", "levier_c"]);
-    expect(filterButton!.text()).toContain("Leviers d'action uniquement");
+      .toEqual(["Levier a — average", "Levier c — average"]);
+    expect(filterButton!.text()).toContain("Actionable factors only");
   });
 
   it("recrée proprement le graphique lors du changement de tri", async () => {
@@ -211,13 +226,14 @@ describe("ShapProfile · état disponible", () => {
     await flushPromises();
     await flushPromises();
 
-    const sortButton = wrapper.findAll("button").find((button) => button.text().includes("Trier par impact"));
+    const sortButton = wrapper.findAll("button").find((button) => button.text().includes("Sort by impact"));
     await sortButton!.trigger("click");
     await flushPromises();
     await flushPromises();
 
     expect(chartMock.destroy).toHaveBeenCalled();
-    expect((chartMock.configs.at(-1)?.data as { labels: string[] }).labels).toEqual(["positive", "negative"]);
+    expect((chartMock.configs.at(-1)?.data as { labels: string[] }).labels)
+      .toEqual(["Positive — average", "Negative — average"]);
   });
 
   it("recharge l'analyse quand reloadToken change (fin de collecte)", async () => {
@@ -242,7 +258,7 @@ describe("ShapProfile · liste de facteurs vide", () => {
     await flushPromises();
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Aucun facteur n'a été publié pour cette fenêtre de parties.");
+    expect(wrapper.text()).toContain("No factors were published for this game window.");
     expect(wrapper.find("canvas").exists()).toBe(false);
     expect(chartMock.configs).toHaveLength(0);
   });
@@ -260,7 +276,7 @@ describe("ShapProfile · liste de facteurs vide", () => {
     expect(wrapper.find("canvas").exists()).toBe(true);
     expect(chartMock.configs).toHaveLength(1);
 
-    const filterButton = wrapper.findAll("button").find((button) => button.text().includes("Tout"));
+    const filterButton = wrapper.findAll("button").find((button) => button.text().includes("All"));
     await filterButton!.trigger("click");
     await flushPromises();
     await flushPromises();
@@ -269,7 +285,7 @@ describe("ShapProfile · liste de facteurs vide", () => {
     // est descriptif : liste vide, message distinct de « aucun facteur
     // publié », avec le rappel qu'il suffit de revenir sur « Tout ».
     expect(wrapper.text()).toContain(
-      "Aucun levier d'action parmi les facteurs publiés : reviens sur « Tout » pour voir les facteurs de contexte.");
+      "No actionable factors among the published data. Switch back to “All” to view context factors.");
     expect(wrapper.find("canvas").exists()).toBe(false);
 
     await filterButton!.trigger("click");
@@ -281,21 +297,21 @@ describe("ShapProfile · liste de facteurs vide", () => {
     // détaché de l'ancien rendu.
     expect(wrapper.find("canvas").exists()).toBe(true);
     expect((chartMock.configs.at(-1)?.data as { labels: string[] }).labels)
-      .toEqual(["context_only (contexte)"]);
+      .toEqual(["Context only — average (context)"]);
   });
 });
 
 describe("ShapProfile · états d'indisponibilité", () => {
   it("affiche le message typé de chaque motif servi, sans télécharger Chart.js", async () => {
     const cases: Array<[string, string]> = [
-      ["not_ingested", "Analyse en attente de la première collecte de parties."],
-      ["role_closed", "L'analyse ML pour ce rôle n'est pas encore ouverte au public."],
-      ["rank_out_of_scope", "Le modèle couvre Diamond et au-delà ; le rang du compte est en dessous."],
-      ["window_too_short", "Moins de 20 parties sur ton rôle principal : la décomposition exige une fenêtre de 20."],
-      ["collection_incomplete", "La collecte n'a pas pu réunir 20 parties du rôle (échecs API ou délai) ; relance l'actualisation."],
-      ["scoring_failed", "Le scoring de cette fenêtre a échoué ; relance l'actualisation."],
-      ["model_missing", "Le modèle de ce rôle est momentanément indisponible côté service."],
-      ["model_mismatch", "Le modèle de ce rôle est momentanément indisponible côté service."],
+      ["not_ingested", "Analysis is waiting for the first game collection."],
+      ["role_closed", "ML analysis for this role is not publicly available yet."],
+      ["rank_out_of_scope", "The model covers Diamond and above; this account is below that range."],
+      ["window_too_short", "Fewer than 20 games on your main role: the breakdown requires a 20-game window."],
+      ["collection_incomplete", "We couldn't collect 20 games for this role (API errors or timeout). Refresh the data and try again."],
+      ["scoring_failed", "Scoring failed for this window. Refresh the data and try again."],
+      ["model_missing", "The model for this role is temporarily unavailable."],
+      ["model_mismatch", "The model for this role is temporarily unavailable."],
     ];
     for (const [reason, message] of cases) {
       wrapper?.unmount();
@@ -314,8 +330,8 @@ describe("ShapProfile · états d'indisponibilité", () => {
     wrapper = mountShap({ slug: "Two" });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("L'analyse n'a pas pu être chargée ; recharge la page et réessaie.");
-    expect(wrapper.text()).not.toContain("en attente de la première collecte");
+    expect(wrapper.text()).toContain("The analysis could not be loaded. Refresh the page and try again.");
+    expect(wrapper.text()).not.toContain("waiting for the first game collection");
   });
 
   it("montre le code d'un motif inconnu au lieu de le masquer", async () => {
@@ -361,13 +377,13 @@ describe("ShapProfile · états d'indisponibilité", () => {
 describe("ShapProfile · bouton Actualiser l'analyse", () => {
   it("rend l'état du composable : grisage et décompte pendant le cooldown", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload())));
-    wrapper = mountShap({}, fakeSync({ cooling: true, cooldownLabel: "À jour · 14 min" }));
+    wrapper = mountShap({}, fakeSync({ cooling: true, cooldownLabel: "Up to date · 14 min" }));
     await flushPromises();
     await flushPromises();
 
     const button = wrapper.get("button.btn-refresh-shap");
     expect(button.attributes("disabled")).toBeDefined();
-    expect(button.text()).toContain("À jour · 14 min");
+    expect(button.text()).toContain("Up to date · 14 min");
   });
 
   it("déclenche sync.trigger au clic, sans logique locale", async () => {

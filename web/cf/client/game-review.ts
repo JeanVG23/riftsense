@@ -61,14 +61,14 @@ export function gameMeta(review?: GameReview | null): Record<string, any> {
   return review?.payload?.meta || review?.meta || {};
 }
 
-export const gameChampion = (review?: GameReview | null): string => gameMeta(review).champion || "Partie analysée";
+export const gameChampion = (review?: GameReview | null): string => gameMeta(review).champion || "Analyzed game";
 export const gameOpponent = (review?: GameReview | null): string | null => gameMeta(review).opponent || null;
 export const gamePatch = (review?: GameReview | null): string | null => gameMeta(review).patch || null;
 export const gameMatchId = (review?: GameReview | null): string => review?.match_id || gameMeta(review).match_id || "—";
 
 export function gameResult(review?: GameReview | null): string {
   const win = gameMeta(review).win;
-  return win === true ? "Victoire" : win === false ? "Défaite" : "Analyse";
+  return win === true ? "Victory" : win === false ? "Defeat" : "Analysis";
 }
 
 export function gameDuration(review?: GameReview | null): string | null {

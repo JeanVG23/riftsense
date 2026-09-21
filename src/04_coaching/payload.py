@@ -32,17 +32,17 @@ POS_META = {
     "frac_own_lane_early": ("% lane (early)", "pct", 0.08, False),
     "frac_river_early":    ("% river (early)", "pct", 0.08, False),
     "frac_roam_mid":       ("% roam (mid)", "pct", 0.08, False),
-    "frac_enemy_half":     ("% moitié ennemie", "pct", 0.08, False),
-    "frac_base":           ("% en base", "pct", 0.08, False),
+    "frac_enemy_half":     ("% enemy half", "pct", 0.08, False),
+    "frac_base":           ("% at base", "pct", 0.08, False),
     "frac_overextended":   ("% over-extended", "pct", None, True),
-    "avg_map_depth":       ("profondeur moy.", "u", None, True),
-    "max_map_depth":       ("profondeur max", "u", None, True),
-    "avg_dist_to_ally":    ("isolement (allié)", "u", 200.0, False),
-    "gold_dead_time":      ("temps mort (s)", "s", 20.0, False),
-    "wards_placed":        ("wards posées", "ward", 2.0, False),
+    "avg_map_depth":       ("average map depth", "u", None, True),
+    "max_map_depth":       ("maximum map depth", "u", None, True),
+    "avg_dist_to_ally":    ("ally isolation", "u", 200.0, False),
+    "gold_dead_time":      ("dead time (s)", "s", 20.0, False),
+    "wards_placed":        ("wards placed", "ward", 2.0, False),
     "wards_placed_early":  ("wards early", "ward", 1.0, False),
     "control_wards_placed": ("control wards", "ward", 1.0, False),
-    "wards_killed":        ("wards détruites", "ward", 2.0, False),
+    "wards_killed":        ("wards cleared", "ward", 2.0, False),
 }
 # Garde-fou asymétrie : la table doit couvrir EXACTEMENT les features safe, ni plus ni moins.
 assert set(POS_META) == positioning.COACHING_SAFE, \
@@ -130,7 +130,7 @@ def _zone_phase_signals(mf: dict, rf: dict, top: int = 5) -> list[dict]:
         you, ref = me_zp.get(key, 0.0), rf_zp.get(key, 0.0)
         delta = round(you - ref, 4)
         rows.append({"group": "deaths_zone_phase", "key": key,
-                     "label": f"morts {key}", "you": you, "ref": ref,
+                     "label": f"deaths {key}", "you": you, "ref": ref,
                      "delta": delta, "unit": "pct", "notable": delta >= 0.08})
     rows.sort(key=lambda s: s["delta"], reverse=True)   # où tu sur-meurs d'abord
     return rows[:top]
@@ -138,7 +138,7 @@ def _zone_phase_signals(mf: dict, rf: dict, top: int = 5) -> list[dict]:
 
 def _gold_state_signals(mf: dict, rf: dict) -> list[dict]:
     me_gs, rf_gs = mf.get("death_gold_state", {}), rf.get("death_gold_state", {})
-    labels = {"ahead": "morts en avance", "even": "morts à égalité", "behind": "morts en retard"}
+    labels = {"ahead": "deaths while ahead", "even": "deaths while even", "behind": "deaths while behind"}
     out = []
     for key, label in labels.items():
         you, ref = me_gs.get(key), rf_gs.get(key)
@@ -154,7 +154,7 @@ def _gold_state_signals(mf: dict, rf: dict) -> list[dict]:
 def _load(gold_dir: Path, kind: str, name: str, scope: str) -> dict:
     path = gold_dir / kind / name / scope / "aggregate.json"
     if not path.exists():
-        raise FileNotFoundError(f"gold manquant : {path}")
+        raise FileNotFoundError(f"missing gold data: {path}")
     return json.loads(path.read_text())
 
 
@@ -528,7 +528,7 @@ def _game_benchmark_scope(record: dict, target: str, gold_dir: Path,
         if ref and ref.get("n_games", 0) > 0:
             return scope, ref
     raise BenchmarkMissing(
-        f"référentiel {target} absent pour {role_scope}")
+        f"{target} benchmark missing for {role_scope}")
 
 
 _REASONS = {RawMissing: "raw_missing",

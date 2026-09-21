@@ -18,7 +18,7 @@ describe("pedagogicTarget", () => {
   });
 
   it("n'affirme une avance que pour un GD14 positif", () => {
-    expect(pedagogicTarget(game())?.hint).toContain("compétitive");
+    expect(pedagogicTarget(game())?.hint).toContain("competitive");
     expect(pedagogicTarget(game({ lane: { gd14: 800 } }))?.hint).toContain("+800");
   });
 

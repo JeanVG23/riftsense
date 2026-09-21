@@ -4,6 +4,7 @@ import { apiGameCoach } from "./game_coach";
 import { CoachGate } from "./coach_gate";
 import { apiChat } from "./chat";
 import { buildCoachingContext } from "./coaching_context";
+import { SYSTEM, SYSTEM_GAME, versionOf } from "./prompt";
 import { readEval } from "./evaluation";
 import { apiFeedback } from "./feedback";
 import { apiAuthStatus, apiLogin, apiLogout, isAuthorized } from "./auth";
@@ -79,6 +80,7 @@ type StoredReview = Record<string, unknown> & {
   match_id?: string;
   payload?: unknown;
   review?: unknown;
+  run?: unknown;
 };
 
 function recordOf(value: unknown): Record<string, unknown> | null {
@@ -88,6 +90,18 @@ function recordOf(value: unknown): Record<string, unknown> | null {
 }
 
 const GAMES_MAX_SIZE = 200;
+
+async function currentReviews(reviews: StoredReview[]): Promise<StoredReview[]> {
+  const [aggregateVersion, gameVersion] = await Promise.all([
+    versionOf(SYSTEM),
+    versionOf(SYSTEM_GAME),
+  ]);
+  return reviews.filter((review) => {
+    const run = recordOf(review.run);
+    const expected = review.kind === "game" ? gameVersion : aggregateVersion;
+    return run?.prompt_version === expected;
+  });
+}
 
 function gameReviewSummary(item: StoredReview): Record<string, unknown> {
   const payload = recordOf(item.payload);
@@ -161,11 +175,13 @@ async function apiGames(env: Env, slug: string, params: URLSearchParams): Promis
 
 async function apiReviews(env: Env, slug: string, params: URLSearchParams): Promise<Response> {
   const kind = params.get("kind");
-  const reviews = await readJsonl<StoredReview>(env.DATA, KEYS.reviews(slug));
+  const reviews = await currentReviews(
+    await readJsonl<StoredReview>(env.DATA, KEYS.reviews(slug)),
+  );
   // Compatibilité de l'API V1 pour les clients qui ne demandent pas une vue paginée.
   if (kind === null) return Response.json(reviews);
   if (kind !== "aggregate" && kind !== "game") {
-    return unprocessable("kind doit être aggregate ou game");
+    return unprocessable("kind must be aggregate or game");
   }
   const paging = pageParams(params);
   if (!paging) return pagingError();
@@ -180,9 +196,11 @@ async function apiReviews(env: Env, slug: string, params: URLSearchParams): Prom
 }
 
 async function apiReviewDetail(env: Env, slug: string, ts: string): Promise<Response> {
-  const reviews = await readJsonl<StoredReview>(env.DATA, KEYS.reviews(slug));
+  const reviews = await currentReviews(
+    await readJsonl<StoredReview>(env.DATA, KEYS.reviews(slug)),
+  );
   const review = reviews.find((item) => item.ts === ts && item.kind === "game");
-  return review ? Response.json(review) : notFound("analyse de partie introuvable");
+  return review ? Response.json(review) : notFound("game analysis not found");
 }
 
 // Table de routage /api/c/{slug}/{tail} : remplace une chaîne de 6 comparaisons.
@@ -192,7 +210,7 @@ const ACCOUNT_ROUTES: Record<
 > = {
   account: async (env, slug) => {
     const account = await readAccount(env.DATA, slug);
-    if (!account) return notFound("compte introuvable");
+    if (!account) return notFound("account not found");
     const payload: Record<string, unknown> = {
       slug: account.slug,
       riot_id: account.riot_id,
@@ -266,19 +284,19 @@ export async function handle(request: Request, env: Env): Promise<Response> {
   }
   if (url.pathname === "/api/coach" && request.method === "POST") {
     if (!await isAuthorized(request, env)) {
-      return unauthorized("Non autorisé : authentification requise pour générer un coaching");
+      return unauthorized("Unauthorized: sign-in is required to generate coaching");
     }
     return gatedCoach(request, env, apiCoach);
   }
   if (url.pathname === "/api/coach/game" && request.method === "POST") {
     if (!await isAuthorized(request, env)) {
-      return unauthorized("Non autorisé : authentification requise pour analyser une partie");
+      return unauthorized("Unauthorized: sign-in is required to analyze a game");
     }
     return gatedCoach(request, env, apiGameCoach);
   }
   if (url.pathname === "/api/chat" && request.method === "POST") {
     if (!await isAuthorized(request, env)) {
-      return unauthorized("Non autorisé : authentification requise pour utiliser le chat");
+      return unauthorized("Unauthorized: sign-in is required to use chat");
     }
     return apiChat(request, env);
   }

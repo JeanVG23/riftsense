@@ -150,6 +150,54 @@ def test_fetch_games_writes_unranked_when_no_solo_entry(tmp_path):
     assert "fetched_at" in data
 
 
+def test_daily_window_is_forwarded_and_an_empty_day_is_valid(tmp_path):
+    account = {"slug": "spadzze", "riot_id": "Spadzze#euw", "region": "euw1"}
+    calls = []
+
+    def fake_match_ids(self, puuid, count, queue, start_time, end_time):
+        calls.append((puuid, count, queue, start_time, end_time))
+        return []
+
+    with patch("riotlib.RiotClient.puuid_from_riot_id", lambda self, g, t: "p1"), \
+         patch("riotlib.RiotClient.match_ids", fake_match_ids), \
+         patch("riotlib.RiotClient.entries_by_puuid", lambda self, puuid: []), \
+         patch("pipeline.rl.SILVER_DIR", tmp_path), \
+         patch("pipeline.settings.riot_api_key", lambda: "k"):
+        result = pipeline.fetch_games(
+            account,
+            n=100,
+            start_time=1_790_000_000,
+            end_time=1_790_086_400,
+            only_new=True,
+            allow_empty=True,
+        )
+
+    assert calls == [("p1", 100, 420, 1_790_000_000, 1_790_086_400)]
+    assert result["n_new_games"] == 0
+
+
+def test_daily_refresh_skips_a_match_already_in_silver(tmp_path):
+    account = {"slug": "spadzze", "riot_id": "Spadzze#euw", "region": "euw1"}
+    silver = tmp_path / "personal" / "spadzze" / "games.jsonl"
+    silver.parent.mkdir(parents=True)
+    silver.write_text('{"match_id":"EUW1_123","puuid":"p1"}\n')
+
+    with patch("riotlib.RiotClient.puuid_from_riot_id", lambda self, g, t: "p1"), \
+         patch("riotlib.RiotClient.match_ids",
+               lambda self, puuid, count, queue, **kwargs: ["EUW1_123"]), \
+         patch("riotlib.RiotClient.entries_by_puuid", lambda self, puuid: []), \
+         patch("riotlib.get_match_timeline",
+               side_effect=AssertionError("une partie connue ne doit pas être relue")), \
+         patch("pipeline.rl.SILVER_DIR", tmp_path), \
+         patch("pipeline.settings.riot_api_key", lambda: "k"):
+        result = pipeline.fetch_games(
+            account, n=100, only_new=True, allow_empty=True
+        )
+
+    assert result["n_games"] == 1
+    assert result["n_new_games"] == 0
+
+
 def test_run_coach_calls_payload_build_and_persist(tmp_path):
     with patch("pipeline.payload.build", return_value={"meta": {"scope": "adc"}}) as pb, \
          patch("pipeline.coach.generate_review", return_value="REVIEW") as gr, \

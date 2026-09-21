@@ -2,6 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { formatDate } from "../account-profile";
 import { withAuthHeaders } from "../auth";
+import {
+  featurePresentation,
+  formatFeatureValue,
+  wrapTooltipText,
+} from "../feature-catalog";
 import type { IngestSync } from "../ingest-sync";
 import {
   boundaryLabel,
@@ -39,16 +44,16 @@ let chartRuntime: Promise<typeof import("chart.js")> | null = null;
  * template (états disponible et indisponible) : le markup reste dupliqué,
  * la chaîne vit ici une seule fois. */
 const refreshTitle = computed(() => props.sync.cooling
-  ? "Analyse déjà actualisée : une nouvelle est possible toutes les 15 minutes"
-  : "Recollecter les 20 dernières parties du rôle et recalculer la décomposition");
+  ? "Analysis already refreshed: you can refresh again every 15 minutes"
+  : "Collect the latest 20 games for this role and recalculate the breakdown");
 
 /** Libellé du bouton d'actualisation, partagé par les deux branches du
  * template : feedback du composable d'abord, sinon l'état (collecte en
  * cours, cooldown avec décompte, repos). */
 const refreshLabel = computed(() => props.sync.feedback
   || (props.sync.syncing
-    ? "Actualisation…"
-    : (props.sync.cooling ? props.sync.cooldownLabel : "Actualiser l'analyse")));
+    ? "Refreshing…"
+    : (props.sync.cooling ? props.sync.cooldownLabel : "Refresh analysis")));
 
 /** Vrai quand le motif d'indisponibilité courant est l'un des trois motifs
  * structurels (`role_closed`, `model_missing`, `model_mismatch`) : décidés
@@ -75,22 +80,11 @@ const visibleDrivers = computed<RoleDriver[]>(() => {
   return kept.slice(0, 16);
 });
 
-/** Label d'un driver : la `base` (nom technique sans suffixe d'agrégation,
- * spec §3 « libellés français des noms de features » : le suffixe ne s'affiche
- * pas), désambiguisée en nom complet quand deux agrégations visibles
- * partagent la même base (« csm10__mean » et « csm10__max ») : la base seule
- * ne permettrait plus de dire laquelle des deux est laquelle. Le marqueur
- * « (contexte) » est ajouté APRÈS cette désambiguation, sur le libellé déjà
- * choisi : il ne doit jamais changer quelles bases sont considérées comme
- * partagées, seulement le texte final affiché. Sans lui, en vue « Tout », une
- * barre descriptive à forte contribution négative est visuellement
- * indiscernable d'un levier (invariant PUBLIC_DESCRIPTIVE : jamais formulée
- * comme quelque chose à travailler). */
-function driverLabel(driver: RoleDriver, visible: RoleDriver[]): string {
-  const base = driver.base || driver.feature;
-  const sameBase = visible.filter((other) => (other.base || other.feature) === base);
-  const label = sameBase.length > 1 ? driver.feature : base;
-  return driver.category === "actionable" ? label : `${label} (contexte)`;
+/** Human-readable English label. The aggregation is always explicit: hiding
+ * `p10` or `std` would give two different model inputs the same meaning. */
+function driverLabel(driver: RoleDriver): string {
+  const label = featurePresentation(driver.feature, driver.base).displayLabel;
+  return driver.category === "actionable" ? label : `${label} (context)`;
 }
 
 function destroyChart(): void {
@@ -109,7 +103,7 @@ async function renderChart(): Promise<void> {
   chart = new Chart(canvas.value, {
     type: "bar",
     data: {
-      labels: drivers.map((driver) => driverLabel(driver, drivers)),
+      labels: drivers.map((driver) => driverLabel(driver)),
       datasets: [{
         data: drivers.map((driver) => driver.contribution),
         backgroundColor: drivers.map((driver) => driver.contribution >= 0 ? palette.gold : palette.loss),
@@ -121,15 +115,32 @@ async function renderChart(): Promise<void> {
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
+      // A horizontal bar can be very short around zero. Resolve the feature by
+      // row so its definition remains available anywhere along that row.
+      interaction: { mode: "index", axis: "y", intersect: false },
       plugins: { legend: { display: false }, tooltip: { callbacks: {
         label: (context) => {
           const driver = drivers[context.dataIndex];
           if (!driver) return `EBM ${Number(context.raw).toFixed(4)}`;
+          const presentation = featurePresentation(driver.feature, driver.base);
           const lines = [`Contribution ${driver.contribution.toFixed(4)}`];
-          if (driver.value !== null) lines.push(`Valeur ${driver.value}`);
-          lines.push(driver.category === "actionable" ? "Levier" : "Contexte");
-          if (driver.crossover_value !== null) lines.push(`Bascule ≈ ${driver.crossover_value}`);
+          if (driver.value !== null) {
+            lines.push(`Value ${formatFeatureValue(driver.value, presentation.unit)}`);
+          }
+          lines.push(driver.category === "actionable" ? "Actionable factor" : "Context only");
+          if (driver.crossover_value !== null) {
+            lines.push(`Crossover ≈ ${formatFeatureValue(driver.crossover_value, presentation.unit)}`);
+          }
           return lines;
+        },
+        afterLabel: (context) => {
+          const driver = drivers[context.dataIndex];
+          if (!driver) return [];
+          const presentation = featurePresentation(driver.feature, driver.base);
+          return [
+            ...wrapTooltipText("Definition:", presentation.description),
+            `Technical feature: ${presentation.technicalName}`,
+          ];
         },
       } } },
       scales: {
@@ -197,13 +208,13 @@ onBeforeUnmount(destroyChart);
   <div class="shap-container">
     <div v-if="loading" class="state">
       <span class="loading-spinner" aria-hidden="true"></span>
-      <span>Chargement du profil ML…</span>
+      <span>Loading ML profile…</span>
     </div>
     <div v-else-if="unavailableReason" class="shap-empty-card">
       <div class="shap-unavail-badge">
-        <span class="badge badge-region">MODÈLE EBM &amp; SHAP</span>
+        <span class="badge badge-region">EBM &amp; SHAP MODEL</span>
       </div>
-      <h3 class="shap-unavail-title">Analyse ML indisponible pour ce compte.</h3>
+      <h3 class="shap-unavail-title">ML analysis is unavailable for this account.</h3>
       <p class="shap-unavail-sub faint">{{ reasonMessage(unavailableReason) }}</p>
 
       <!-- Le bouton vit AUSSI dans l'état indisponible : les motifs
@@ -236,13 +247,13 @@ onBeforeUnmount(destroyChart);
            promettrait un palier et une décomposition que la destination ne
            peut pas montrer, retiré pour ces trois motifs uniquement. -->
       <div v-if="!isGlobalUnavailable" class="shap-demo-guidance">
-        <span class="demo-guidance-title">Explorer le modèle d'explicabilité SHAP en direct sur nos profils calibrés :</span>
+        <span class="demo-guidance-title">Explore the SHAP explainability model live on calibrated profiles:</span>
         <div class="demo-guidance-buttons">
           <a class="btn btn-demo-shap" href="/c/spadzze?tab=shap" @click.prevent="goToAccount('spadzze')">
             <span class="demo-shap-avatar">🛡️</span>
             <div class="demo-shap-info">
               <span class="demo-shap-name">Spadzze#euw</span>
-              <span class="demo-shap-desc">Palier estimé : Diamond · 24 facteurs SHAP décomposés</span>
+              <span class="demo-shap-desc">Estimated tier: Diamond · 24 SHAP factors explained</span>
             </div>
             <span class="demo-shap-arrow" aria-hidden="true">→</span>
           </a>
@@ -250,7 +261,7 @@ onBeforeUnmount(destroyChart);
             <span class="demo-shap-avatar">👑</span>
             <div class="demo-shap-info">
               <span class="demo-shap-name">AceOfSpadzze#EQ4</span>
-              <span class="demo-shap-desc">Palier estimé : Grandmaster · Calibration EBM</span>
+              <span class="demo-shap-desc">Estimated tier: Grandmaster · EBM calibration</span>
             </div>
             <span class="demo-shap-arrow" aria-hidden="true">→</span>
           </a>
@@ -260,8 +271,8 @@ onBeforeUnmount(destroyChart);
     <div v-else-if="analysis" class="shap-active-card">
       <div class="shap-header-row">
         <div>
-          <div class="eyebrow-shap">EXPLICABILITÉ DU MODÈLE</div>
-          <h2>Ce qui influence ton profil ML</h2>
+          <div class="eyebrow-shap">MODEL EXPLAINABILITY</div>
+          <h2>What shapes your ML profile</h2>
         </div>
         <div class="spacer"></div>
         <button
@@ -278,53 +289,53 @@ onBeforeUnmount(destroyChart);
           {{ refreshLabel }}
         </button>
         <button class="btn btn-sort-shap" type="button" @click="toggleCategory">
-          {{ categoryFilter === "all" ? "Tout" : "Leviers d'action uniquement" }}
+          {{ categoryFilter === "all" ? "All" : "Actionable factors only" }}
         </button>
         <button class="btn btn-sort-shap" type="button" @click="toggleSort">
           <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true" style="margin-right:6px">
             <path d="M3 3a1 1 0 000 2h11a1 1 0 100-2H3zM3 7a1 1 0 000 2h7a1 1 0 100-2H3zM3 11a1 1 0 100 2h4a1 1 0 100-2H3zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z"/>
           </svg>
-          {{ sort === "abs" ? "Trier par impact" : "Trier par valeur" }}
+          {{ sort === "abs" ? "Sort by impact" : "Sort by value" }}
         </button>
       </div>
 
       <div class="shap-context-band">
-        <span>Analyse sur {{ analysis.sample?.role_games_used ?? "?" }} dernières parties {{ roleLabel(analysis.role) }}</span>
-        <span v-if="analysis.generated_at">générée le {{ formatDate(analysis.generated_at) }}</span>
+        <span>Analysis of the latest {{ analysis.sample?.role_games_used ?? "?" }} {{ roleLabel(analysis.role) }} games</span>
+        <span v-if="analysis.generated_at">generated {{ formatDate(analysis.generated_at) }}</span>
       </div>
 
       <div class="shap-score-block">
-        <span class="shap-score-label">Proximité à l'apex</span>
+        <span class="shap-score-label">Apex proximity</span>
         <strong class="shap-score-value">{{ analysis.logit !== null && analysis.logit !== undefined ? formatLogit(analysis.logit) : "?" }}</strong>
-        <span v-if="analysis.model?.boundary" class="shap-score-boundary">Frontière {{ boundaryLabel(analysis.model.boundary) }}</span>
+        <span v-if="analysis.model?.boundary" class="shap-score-boundary">{{ boundaryLabel(analysis.model.boundary) }} boundary</span>
         <span v-if="analysis.model?.auc_heldout_median !== undefined" class="shap-score-meta">
-          Modèle EBM {{ roleLabel(analysis.role) }} · AUC médiane {{ analysis.model.auc_heldout_median }} sur {{ analysis.model.n_seeds ?? "?" }} tirages
+          {{ roleLabel(analysis.role) }} EBM · median AUC {{ analysis.model.auc_heldout_median }} across {{ analysis.model.n_seeds ?? "?" }} runs
         </span>
       </div>
 
       <div class="shap-legend-strip">
         <div class="shap-legend-item">
           <span class="legend-box legend-box--gold" aria-hidden="true"></span>
-          <span><strong>Contribution positive</strong> : facteurs qui rapprochent de l'apex</span>
+          <span><strong>Positive contribution</strong>: factors that move you closer to the apex</span>
         </div>
         <div class="shap-legend-item">
           <span class="legend-box legend-box--loss" aria-hidden="true"></span>
-          <span><strong>Contribution négative</strong> : facteurs qui éloignent de l'apex</span>
+          <span><strong>Negative contribution</strong>: factors that move you away from the apex</span>
         </div>
         <div class="shap-legend-item">
-          <span><strong>« (contexte) »</strong> dans un libellé : décrit ta fenêtre de parties, ne se formule jamais comme un levier à travailler</span>
+          <span><strong>“(context)”</strong> in a label: describes your game window and is never presented as something to improve</span>
         </div>
       </div>
 
       <p class="muted shap-explainer-text">
-        Décomposition exacte du modèle Explainable Boosting Machine (EBM) : chaque barre mesure la contribution marginale (log-odds) de l'indicateur à ta proximité à l'apex. Les facteurs marqués « (contexte) » décrivent ta fenêtre de parties et ne se travaillent pas ; les autres sont des leviers.
+        Exact Explainable Boosting Machine (EBM) breakdown: each bar measures that metric's marginal contribution (log-odds) to your apex proximity. Factors marked “(context)” describe your game window and are not improvement targets; the others are actionable.
       </p>
 
       <div v-if="visibleDrivers.length" class="shap-wrap"><canvas ref="canvas"></canvas></div>
       <p v-else class="shap-empty">
         {{ analysis.drivers.length === 0
-          ? "Aucun facteur n'a été publié pour cette fenêtre de parties."
-          : "Aucun levier d'action parmi les facteurs publiés : reviens sur « Tout » pour voir les facteurs de contexte." }}
+          ? "No factors were published for this game window."
+          : "No actionable factors among the published data. Switch back to “All” to view context factors." }}
       </p>
     </div>
   </div>

@@ -18,16 +18,16 @@ function goHome(): void {
 
     <div class="legal-header">
       <div class="legal-breadcrumbs">
-        <a href="/" @click.prevent="goHome">Accueil</a>
+        <a href="/" @click.prevent="goHome">Home</a>
         <span class="legal-sep">/</span>
-        <span class="current">Conditions d'utilisation</span>
+        <span class="current">Terms of Use</span>
       </div>
-      <h1 class="legal-title">Conditions Générales d'Utilisation</h1>
+      <h1 class="legal-title">Terms of Use</h1>
       <p class="legal-meta">
-        <span class="badge badge-legal">Réglementaire</span>
-        <span>Dernière mise à jour : Mars 2026</span>
+        <span class="badge badge-legal">Legal</span>
+        <span>Last updated: March 2026</span>
         <span class="legal-sep">·</span>
-        <span>Conforme aux Riot Developer Policies</span>
+        <span>Compliant with Riot Developer Policies</span>
       </p>
     </div>
 
@@ -49,9 +49,9 @@ function goHome(): void {
           </svg>
         </div>
         <div class="legal-disclaimer-content">
-          <strong>Avis légal officiel Riot Games (Official Riot Legal Disclaimer)</strong>
+          <strong>Official Riot Games Legal Disclaimer</strong>
           <p class="legal-quote">
-            « RiftSense isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc. »
+            “RiftSense isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.”
           </p>
         </div>
       </div>
@@ -59,7 +59,7 @@ function goHome(): void {
 
     <!-- Executive Summary for Riot Reviewers -->
     <div class="card legal-card legal-reviewer-box">
-      <div class="legal-reviewer-badge">Developer Compliance Summary (EN)</div>
+      <div class="legal-reviewer-badge">Developer Compliance Summary</div>
       <p class="legal-reviewer-text">
         <strong>RiftSense</strong> is a personal, non-commercial educational project providing post-match statistical analysis, position timeline metrics, and explainable machine learning models (EBM &amp; SHAP) for League of Legends players.
       </p>
@@ -73,96 +73,96 @@ function goHome(): void {
     <div class="legal-sections">
       <!-- Section 1 -->
       <section class="card legal-card" id="objet">
-        <h2>1. Présentation du service, objet &amp; acceptation</h2>
+        <h2>1. Service Overview, Purpose &amp; Acceptance</h2>
         <p>
-          <strong>RiftSense</strong> (accessible à l'adresse <code>riftsense.jeanvg.fr</code>) est un service web d'analyse statistique rétrospective, d'explicabilité par apprentissage automatique (SHAP / EBM) et de coaching post-partie dédié aux joueurs de <em>League of Legends</em>.
+          <strong>RiftSense</strong> (available at <code>riftsense.jeanvg.fr</code>) is a web service providing retrospective statistical analysis, explainable machine learning (SHAP / EBM), and post-game coaching for <em>League of Legends</em> players.
         </p>
         <p>
-          L'accès et l'utilisation de RiftSense impliquent l'acceptation pleine et entière des présentes Conditions Générales d'Utilisation. L'utilisateur reconnaît avoir pris connaissance de ces règles avant toute consultation ou synchronisation de profil.
+          Accessing and using RiftSense constitutes full acceptance of these Terms of Use. Users acknowledge that they have read these rules before viewing or synchronizing a profile.
         </p>
       </section>
 
       <!-- Section 2 -->
       <section class="card legal-card" id="riot-policy">
-        <h2>2. Conformité aux politiques Riot Games &amp; API</h2>
+        <h2>2. Riot Games Policy &amp; API Compliance</h2>
         <p>
-          RiftSense est développé et exploité dans le respect strict des <a href="https://developer.riotgames.com/policies/general" target="_blank" rel="noopener">Riot Games Developer Policies</a> et des <a href="https://developer.riotgames.com/terms" target="_blank" rel="noopener">Riot Games API Terms and Conditions</a>.
+          RiftSense is developed and operated in strict accordance with the <a href="https://developer.riotgames.com/policies/general" target="_blank" rel="noopener">Riot Games Developer Policies</a> and <a href="https://developer.riotgames.com/terms" target="_blank" rel="noopener">Riot Games API Terms and Conditions</a>.
         </p>
         <ul>
-          <li>RiftSense utilise exclusivement les points de terminaison officiels fournis par l'API Riot Games (Match-V5, Account-V1, League-V4).</li>
-          <li>RiftSense respecte les quotas de requêtes (rate limits) assignés par Riot Games et intègre un mécanisme de repli (backoff) en cas de code HTTP 429.</li>
-          <li>RiftSense n'incite en aucune manière à contourner les limitations techniques fixées par Riot Games.</li>
+          <li>RiftSense exclusively uses official Riot Games API endpoints (Match-V5, Account-V1, League-V4).</li>
+          <li>RiftSense respects Riot Games rate limits and uses backoff when it receives an HTTP 429 response.</li>
+          <li>RiftSense never encourages users to bypass technical limits set by Riot Games.</li>
         </ul>
       </section>
 
       <!-- Section 3 -->
       <section class="card legal-card" id="fair-play">
-        <h2>3. Analyse post-partie &amp; Fair-Play (Zero Real-Time Gameplay Assistance)</h2>
+        <h2>3. Post-Game Analysis &amp; Fair Play (Zero Real-Time Gameplay Assistance)</h2>
         <p>
-          RiftSense est conçu pour promouvoir le progrès et l'apprentissage équitable sur la Faille de l'Invocateur :
+          RiftSense is designed to promote improvement and fair learning on Summoner's Rift:
         </p>
         <ul>
-          <li><strong>Strictement post-game :</strong> Toutes les analyses de positionnement, de laning et de prise de décision s'appuient exclusivement sur la timeline des parties déjà terminées (Match-V5 Timeline).</li>
-          <li><strong>Zéro assistance en direct :</strong> RiftSense n'interagit pas avec le client de jeu en cours, ne lit pas la mémoire du jeu pendant une partie, et ne fournit aucun overlay, HUD dynamique ou assistance d'aide à la décision en temps réel (« zero real-time gameplay assistance »).</li>
-          <li><strong>Respect de l'asymétrie d'information :</strong> Les analyses méthodologiques de RiftSense ne reprochent jamais à un joueur une action basée sur une information cachée par le brouillard de guerre au moment de l'action.</li>
+          <li><strong>Strictly post-game:</strong> All positioning, laning, and decision-making analyses rely exclusively on timelines from completed games (Match-V5 Timeline).</li>
+          <li><strong>Zero live assistance:</strong> RiftSense does not interact with a running game client, read game memory during a match, or provide overlays, dynamic HUDs, or real-time decision assistance.</li>
+          <li><strong>Information asymmetry respected:</strong> RiftSense never criticizes a player for an action based on information hidden by fog of war at the time.</li>
         </ul>
       </section>
 
       <!-- Section 4 -->
       <section class="card legal-card" id="access">
-        <h2>4. Usage personnel non commercial &amp; gratuité</h2>
+        <h2>4. Free, Personal, Non-Commercial Use</h2>
         <p>
-          RiftSense est un projet indépendant à vocation éducative et personnelle. L'accès et l'utilisation du service sont strictement réservés à un <strong>usage personnel et non commercial</strong> :
+          RiftSense is an independent educational and personal project. Access and use are limited to <strong>personal, non-commercial purposes</strong>:
         </p>
         <ul>
-          <li>Toutes les fonctionnalités publiques (recherche de joueur, affichage de l'historique, métriques de macro-jeu, estimation de rang ML et visualisations SHAP) sont mises à disposition <strong>gratuitement</strong>.</li>
-          <li>Aucune donnée issue de l'API Riot Games n'est vendue, louée ou soumise à un péage obligatoire.</li>
-          <li>L'extraction automatisée massive (scraping non sollicité), la revente de données ou toute exploitation commerciale non autorisée par écrit sont formellement interdites.</li>
+          <li>All public features—player search, game history, macro metrics, ML rank estimates, and SHAP visualizations—are available <strong>free of charge</strong>.</li>
+          <li>No Riot Games API data is sold, rented, or placed behind a mandatory paywall.</li>
+          <li>Large-scale automated extraction, data resale, and commercial use without written permission are prohibited.</li>
         </ul>
         <p>
-          Le service est fourni « en l'état » (AS IS) et « selon disponibilité ». L'éditeur met en œuvre tous les moyens raisonnables pour assurer un accès continu mais ne saurait garantir l'absence d'interruptions techniques liées à la maintenance, aux serveurs Cloudflare ou aux indisponibilités temporaires de l'API Riot Games.
+          The service is provided “AS IS” and subject to availability. The publisher takes reasonable steps to maintain access but cannot guarantee uninterrupted service during maintenance, Cloudflare incidents, or temporary Riot Games API outages.
         </p>
       </section>
 
       <!-- Section 5 -->
       <section class="card legal-card" id="propriete">
-        <h2>5. Propriété intellectuelle</h2>
+        <h2>5. Intellectual Property</h2>
         <p>
-          <strong>Actifs Riot Games :</strong> League of Legends, les illustrations, logos, icônes d'invocateurs, portraits de champions et données statistiques de jeu sont la propriété exclusive de Riot Games, Inc.
+          <strong>Riot Games assets:</strong> League of Legends, artwork, logos, summoner icons, champion portraits, and game statistics are the exclusive property of Riot Games, Inc.
         </p>
         <p>
-          <strong>Actifs RiftSense :</strong> Le code source original, l'architecture serverless Cloudflare Workers, les modèles statistiques prédictifs (EBM / Random Forest / XGBoost) et l'interface utilisateur sont la propriété de l'auteur de RiftSense et publiés sous licence libre MIT sur le <a href="https://github.com/JeanVG23/riftsense" target="_blank" rel="noopener">dépôt GitHub officiel</a>.
+          <strong>RiftSense assets:</strong> The original source code, Cloudflare Workers serverless architecture, predictive models (EBM / Random Forest / XGBoost), and user interface belong to the RiftSense author and are released under the MIT license in the <a href="https://github.com/JeanVG23/riftsense" target="_blank" rel="noopener">official GitHub repository</a>.
         </p>
       </section>
 
       <!-- Section 6 -->
       <section class="card legal-card" id="responsabilite">
-        <h2>6. Limitation de responsabilité &amp; clause « AS IS »</h2>
+        <h2>6. Limitation of Liability &amp; “AS IS” Clause</h2>
         <p>
-          <strong>Absence de garantie de performance en jeu :</strong> Les estimations de rang (ML Rank) et les conseils stratégiques fournis par RiftSense ont une finalité exclusivement statistique et pédagogique. RiftSense ne formule aucune promesse ou garantie quant au taux de victoire, au gain de points de ligue (LP) ou à la promotion de rang des utilisateurs.
+          <strong>No gameplay performance guarantee:</strong> Rank estimates and strategic advice are provided solely for statistical and educational purposes. RiftSense makes no promise or guarantee about win rate, League Point gains, or rank promotion.
         </p>
         <p>
-          <strong>Pannes et indisponibilités :</strong> L'éditeur ne saurait être tenu responsable des dysfonctionnements, déconnexions, pertes de données ou erreurs imputables aux fournisseurs de réseau, aux navigateurs web tiers ou aux interruptions temporaires des services de Riot Games.
+          <strong>Failures and outages:</strong> The publisher is not liable for malfunctions, disconnections, data loss, or errors caused by network providers, third-party browsers, or temporary Riot Games service interruptions.
         </p>
       </section>
 
       <!-- Section 7 -->
       <section class="card legal-card" id="contact">
-        <h2>7. Contact &amp; signalement</h2>
+        <h2>7. Contact &amp; Reporting Issues</h2>
         <p>
-          Pour toute question relative aux présentes Conditions Générales d'Utilisation ou pour signaler un dysfonctionnement, vous pouvez nous contacter :
+          For questions about these Terms of Use or to report an issue, contact us:
         </p>
         <ul>
-          <li>Par email : <a href="mailto:contact@jeanvg.fr">contact@jeanvg.fr</a></li>
-          <li>Par GitHub : <a href="https://github.com/JeanVG23/riftsense/issues" target="_blank" rel="noopener">github.com/JeanVG23/riftsense/issues</a></li>
+          <li>By email: <a href="mailto:contact@jeanvg.fr">contact@jeanvg.fr</a></li>
+          <li>On GitHub: <a href="https://github.com/JeanVG23/riftsense/issues" target="_blank" rel="noopener">github.com/JeanVG23/riftsense/issues</a></li>
         </ul>
       </section>
     </div>
 
     <div class="legal-footer-nav">
-      <a href="/" class="btn btn-secondary" @click.prevent="goHome">← Retour à l'accueil</a>
-      <a href="/readme" class="btn btn-secondary" @click.prevent="router.push('/readme')">À propos &amp; Méthode</a>
-      <a href="/privacy" class="btn btn-secondary" @click.prevent="router.push('/privacy')">Politique de confidentialité →</a>
+      <a href="/" class="btn btn-secondary" @click.prevent="goHome">← Back to home</a>
+      <a href="/readme" class="btn btn-secondary" @click.prevent="router.push('/readme')">About &amp; Method</a>
+      <a href="/privacy" class="btn btn-secondary" @click.prevent="router.push('/privacy')">Privacy Policy →</a>
     </div>
   </div>
 </template>

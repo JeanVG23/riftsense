@@ -31,7 +31,7 @@ describe("CoachGate", () => {
     const first = await gate.fetch(request());
     const concurrent = await gate.fetch(request());
     expect(concurrent.status).toBe(409);
-    expect(await concurrent.json()).toEqual({ detail: "une analyse est déjà en cours" });
+    expect(await concurrent.json()).toEqual({ detail: "an analysis is already in progress" });
     await first.text();
     const after = await gate.fetch(request());
     expect(after.status).toBe(404);

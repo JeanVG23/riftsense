@@ -56,8 +56,8 @@ describe("AccountProfile", () => {
       "/api/c/Spadzze/shap-role",
     ]));
     expect(wrapper.text()).toContain("Diamond II · 64 LP");
-    expect(wrapper.text()).toContain("12V 8D · 60% WR");
-    expect(wrapper.text()).toContain("Confiance 81%");
+    expect(wrapper.text()).toContain("12W 8L · 60% WR");
+    expect(wrapper.text()).toContain("81% confidence");
     expect(wrapper.text()).toContain("42");
     expect(wrapper.emitted("predictionLoaded")?.[0]?.[0]).toMatchObject({ predicted_rank: "master" });
   });
@@ -69,7 +69,7 @@ describe("AccountProfile", () => {
     wrapper = mount(AccountProfile, { props: { slug: "Two", sync: fakeSync(), reloadToken: 0 } });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("Non renseigné");
+    expect(wrapper.text()).toContain("Not available");
     expect(wrapper.text()).toContain("Emerald");
     expect(wrapper.emitted("predictionLoaded")?.[0]?.[0]).toMatchObject({ predicted_rank: "emerald" });
   });
@@ -154,11 +154,11 @@ describe("AccountProfile · carte ML", () => {
     wrapper = mount(AccountProfile, { props: { slug: "Spadzze", sync: fakeSync(), reloadToken: 0 } });
     await flushPromises();
 
-    expect(card(wrapper).text()).toContain("Proximité à l'apex");
+    expect(card(wrapper).text()).toContain("Apex proximity");
     expect(card(wrapper).text()).toContain("+0.62");
-    expect(card(wrapper).text()).toContain("Jungle · frontière Diamond ↔ GM+");
+    expect(card(wrapper).text()).toContain("Jungle · Diamond ↔ GM+ boundary");
     // Priorité absolue : l'ancienne estimation ne doit pas rester affichée.
-    expect(card(wrapper).text()).not.toContain("Estimation ML");
+    expect(card(wrapper).text()).not.toContain("ML estimate");
     expect(card(wrapper).text()).not.toContain("Master");
     expect(card(wrapper).find("img.rank-emblem-mini").exists()).toBe(false);
     // Invariant logit : aucune probabilité n'apparaît.
@@ -177,9 +177,9 @@ describe("AccountProfile · carte ML", () => {
     wrapper = mount(AccountProfile, { props: { slug: "Spadzze", sync: fakeSync(), reloadToken: 0 } });
     await flushPromises();
 
-    expect(card(wrapper).text()).toContain("Estimation ML");
+    expect(card(wrapper).text()).toContain("ML estimate");
     expect(card(wrapper).text()).toContain("Emerald");
-    expect(card(wrapper).text()).toContain("Confiance 70%");
+    expect(card(wrapper).text()).toContain("70% confidence");
   });
 
   it("affiche un repli honnête quand ni l'analyse ni l'estimation n'existent", async () => {
@@ -192,7 +192,7 @@ describe("AccountProfile · carte ML", () => {
     wrapper = mount(AccountProfile, { props: { slug: "Spadzze", sync: fakeSync(), reloadToken: 0 } });
     await flushPromises();
 
-    expect(card(wrapper).text()).toContain("Estimation ML");
+    expect(card(wrapper).text()).toContain("ML estimate");
     expect(card(wrapper).text()).toContain("—");
   });
 
@@ -208,13 +208,13 @@ describe("AccountProfile · carte ML", () => {
           : jsonResponse({}))));
     wrapper = mount(AccountProfile, { props: { slug: "Spadzze", sync: fakeSync(), reloadToken: 0 } });
     await flushPromises();
-    expect(card(wrapper).text()).toContain("Proximité à l'apex");
+    expect(card(wrapper).text()).toContain("Apex proximity");
 
     vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
     await wrapper.setProps({ slug: "autre" });
 
     expect(card(wrapper).find(".stat-value").text()).toBe("—");
-    expect(card(wrapper).text()).not.toContain("Proximité à l'apex");
+    expect(card(wrapper).text()).not.toContain("Apex proximity");
     expect(card(wrapper).text()).not.toContain("+0.62");
   });
 });
@@ -225,23 +225,23 @@ describe("AccountProfile · bouton rendu depuis le composable", () => {
   it("grise le bouton et affiche le décompte pendant le cooldown", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({})));
     wrapper = mount(AccountProfile, {
-      props: { slug: "spadzze", sync: fakeSync({ cooling: true, cooldownLabel: "À jour · 14 min" }), reloadToken: 0 },
+      props: { slug: "spadzze", sync: fakeSync({ cooling: true, cooldownLabel: "Up to date · 14 min" }), reloadToken: 0 },
     });
 
     expect(syncButton(wrapper).attributes("disabled")).toBeDefined();
-    expect(syncButton(wrapper).text()).toContain("À jour · 14 min");
+    expect(syncButton(wrapper).text()).toContain("Up to date · 14 min");
     expect(syncButton(wrapper).find(".sync-icon.spinning").exists()).toBe(false);
   });
 
   it("montre le feedback du job et le spinner pendant la sync", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({})));
     wrapper = mount(AccountProfile, {
-      props: { slug: "spadzze", sync: fakeSync({ syncing: true, feedback: "Collecte en cours…" }), reloadToken: 0 },
+      props: { slug: "spadzze", sync: fakeSync({ syncing: true, feedback: "Collecting games…" }), reloadToken: 0 },
     });
 
     expect(syncButton(wrapper).attributes("disabled")).toBeDefined();
     expect(syncButton(wrapper).find(".sync-icon.spinning").exists()).toBe(true);
-    expect(syncButton(wrapper).text()).toContain("Collecte en cours…");
+    expect(syncButton(wrapper).text()).toContain("Collecting games…");
   });
 
   it("déclenche sync.trigger au clic, sans logique locale", async () => {
@@ -274,7 +274,7 @@ describe("AccountProfile · identité du joueur", () => {
     await flushPromises();
 
     expect(avatar(wrapper)).toContain("/profileicon/4403.png");
-    expect(wrapper.text()).toContain("Niv. 312");
+    expect(wrapper.text()).toContain("Lv. 312");
   });
 
   it("n'affiche aucun niveau tant que la collecte n'en a pas rapporté", async () => {
@@ -285,7 +285,7 @@ describe("AccountProfile · identité du joueur", () => {
     await flushPromises();
 
     expect(wrapper.find("span.hero-level").exists()).toBe(false);
-    expect(wrapper.text()).not.toContain("Niv.");
+    expect(wrapper.text()).not.toContain("Lv.");
   });
 
   it("badge le serveur réel du compte, pas EUW par défaut", async () => {

@@ -70,8 +70,8 @@ describe("useIngestSync", () => {
     const callsAfterRefusal = fetchMock.mock.calls.length;
 
     expect(sync.cooling).toBe(true);
-    expect(sync.feedback).toBe("Données déjà à jour");
-    expect(sync.cooldownLabel).toBe("À jour · 15 min");
+    expect(sync.feedback).toBe("Data already up to date");
+    expect(sync.cooldownLabel).toBe("Up to date · 15 min");
     expect(localStorage.getItem("riftsense:refresh:spadzze")).not.toBeNull();
 
     // Deuxième déclenchement : plus aucun appel, le refus est déjà connu.
@@ -94,7 +94,7 @@ describe("useIngestSync", () => {
     await vi.advanceTimersByTimeAsync(3100);
     await flushPromises();
 
-    expect(sync.feedback).toBe("20 parties synchronisées");
+    expect(sync.feedback).toBe("20 games synced");
     expect(sync.cooling).toBe(true);
     expect(onDone).toHaveBeenCalledTimes(1);
     expect(onDone).toHaveBeenCalledWith(20);
@@ -113,7 +113,7 @@ describe("useIngestSync", () => {
     await vi.advanceTimersByTimeAsync(3100);
     await flushPromises();
 
-    expect(sync.feedback).toBe("Riot ID introuvable");
+    expect(sync.feedback).toBe("Riot ID not found");
     expect(sync.cooling).toBe(false);
     expect(sync.syncing).toBe(false);
   });
@@ -125,7 +125,7 @@ describe("useIngestSync", () => {
     const { sync } = mountSync("spadzze");
 
     expect(sync.cooling).toBe(true);
-    expect(sync.cooldownLabel).toBe("À jour · 5 min");
+    expect(sync.cooldownLabel).toBe("Up to date · 5 min");
     sync.trigger();
     await flushPromises();
     expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith("/refresh"))).toBe(false);
@@ -142,7 +142,7 @@ describe("useIngestSync", () => {
 
     sync.trigger();
     await vi.advanceTimersByTimeAsync(3100);
-    expect(sync.feedback).toBe("Collecte en cours…");
+    expect(sync.feedback).toBe("Collecting games…");
 
     slug.value = "autre";
     await flushPromises();

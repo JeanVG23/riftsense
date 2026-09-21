@@ -9,8 +9,8 @@ export const NEGATIVE_FEEDBACK_TAGS = [
 
 function cleanInsight(text: unknown): string {
   return String(text || "").trim()
-    .replace(/^Erreur\s*\d+\s*:\s*/i, "")
-    .replace(/^Force\s*\d+\s*:\s*/i, "");
+    .replace(/^(?:Erreur|Mistake)\s*\d+\s*:\s*/i, "")
+    .replace(/^(?:Force|Strength)\s*\d+\s*:\s*/i, "");
 }
 
 export function insightTitle(text: unknown): string {
@@ -36,5 +36,5 @@ export function insightBody(text: unknown): string {
 }
 
 export function outcomeLabel(outcome: string): string {
-  return outcome === "loss" ? "Défaites" : outcome === "win" ? "Victoires" : "Global";
+  return outcome === "loss" ? "Losses" : outcome === "win" ? "Wins" : "Overall";
 }

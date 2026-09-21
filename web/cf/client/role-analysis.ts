@@ -6,9 +6,9 @@
 export interface RoleDriver {
   feature: string;
   /** Nom technique sans suffixe d'agrégation, CHAÎNE côté service
-   * (`role_scoring._base_of` : "csm10__mean" → "csm10"). C'est le label
-   * affiché sur le graphique ; si le wire l'omet, on replie sur le nom
-   * complet, jamais sur une valeur fabriquée. */
+   * (`role_scoring._base_of` : "csm10__mean" → "csm10"). C'est la clé du
+   * catalogue de présentation anglais ; si le wire l'omet, on replie sur le
+   * nom complet, jamais sur une valeur fabriquée. */
   base: string;
   value: number | null;
   contribution: number;
@@ -69,7 +69,7 @@ export const ROLE_LABELS: Record<string, string> = {
 };
 
 export function roleLabel(role: string | null | undefined): string {
-  if (!role) return "rôle inconnu";
+  if (!role) return "unknown role";
   return ROLE_LABELS[role] ?? role;
 }
 
@@ -78,19 +78,19 @@ export function roleLabel(role: string | null | undefined): string {
  * motif purement client : un échec réseau ne doit pas s'afficher comme une
  * attente de première collecte, ce serait faux. */
 export const REASON_MESSAGES: Record<string, string> = {
-  not_ingested: "Analyse en attente de la première collecte de parties.",
-  role_closed: "L'analyse ML pour ce rôle n'est pas encore ouverte au public.",
-  rank_out_of_scope: "Le modèle couvre Diamond et au-delà ; le rang du compte est en dessous.",
-  window_too_short: "Moins de 20 parties sur ton rôle principal : la décomposition exige une fenêtre de 20.",
-  collection_incomplete: "La collecte n'a pas pu réunir 20 parties du rôle (échecs API ou délai) ; relance l'actualisation.",
-  scoring_failed: "Le scoring de cette fenêtre a échoué ; relance l'actualisation.",
-  model_missing: "Le modèle de ce rôle est momentanément indisponible côté service.",
-  model_mismatch: "Le modèle de ce rôle est momentanément indisponible côté service.",
-  fetch_failed: "L'analyse n'a pas pu être chargée ; recharge la page et réessaie.",
+  not_ingested: "Analysis is waiting for the first game collection.",
+  role_closed: "ML analysis for this role is not publicly available yet.",
+  rank_out_of_scope: "The model covers Diamond and above; this account is below that range.",
+  window_too_short: "Fewer than 20 games on your main role: the breakdown requires a 20-game window.",
+  collection_incomplete: "We couldn't collect 20 games for this role (API errors or timeout). Refresh the data and try again.",
+  scoring_failed: "Scoring failed for this window. Refresh the data and try again.",
+  model_missing: "The model for this role is temporarily unavailable.",
+  model_mismatch: "The model for this role is temporarily unavailable.",
+  fetch_failed: "The analysis could not be loaded. Refresh the page and try again.",
 };
 
 export function reasonMessage(reason: string): string {
-  return REASON_MESSAGES[reason] ?? `Analyse indisponible (motif : ${reason})`;
+  return REASON_MESSAGES[reason] ?? `Analysis unavailable (reason: ${reason})`;
 }
 
 /** Les trois motifs structurels (parmi les neuf) : décidés par les artefacts

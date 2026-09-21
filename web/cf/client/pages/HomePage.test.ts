@@ -22,14 +22,14 @@ describe("HomePage", () => {
     const wrapper = mount(HomePage, {
       props: { accounts: [], loading: true },
     });
-    expect(wrapper.text()).toContain("Chargement des comptes…");
+    expect(wrapper.text()).toContain("Loading accounts…");
   });
 
   it("affiche le message d'absence de compte quand la liste est vide", () => {
     const wrapper = mount(HomePage, {
       props: { accounts: [], loading: false },
     });
-    expect(wrapper.text()).toContain("Aucun compte configuré.");
+    expect(wrapper.text()).toContain("No accounts configured.");
   });
 
   it("sépare distinctement Mes comptes et Profils de référence", () => {
@@ -37,8 +37,8 @@ describe("HomePage", () => {
       props: { accounts: sampleAccounts, loading: false },
     });
 
-    expect(wrapper.text()).toContain("Mes comptes");
-    expect(wrapper.text()).toContain("Profils de référence");
+    expect(wrapper.text()).toContain("My accounts");
+    expect(wrapper.text()).toContain("Reference profiles");
 
     const ownerSection = wrapper.find(".accounts-grid--owner");
     expect(ownerSection.exists()).toBe(true);
@@ -100,9 +100,9 @@ describe("HomePage", () => {
       props: { accounts: sampleAccounts, loading: false },
     });
 
-    expect(wrapper.text()).toContain("parties enregistrées");
-    expect(wrapper.text()).toContain("Analyse de performance et coaching tactique");
-    expect(wrapper.text()).toContain("60 parties enregistrées");
+    expect(wrapper.text()).toContain("saved games");
+    expect(wrapper.text()).toContain("Performance analytics and tactical coaching");
+    expect(wrapper.text()).toContain("60 saved games");
   });
 
   it("navigue vers le profil de démo complet Spadzze avec le match ciblé au clic", async () => {
@@ -111,7 +111,7 @@ describe("HomePage", () => {
     });
     const demoLink = wrapper.find(".hero-demo-link");
     expect(demoLink.exists()).toBe(true);
-    expect(demoLink.text()).toContain("Tester la démo complète (Spadzze#EUW)");
+    expect(demoLink.text()).toContain("Try the full demo (Spadzze#EUW)");
 
     await demoLink.trigger("click");
     expect(pushMock).toHaveBeenCalledWith({ path: "/c/spadzze", query: { review: "EUW1_7898084645" } });
@@ -133,7 +133,7 @@ describe("HomePage", () => {
     });
 
     expect(wrapper.find(".home-section--browser").exists()).toBe(false);
-    expect(wrapper.text()).not.toContain("Joueurs récemment consultés");
+    expect(wrapper.text()).not.toContain("Recently viewed players");
   });
 
   it("affiche la section des comptes du navigateur juste au-dessus de 'Mes comptes' quand des comptes locaux sont présents", () => {
@@ -146,15 +146,15 @@ describe("HomePage", () => {
 
     const browserSection = wrapper.find(".home-section--browser");
     expect(browserSection.exists()).toBe(true);
-    expect(browserSection.text()).toContain("Joueurs récemment consultés");
+    expect(browserSection.text()).toContain("Recently viewed players");
     expect(browserSection.text()).toContain("Hide on bush#KR1");
 
     // Vérifie que la section navigateur se trouve avant "Mes comptes" dans le DOM
     const sections = wrapper.findAll(".home-section");
     expect(sections.length).toBe(3); // Browser, Owner, Permanent
     expect(sections[0].classes()).toContain("home-section--browser");
-    expect(sections[1].text()).toContain("Mes comptes");
-    expect(sections[2].text()).toContain("Profils de référence");
+    expect(sections[1].text()).toContain("My accounts");
+    expect(sections[2].text()).toContain("Reference profiles");
   });
 
   it("ne duplique pas dans la section navigateur les comptes qui sont déjà dans Mes comptes ou Comptes permanents", () => {
@@ -204,13 +204,12 @@ describe("HomePage", () => {
 
     const rankBadges = wrapper.findAll(".badge-rank");
     expect(rankBadges.length).toBeGreaterThan(0);
-    expect(wrapper.text()).toContain("Diamant II");
+    expect(wrapper.text()).toContain("Diamond II");
     expect(wrapper.text()).toContain("Master");
-    expect(wrapper.text()).toContain("Or I");
+    expect(wrapper.text()).toContain("Gold I");
 
     expect(wrapper.find(".badge-owner-tag").exists()).toBe(false);
     expect(wrapper.find(".badge-permanent-tag").exists()).toBe(false);
   });
 });
-
 

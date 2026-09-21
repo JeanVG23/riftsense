@@ -7,9 +7,9 @@ describe("coaching helpers", () => {
     expect(insightBody("Erreur 2 : Back trop tardif — vague perdue")).toBe("vague perdue");
   });
 
-  it("présente les issues en français", () => {
-    expect(outcomeLabel("loss")).toBe("Défaites");
-    expect(outcomeLabel("win")).toBe("Victoires");
-    expect(outcomeLabel("overall")).toBe("Global");
+  it("presents outcomes in English", () => {
+    expect(outcomeLabel("loss")).toBe("Losses");
+    expect(outcomeLabel("win")).toBe("Wins");
+    expect(outcomeLabel("overall")).toBe("Overall");
   });
 });

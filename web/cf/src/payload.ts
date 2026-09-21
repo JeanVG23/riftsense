@@ -30,17 +30,17 @@ const POS_META: Record<string, PositionMeta> = {
   frac_own_lane_early: ["% lane (early)", "pct", 0.08, false],
   frac_river_early: ["% river (early)", "pct", 0.08, false],
   frac_roam_mid: ["% roam (mid)", "pct", 0.08, false],
-  frac_enemy_half: ["% moitié ennemie", "pct", 0.08, false],
-  frac_base: ["% en base", "pct", 0.08, false],
+  frac_enemy_half: ["% enemy half", "pct", 0.08, false],
+  frac_base: ["% at base", "pct", 0.08, false],
   frac_overextended: ["% over-extended", "pct", null, true],
-  avg_map_depth: ["profondeur moy.", "u", null, true],
-  max_map_depth: ["profondeur max", "u", null, true],
-  avg_dist_to_ally: ["isolement (allié)", "u", 200, false],
-  gold_dead_time: ["temps mort (s)", "s", 20, false],
-  wards_placed: ["wards posées", "ward", 2, false],
+  avg_map_depth: ["average map depth", "u", null, true],
+  max_map_depth: ["maximum map depth", "u", null, true],
+  avg_dist_to_ally: ["ally isolation", "u", 200, false],
+  gold_dead_time: ["dead time (s)", "s", 20, false],
+  wards_placed: ["wards placed", "ward", 2, false],
   wards_placed_early: ["wards early", "ward", 1, false],
   control_wards_placed: ["control wards", "ward", 1, false],
-  wards_killed: ["wards détruites", "ward", 2, false],
+  wards_killed: ["wards cleared", "ward", 2, false],
 };
 
 const LOW_SAMPLE_THRESHOLD = 30;
@@ -109,7 +109,7 @@ function zonePhaseSignals(
     return {
       group: "deaths_zone_phase",
       key,
-      label: `morts ${key}`,
+      label: `deaths ${key}`,
       you,
       ref,
       delta,
@@ -123,9 +123,9 @@ function goldStateSignals(meFocus: JsonRecord, refFocus: JsonRecord): JsonRecord
   const meGold = meFocus.death_gold_state ?? {};
   const refGold = refFocus.death_gold_state ?? {};
   const labels: Record<string, string> = {
-    ahead: "morts en avance",
-    even: "morts à égalité",
-    behind: "morts en retard",
+    ahead: "deaths while ahead",
+    even: "deaths while even",
+    behind: "deaths while behind",
   };
   const output: JsonRecord[] = [];
   for (const [key, label] of Object.entries(labels)) {
@@ -176,7 +176,7 @@ export function contextBenchmark(
       gd10_me: gd10Me,
       gd10_ref: refAggregate.overall?.lane?.gd10 ?? null,
       fallback: true,
-      reason: `réf. ${bucket}=${nRef}<${MIN_CONTEXT_N} games → repli global`,
+      reason: `benchmark ${bucket}=${nRef}<${MIN_CONTEXT_N} games → global fallback`,
     };
   }
   return {
@@ -196,7 +196,7 @@ export function buildPayload(
   args: BuildArgs,
 ): JsonRecord {
   if (!(args.scope.toLowerCase() in ROLE_SCOPES)) {
-    throw new Error(`scope de benchmark inconnu : ${args.scope}`);
+    throw new Error(`unknown benchmark scope: ${args.scope}`);
   }
   const meFocus = me[args.outcome];
   const refFocus = ref[args.outcome];
@@ -260,7 +260,7 @@ export function gameReviewSample(
   scope: string,
   maxPerOutcome = 2,
 ): JsonRecord {
-  if (maxPerOutcome < 1) throw new Error("maxPerOutcome doit être >= 1");
+  if (maxPerOutcome < 1) throw new Error("maxPerOutcome must be >= 1");
   const mappedRows = reviews.filter((record) => {
     return record.kind === "game" && reviewMatchesScope(record, scope);
   }).sort((left, right) => {

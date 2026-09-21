@@ -23,7 +23,7 @@ describe("scopes de benchmark", () => {
   it("refuse un ancien scope champion", () => {
     expect(() => buildPayload({}, {}, {
       player: "p", scope: "zeri", target: "challenger", outcome: "loss",
-    })).toThrow("scope de benchmark inconnu");
+    })).toThrow("unknown benchmark scope");
   });
 });
 

@@ -134,8 +134,8 @@ class GameInsight(AnchoredInsight):
     forces sur un moment au même titre que les erreurs."""
 
     cause: Annotated[str, Field(min_length=1, description=(
-        "Le POURQUOI de l'insight : mécanisme de mort (solo 1v1 sans flash, gank 3v1, "
-        "overextension) ou comportement à l'origine d'une force. Jamais l'issue."))]
+        "The WHY behind the insight: death mechanism (solo 1v1 without Flash, 3v1 gank, "
+        "overextension) or behavior behind a strength. Never just the outcome."))]
 
     # min_length=1 contraint la génération mais accepterait "   " : le validateur
     # attrape le blanc. Même couple que le Worker (minLength + .trim() !== "").

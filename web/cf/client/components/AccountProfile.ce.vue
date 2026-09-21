@@ -67,10 +67,10 @@ const mlCard = computed<MlCard>(() => {
   const analysis = roleAnalysis.value;
   if (analysis?.available) {
     return {
-      label: "Proximité à l'apex",
+      label: "Apex proximity",
       value: analysis.logit !== null && analysis.logit !== undefined ? formatLogit(analysis.logit) : "?",
       note: analysis.model?.boundary
-        ? `${roleLabel(analysis.role)} · frontière ${boundaryLabel(analysis.model.boundary)}`
+        ? `${roleLabel(analysis.role)} · ${boundaryLabel(analysis.model.boundary)} boundary`
         : roleLabel(analysis.role),
       tier: "",
       emblem: "",
@@ -79,14 +79,14 @@ const mlCard = computed<MlCard>(() => {
   const prediction = predictedRank.value;
   if (prediction?.predicted_rank) {
     return {
-      label: "Estimation ML",
+      label: "ML estimate",
       value: titleCase(prediction.predicted_rank),
-      note: prediction.proba ? `Confiance ${Math.round(prediction.proba * 100)}%` : "",
+      note: prediction.proba ? `${Math.round(prediction.proba * 100)}% confidence` : "",
       tier: tierAccent(prediction.predicted_rank),
       emblem: rankEmblem(prediction.predicted_rank) || "",
     };
   }
-  return { label: "Estimation ML", value: "—", note: "", tier: "", emblem: "" };
+  return { label: "ML estimate", value: "—", note: "", tier: "", emblem: "" };
 });
 
 async function getJson<T>(path: string): Promise<T | null> {
@@ -143,7 +143,7 @@ onMounted(() => { void loadProfile(); });
       <div class="profile-identity">
         <div class="summoner-avatar-wrap hero-avatar-wrap">
           <img class="summoner-avatar hero-avatar" :src="summonerIcon(profile.icon)" :alt="slug" loading="eager">
-          <span v-if="profile.level" class="summoner-level hero-level">Niv. {{ profile.level }}</span>
+          <span v-if="profile.level" class="summoner-level hero-level">Lv. {{ profile.level }}</span>
         </div>
         <div class="profile-titles">
           <div class="profile-name-row">
@@ -157,32 +157,32 @@ onMounted(() => { void loadProfile(); });
               :disabled="sync.syncing || sync.cooling"
               type="button"
               :title="sync.cooling
-                ? 'Collecte déjà effectuée : une nouvelle est possible toutes les 15 minutes'
-                : 'Synchroniser les dernières parties depuis l\'API Riot (une fois toutes les 15 minutes)'"
+                ? 'Data already refreshed: you can refresh again every 15 minutes'
+                : 'Sync the latest games from the Riot API (once every 15 minutes)'"
               @click="sync.trigger"
             >
               <svg class="sync-icon" :class="{ spinning: sync.syncing }" viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
                 <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
               </svg>
-              <span>{{ sync.feedback || (sync.syncing ? "Synchronisation…" : (sync.cooling ? sync.cooldownLabel : "Actualiser les données")) }}</span>
+              <span>{{ sync.feedback || (sync.syncing ? "Syncing…" : (sync.cooling ? sync.cooldownLabel : "Refresh data")) }}</span>
             </button>
           </div>
         </div>
       </div>
     </div>
-    <div class="profile-stats" aria-label="Résumé du compte">
+    <div class="profile-stats" aria-label="Account summary">
       <div class="profile-stat stat-games">
-        <span class="stat-label">Parties enregistrées</span>
+        <span class="stat-label">Saved games</span>
         <strong class="stat-value num">{{ total }}</strong>
       </div>
       <div class="profile-stat stat-rank" :class="rank?.tier ? tierAccent(rank.tier) : ''">
         <div class="rank-stat-layout">
           <img v-if="rank?.tier && rankEmblem(rank.tier)" class="rank-emblem" :src="rankEmblem(rank.tier)" :alt="rank.tier" loading="eager">
           <div class="rank-stat-text">
-            <span class="stat-label">Rang actuel</span>
+            <span class="stat-label">Current rank</span>
             <strong class="stat-value rank-badge">{{ rankLoading ? "…" : rankLabel(rank) }}</strong>
             <span v-if="rankWinrate(rank)" class="stat-note rank-winrate">{{ rankWinrate(rank) }}</span>
-            <span v-else-if="rank?.fetched_at" class="stat-note">Mis à jour le {{ formatDate(rank.fetched_at) }}</span>
+            <span v-else-if="rank?.fetched_at" class="stat-note">Updated {{ formatDate(rank.fetched_at) }}</span>
           </div>
         </div>
       </div>
@@ -191,8 +191,8 @@ onMounted(() => { void loadProfile(); });
         :class="mlCard.tier"
         tabindex="0"
         role="button"
-        aria-label="Consulter l'explicabilité ML et le graphique SHAP"
-        title="Cliquer pour afficher la décomposition SHAP"
+        aria-label="View ML explainability and the SHAP chart"
+        title="Click to view the SHAP breakdown"
         @click="emit('openShap')"
         @keydown.enter="emit('openShap')"
       >

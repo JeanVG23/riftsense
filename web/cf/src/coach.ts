@@ -1,7 +1,7 @@
 import { readAccount } from "./accounts";
 import { generateJson } from "./llm_client";
 import { addGameReviewCauses, buildPayload, ROLE_SCOPES, type Outcome } from "./payload";
-import { render, SYSTEM, versionOf } from "./prompt";
+import { render, SYSTEM, SYSTEM_GAME, versionOf } from "./prompt";
 import { jsonError, notFound, unprocessable } from "./http";
 import { appendJsonl, KEYS, readJson, readJsonl, type KVLike } from "./readers";
 import { reviewJsonSchema, validateReview, type Review } from "./schema";
@@ -37,22 +37,23 @@ export async function* coachFlow(
   params: CoachParams,
 ): AsyncGenerator<SseEvent> {
   if (!(params.scope.toLowerCase() in ROLE_SCOPES)) {
-    yield { event: "error", data: { error: `scope de benchmark inconnu : ${params.scope}` } };
+    yield { event: "error", data: { error: `unknown benchmark scope: ${params.scope}` } };
     return;
   }
   // Lectures indépendantes : en parallèle, un seul aller-retour KV avant le 1er event SSE.
-  const [me, ref, previousReviews] = await Promise.all([
+  const [me, ref, previousReviews, gamePromptVersion] = await Promise.all([
     readJson<Record<string, any>>(deps.kv, KEYS.gold(params.slug, params.scope)),
     readJson<Record<string, any>>(deps.kv, KEYS.ref(params.target, params.scope)),
     readJsonl<Record<string, any>>(deps.kv, KEYS.reviews(params.slug)),
+    versionOf(SYSTEM_GAME),
   ]);
   if (!me || !ref) {
     const missing = !me
-      ? `agrégat perso ${params.slug}/${params.scope}`
-      : `référentiel ${params.target}/${params.scope}`;
+      ? `player aggregate ${params.slug}/${params.scope}`
+      : `${params.target} benchmark ${params.scope}`;
     yield {
       event: "error",
-      data: { error: `données manquantes (${missing}) — lance le sync local` },
+      data: { error: `missing data (${missing}) — refresh the account data` },
     };
     return;
   }
@@ -65,9 +66,15 @@ export async function* coachFlow(
       target: params.target,
       outcome: params.outcome as Outcome,
     });
-    payload = addGameReviewCauses(payload, previousReviews, params.scope);
+    payload = addGameReviewCauses(
+      payload,
+      previousReviews.filter((review) =>
+        review.kind === "game" && review.run?.prompt_version === gamePromptVersion
+      ),
+      params.scope,
+    );
   } catch (error) {
-    yield { event: "error", data: { error: `payload invalide : ${errorMessage(error)}` } };
+    yield { event: "error", data: { error: `invalid payload: ${errorMessage(error)}` } };
     return;
   }
   yield { event: "payload", data: { stage: "payload" } };
@@ -82,13 +89,13 @@ export async function* coachFlow(
       review = validateReview(await deps.generate(params.model, system, user, schema));
     }
   } catch (error) {
-    yield { event: "error", data: { error: `génération LLM : ${errorMessage(error)}` } };
+    yield { event: "error", data: { error: `LLM generation: ${errorMessage(error)}` } };
     return;
   }
   if (review === null) {
     yield {
       event: "error",
-      data: { error: "sortie LLM non conforme au schéma Review après 2 tentatives" },
+      data: { error: "LLM output did not match the Review schema after 2 attempts" },
     };
     return;
   }
@@ -124,10 +131,10 @@ export async function apiCoach(request: Request, env: Env): Promise<Response> {
     model?: string;
   } | null;
   const slug = body?.slug ?? "";
-  if (!await readAccount(env.DATA, slug)) return notFound("compte inconnu");
-  if (!env.OLLAMA_API_KEY) return jsonError(500, "OLLAMA_API_KEY non configuré");
+  if (!await readAccount(env.DATA, slug)) return notFound("unknown account");
+  if (!env.OLLAMA_API_KEY) return jsonError(500, "OLLAMA_API_KEY is not configured");
   const scope = (body?.scope ?? "adc").toLowerCase();
-  if (!(scope in ROLE_SCOPES)) return unprocessable("scope de benchmark invalide");
+  if (!(scope in ROLE_SCOPES)) return unprocessable("invalid benchmark scope");
   const params: CoachParams = {
     slug,
     scope,

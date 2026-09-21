@@ -23,7 +23,7 @@ interface OllamaStreamChunk {
 }
 
 async function readStreamedContent(response: Response): Promise<string> {
-  if (!response.body) throw new Error("flux Ollama absent");
+  if (!response.body) throw new Error("missing Ollama response stream");
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -38,13 +38,13 @@ async function readStreamedContent(response: Response): Promise<string> {
     try {
       chunk = JSON.parse(line) as OllamaStreamChunk;
     } catch {
-      throw new Error("flux Ollama NDJSON invalide");
+      throw new Error("invalid Ollama NDJSON stream");
     }
     if (chunk.error !== undefined) {
       const detail = typeof chunk.error === "string"
         ? chunk.error
         : JSON.stringify(chunk.error);
-      throw new Error(`erreur Ollama en cours de génération : ${detail}`);
+      throw new Error(`Ollama generation error: ${detail}`);
     }
     if (typeof chunk.message?.content === "string") {
       content += chunk.message.content;
@@ -75,7 +75,7 @@ export async function generateJson(
     ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const temperature = opts.temperature ?? 0.2;
   const timeoutMs = opts.timeoutMs ?? 180_000;
-  let lastReason = "réponse inattendue";
+  let lastReason = "unexpected response";
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     try {
@@ -100,7 +100,7 @@ export async function generateJson(
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (response.status !== 429 && response.status < 500 && !response.ok) {
-        throw new LLMError(`ollama HTTP ${response.status} (auth/requête invalide)`);
+        throw new LLMError(`Ollama HTTP ${response.status} (authentication/invalid request)`);
       }
       if (!response.ok) lastReason = `HTTP ${response.status}`;
       if (response.ok) {
@@ -124,6 +124,6 @@ export async function generateJson(
     if (attempt < MAX_ATTEMPTS - 1) await sleep(2_000 * (attempt + 1));
   }
   throw new LLMError(
-    `ollama : échec après ${MAX_ATTEMPTS} tentatives (dernier motif : ${lastReason})`,
+    `Ollama failed after ${MAX_ATTEMPTS} attempts (last reason: ${lastReason})`,
   );
 }

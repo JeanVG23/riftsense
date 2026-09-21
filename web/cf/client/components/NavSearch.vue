@@ -32,7 +32,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="nav-search-container">
-    <form class="nav-search-form" @submit.prevent="submit" role="search" aria-label="Recherche et analyse de joueur">
+    <form class="nav-search-form" @submit.prevent="submit" role="search" aria-label="Find and analyze a player">
       <div class="nav-search-fields">
         <!-- Champ Riot ID -->
         <label class="nav-search-group nav-group-riot" for="nav-riot-id">
@@ -46,14 +46,14 @@ onBeforeUnmount(() => {
               v-model="riotId"
               class="nav-search-input"
               type="text"
-              placeholder="Invocateur#TAG"
-              aria-label="Riot ID au format Invocateur#TAG"
+              placeholder="Summoner#TAG"
+              aria-label="Riot ID in Summoner#TAG format"
               autocomplete="off"
               spellcheck="false"
               required
               @input="error ? clearError() : null"
             >
-            <span v-if="riotId.trim() && !submitting" class="nav-search-enter-hint" title="Appuie sur Entrée pour analyser">↵</span>
+            <span v-if="riotId.trim() && !submitting" class="nav-search-enter-hint" title="Press Enter to analyze">↵</span>
           </div>
         </label>
 
@@ -66,7 +66,7 @@ onBeforeUnmount(() => {
               id="nav-platform"
               v-model="platform"
               class="nav-search-select"
-              aria-label="Serveur de jeu"
+              aria-label="Game server"
             >
               <option v-for="p in RIOT_PLATFORMS" :key="p.value" :value="p.value">{{ p.shortLabel }}</option>
             </select>
@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
     <div v-if="error" class="nav-search-error-toast" role="alert">
       <span class="nav-search-error-icon" aria-hidden="true">⚠️</span>
       <span class="nav-search-error-msg">{{ error }}</span>
-      <button type="button" class="nav-search-error-close" aria-label="Fermer l'erreur" @click="clearError">×</button>
+      <button type="button" class="nav-search-error-close" aria-label="Dismiss error" @click="clearError">×</button>
     </div>
   </div>
 </template>

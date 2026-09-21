@@ -2,23 +2,23 @@ import { ref } from "vue";
 import { RECENT_ACCOUNTS_CHANGED, rememberRecentAccount } from "./recent-accounts";
 
 export const RIOT_PLATFORMS = [
-  { value: "euw1", label: "EUW (Europe Ouest)", shortLabel: "EUW" },
-  { value: "eun1", label: "EUNE (Europe Nord/Est)", shortLabel: "EUNE" },
-  { value: "na1", label: "NA (Amérique du Nord)", shortLabel: "NA" },
-  { value: "kr", label: "KR (Corée)", shortLabel: "KR" },
-  { value: "br1", label: "BR (Brésil)", shortLabel: "BR" },
-  { value: "jp1", label: "JP (Japon)", shortLabel: "JP" },
-  { value: "tr1", label: "TR (Turquie)", shortLabel: "TR" },
-  { value: "la1", label: "LAN (Am. Latine Nord)", shortLabel: "LAN" },
-  { value: "la2", label: "LAS (Am. Latine Sud)", shortLabel: "LAS" },
-  { value: "oc1", label: "OCE (Océanie)", shortLabel: "OCE" },
+  { value: "euw1", label: "EUW (Western Europe)", shortLabel: "EUW" },
+  { value: "eun1", label: "EUNE (Northern & Eastern Europe)", shortLabel: "EUNE" },
+  { value: "na1", label: "NA (North America)", shortLabel: "NA" },
+  { value: "kr", label: "KR (Korea)", shortLabel: "KR" },
+  { value: "br1", label: "BR (Brazil)", shortLabel: "BR" },
+  { value: "jp1", label: "JP (Japan)", shortLabel: "JP" },
+  { value: "tr1", label: "TR (Turkey)", shortLabel: "TR" },
+  { value: "la1", label: "LAN (Latin America North)", shortLabel: "LAN" },
+  { value: "la2", label: "LAS (Latin America South)", shortLabel: "LAS" },
+  { value: "oc1", label: "OCE (Oceania)", shortLabel: "OCE" },
 ] as const;
 
 export const REGISTER_ERRORS: Record<string, string> = {
-  riot_id_not_found: "Ce Riot ID est introuvable. Vérifie le pseudo et le tag.",
-  no_ranked_games: "Aucune partie classée récente trouvée sur ce compte.",
-  riot_unavailable: "L'API Riot ne répond pas pour le moment. Réessaie dans quelques minutes.",
-  internal: "Une erreur interne est survenue. Réessaie plus tard.",
+  riot_id_not_found: "We couldn't find this Riot ID. Check the game name and tag.",
+  no_ranked_games: "No recent ranked games were found for this account.",
+  riot_unavailable: "The Riot API is currently unavailable. Try again in a few minutes.",
+  internal: "An internal error occurred. Please try again later.",
 };
 
 export type RegistrationState = "queued" | "running" | "done" | "error";
@@ -51,7 +51,7 @@ export function useAccountRegistration() {
     if (!trimmed || submitting.value) return false;
 
     if (options?.requireTag && !trimmed.includes("#")) {
-      error.value = "Format attendu : Invocateur#TAG";
+      error.value = "Expected format: Summoner#TAG";
       return false;
     }
 

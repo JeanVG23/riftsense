@@ -26,15 +26,23 @@ const emit = defineEmits<{
 }>();
 
 const key = `${props.kind},${props.index}`;
+const tagLabels: Record<string, string> = {
+  asymetrie: "Hidden information",
+  "stat-inventee": "Invented statistic",
+  "profondeur-en-faute": "Misread map depth",
+  "trop-vague": "Too vague",
+  "non-actionnable": "Not actionable",
+  autre: "Other",
+};
 </script>
 
 <template>
   <div :class="prompt ? 'global-focus-actions' : 'fb-compact-row'">
-    <span v-if="prompt" class="fb-compact-prompt">Utile ?</span>
+    <span v-if="prompt" class="fb-compact-prompt">Useful?</span>
     <button
       type="button"
       class="fb-btn-compact"
-      title="Cette recommandation est utile"
+      title="This recommendation is useful"
       :class="{ 'active-win': state?.useful === true }"
       :disabled="busy"
       @click="emit('vote', kind, index, true)"
@@ -42,20 +50,20 @@ const key = `${props.kind},${props.index}`;
     <button
       type="button"
       class="fb-btn-compact"
-      title="Cette recommandation n'est pas utile"
+      title="This recommendation is not useful"
       :class="{ 'active-loss': state?.useful === false }"
       :disabled="busy"
       @click="emit('vote', kind, index, false)"
     >👎</button>
     <div v-if="openKey === key" class="tag-menu">
-      <span class="tag-menu-title">Motif de rejet :</span>
+      <span class="tag-menu-title">Why is it not useful?</span>
       <button
         v-for="item in NEGATIVE_FEEDBACK_TAGS"
         :key="item"
         type="button"
         class="tag-opt"
         @click="emit('tag', kind, index, item)"
-      >{{ item }}</button>
+      >{{ tagLabels[item] || item }}</button>
     </div>
   </div>
 </template>

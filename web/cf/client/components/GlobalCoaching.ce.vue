@@ -154,8 +154,8 @@ async function submitFeedback(kind: string, index: number, useful: boolean, tag:
     emit("feedback-saved");
   } catch (error) {
     feedbackError.value = /429/.test(String(error))
-      ? "Trop de votes en peu de temps. Réessaie dans une heure."
-      : "Le vote n’a pas été enregistré. Réessaie dans un instant.";
+      ? "Too many votes in a short period. Try again in an hour."
+      : "Your vote was not saved. Try again in a moment.";
   } finally {
     feedbackBusy.value = { ...feedbackBusy.value, [itemKey]: false };
   }
@@ -165,24 +165,24 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 </script>
 
 <template>
-  <div v-if="loading" class="state">Chargement des analyses…</div>
+  <div v-if="loading" class="state">Loading analyses…</div>
   <div v-else-if="!review" class="state empty-state coach-empty-card">
     <div class="coach-empty-icon" style="font-size:32px;margin-bottom:8px">🎯</div>
-    <strong>Aucun coaching global enregistré pour {{ outcomeLabel(outcome) }} ({{ scopeName }})</strong>
-    <p style="margin:6px 0 14px;color:var(--text-dim)">Génère une analyse comparative complète pour identifier tes forces, erreurs et habitudes face aux joueurs Challenger.</p>
+    <strong>No overall coaching saved for {{ outcomeLabel(outcome) }} ({{ scopeName }})</strong>
+    <p style="margin:6px 0 14px;color:var(--text-dim)">Generate a full comparative analysis to identify your strengths, mistakes, and habits against Challenger players.</p>
     <button class="btn btn-primary" :disabled="busy" @click="emit('generate')">
-      {{ busy ? "Génération en cours…" : (authenticated ? `Générer l’analyse ${outcomeLabel(outcome)} →` : "🔒 Connexion requise pour générer →") }}
+      {{ busy ? "Generating…" : (authenticated ? `Generate ${outcomeLabel(outcome)} analysis →` : "🔒 Sign in to generate →") }}
     </button>
   </div>
 
   <div v-else>
     <div class="meta-strip row wrap">
-      <span class="num">{{ meta.n_games_me || 0 }} parties analysées</span>
-      <span class="faint">comparées à {{ meta.n_games_ref || 0 }} références Challenger</span>
-      <span class="num">Taux de victoire : {{ Math.round((meta.winrate_me || 0) * 100) }}%</span>
+      <span class="num">{{ meta.n_games_me || 0 }} games analyzed</span>
+      <span class="faint">compared with {{ meta.n_games_ref || 0 }} Challenger reference games</span>
+      <span class="num">Win rate: {{ Math.round((meta.winrate_me || 0) * 100) }}%</span>
       <span class="badge" :class="outcome === 'win' ? 'badge-win' : (outcome === 'loss' ? 'badge-loss' : 'badge-neutral')">{{ outcomeLabel(outcome) }}</span>
       <span class="badge badge-scope">{{ scopeName }}</span>
-      <span v-if="meta.low_sample" class="badge badge-loss">échantillon limité</span>
+      <span v-if="meta.low_sample" class="badge badge-loss">limited sample</span>
       <span class="faint">{{ review.model }}</span>
       <span class="faint">{{ formatDate(review.ts) }}</span>
     </div>
@@ -192,47 +192,47 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
         <span class="sample-stat-icon">📊</span>
         <div class="sample-stat-text">
           <div class="sample-stat-header">
-            <strong>Socle statistique : {{ meta.n_games_me || 0 }} parties réelles de {{ scopeName }}</strong>
-            <span class="faint">· Winrate réel : {{ Math.round((meta.winrate_me || 0) * 100) }}%</span>
+            <strong>Statistical basis: {{ meta.n_games_me || 0 }} real {{ scopeName }} games</strong>
+            <span class="faint">· Actual win rate: {{ Math.round((meta.winrate_me || 0) * 100) }}%</span>
           </div>
           <div class="sample-stat-sub faint">
             <span v-if="meta.n_game_reviews_available != null">
-              <strong>{{ meta.n_game_reviews_available || 0 }}</strong> analyses unitaires disponibles
-              ({{ meta.n_game_reviews_available_wins || 0 }}V · {{ meta.n_game_reviews_available_losses || 0 }}D) ·
+              <strong>{{ meta.n_game_reviews_available || 0 }}</strong> per-game analyses available
+              ({{ meta.n_game_reviews_available_wins || 0 }}W · {{ meta.n_game_reviews_available_losses || 0 }}L) ·
             </span>
             <span v-if="meta.n_game_reviews_used">
-              ✦ <strong>{{ meta.n_game_reviews_used }}</strong> analyses unitaires intégrées
-              ({{ meta.n_game_reviews_used_wins ?? meta.n_game_reviews_wins ?? 0 }}V · {{ meta.n_game_reviews_used_losses ?? meta.n_game_reviews_losses ?? 0 }}D)
+              ✦ <strong>{{ meta.n_game_reviews_used }}</strong> per-game analyses included
+              ({{ meta.n_game_reviews_used_wins ?? meta.n_game_reviews_wins ?? 0 }}W · {{ meta.n_game_reviews_used_losses ?? meta.n_game_reviews_losses ?? 0 }}L)
             </span>
-            <span v-else>✦ Aucune analyse unitaire requise : le coach global s'appuie directement sur tes données de jeu réelles.</span>
+            <span v-else>✦ No per-game analysis required: overall coaching uses your real game data directly.</span>
           </div>
         </div>
       </div>
       <div v-if="meta.qualitative_mode === 'unbalanced' || meta.unbalanced_causes" class="sample-warning-banner">
-        ⚠️ <strong>Échantillon unitaire asymétrique :</strong> tu n’as analysé que des {{ (meta.n_game_reviews_available_losses ?? meta.n_game_reviews_losses ?? 0) > 0 ? "défaites" : "victoires" }}. Une seule est intégrée pour ne pas déformer le bilan, qui reste fondé sur tes {{ meta.n_games_me }} parties réelles. Analyse aussi une partie de l’autre issue pour équilibrer le contexte.
+        ⚠️ <strong>Unbalanced per-game sample:</strong> you have only analyzed {{ (meta.n_game_reviews_available_losses ?? meta.n_game_reviews_losses ?? 0) > 0 ? "losses" : "wins" }}. Only one is included to avoid distorting the review, which remains based on your {{ meta.n_games_me }} real games. Analyze a game with the opposite outcome to balance the context.
       </div>
       <div v-if="needsRefresh" class="sample-warning-banner refresh">
-        <span>↻ Une nouvelle analyse de partie peut enrichir ce bilan.</span>
-        <button type="button" class="btn btn-small" :disabled="busy" @click="emit('generate')">{{ authenticated ? "Actualiser le coaching" : "🔒 Actualiser le coaching" }}</button>
+        <span>↻ A new game analysis can improve this review.</span>
+        <button type="button" class="btn btn-small" :disabled="busy" @click="emit('generate')">{{ authenticated ? "Refresh coaching" : "🔒 Refresh coaching" }}</button>
       </div>
     </div>
 
     <div v-if="review.review.next_focus" class="global-focus-hero">
       <div class="global-focus-content">
-        <span class="global-focus-eyebrow">PRIORITÉ N°1 POUR PROGRESSER</span>
+        <span class="global-focus-eyebrow">YOUR #1 IMPROVEMENT PRIORITY</span>
         <h3>{{ review.review.next_focus }}</h3>
-        <p class="global-focus-hint">Ton levier majeur à appliquer dès ta prochaine partie pour débloquer ton rank-up.</p>
+        <p class="global-focus-hint">The main adjustment to apply in your next game to start climbing.</p>
       </div>
       <FeedbackButtons kind="focus" :index="0" :state="feedback['focus,0']" :busy="feedbackBusy['focus,0']" :open-key="openFeedback" prompt @vote="submitFeedback" @tag="(kind, index, tag) => submitFeedback(kind, index, false, tag)" />
     </div>
 
     <div class="insight-grid">
       <div class="card insight-col">
-        <div class="col-head"><span class="col-icon">🛡️</span><h3>Forces</h3></div>
+        <div class="col-head"><span class="col-icon">🛡️</span><h3>Strengths</h3></div>
         <div v-for="(item, index) in review.review.strengths || []" :key="`strength-${index}`" class="insight-card">
           <h4 class="insight-title">{{ insightTitle(item.point) }}</h4>
           <p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p>
-          <p v-if="item.cause" class="cause-line">Pourquoi : {{ item.cause }}</p>
+          <p v-if="item.cause" class="cause-line">Why: {{ item.cause }}</p>
           <div class="insight-card-footer">
             <span class="evidence-chip kind-strength">{{ item.evidence }}</span>
             <FeedbackButtons kind="strength" :index="index" :state="feedback[key('strength', index)]" :busy="feedbackBusy[key('strength', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" />
@@ -240,11 +240,11 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
         </div>
       </div>
       <div class="card insight-col">
-        <div class="col-head"><span class="col-icon">⚠️</span><h3>Erreurs récurrentes</h3></div>
+        <div class="col-head"><span class="col-icon">⚠️</span><h3>Recurring mistakes</h3></div>
         <div v-for="(item, index) in review.review.mistakes || []" :key="`mistake-${index}`" class="insight-card">
           <h4 class="insight-title">{{ insightTitle(item.point) }}</h4>
           <p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p>
-          <p v-if="item.cause" class="cause-line">Pourquoi : {{ item.cause }}</p>
+          <p v-if="item.cause" class="cause-line">Why: {{ item.cause }}</p>
           <div class="insight-card-footer">
             <span class="evidence-chip kind-mistake">{{ item.evidence }}</span>
             <FeedbackButtons kind="mistake" :index="index" :state="feedback[key('mistake', index)]" :busy="feedbackBusy[key('mistake', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" />
@@ -252,7 +252,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
         </div>
       </div>
       <div class="card insight-col">
-        <div class="col-head"><span class="col-icon">🔄</span><h3>Habitudes</h3></div>
+        <div class="col-head"><span class="col-icon">🔄</span><h3>Habits</h3></div>
         <div v-for="(habit, index) in review.review.habits || []" :key="`habit-${index}`" class="insight-card">
           <h4 class="insight-title">{{ insightTitle(habit) }}</h4>
           <p v-if="insightBody(habit)" class="insight-body">{{ insightBody(habit) }}</p>
@@ -262,12 +262,12 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
         </div>
       </div>
       <div class="card insight-col">
-        <div class="col-head"><span class="col-icon">🎯</span><h3>Focus &amp; Confiance</h3></div>
+        <div class="col-head"><span class="col-icon">🎯</span><h3>Focus &amp; Confidence</h3></div>
         <div class="insight-card">
-          <span class="choice-label">Plan de jeu conseillé</span>
+          <span class="choice-label">Recommended game plan</span>
           <p class="insight-body">{{ review.review.next_focus }}</p>
           <div class="confidence-meter" style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border-soft)">
-            <span class="faint" style="font-size:11px">Niveau de confiance : </span>
+            <span class="faint" style="font-size:11px">Confidence: </span>
             <strong style="color:var(--text);font-size:13px">{{ Math.round((review.review.confidence || 0) * 100) }}%</strong>
           </div>
         </div>
@@ -275,10 +275,10 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
     </div>
 
     <details v-if="reviews.length > 1" class="reviews-history">
-      <summary class="muted">Historique des analyses précédentes ({{ reviews.length - 1 }})</summary>
+      <summary class="muted">Previous analyses ({{ reviews.length - 1 }})</summary>
       <button v-for="item in reviews.slice(1)" :key="item.ts" type="button" class="hist-row faint" @click="emit('review-select', item)">
         {{ formatDate(item.ts) }} · {{ item.model }} · {{ item.scope }} ({{ item.outcome_focus || "global" }})
-        <span class="badge badge-scope">Voir →</span>
+        <span class="badge badge-scope">View →</span>
       </button>
     </details>
     <p v-if="feedbackError" class="feedback-error">{{ feedbackError }}</p>

@@ -11,7 +11,7 @@ describe("TermsPage", () => {
     const wrapper = mount(TermsPage, {
       global: { plugins: [router] },
     });
-    expect(wrapper.text()).toContain("Conditions Générales d'Utilisation");
+    expect(wrapper.text()).toContain("Terms of Use");
     expect(wrapper.text()).toContain("RiftSense isn't endorsed by Riot Games");
     expect(wrapper.text()).toContain("Zero Real-Time Gameplay Assistance");
     expect(Object.keys(wrapper.element.attributes).some(k => wrapper.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
@@ -21,7 +21,7 @@ describe("TermsPage", () => {
     const wrapper = mount(TermsPage, {
       global: { plugins: [router] },
     });
-    expect(wrapper.text()).toContain("Conformité aux politiques Riot Games");
+    expect(wrapper.text()).toContain("Riot Games Policy & API Compliance");
     expect(wrapper.text()).toContain("contact@jeanvg.fr");
     expect(wrapper.findAll("section.legal-card").length).toBeGreaterThanOrEqual(6);
   });
@@ -32,9 +32,9 @@ describe("PrivacyPage", () => {
     const wrapper = mount(PrivacyPage, {
       global: { plugins: [router] },
     });
-    expect(wrapper.text()).toContain("Politique de Confidentialité");
-    expect(wrapper.text()).toContain("RGPD");
-    expect(wrapper.text()).toContain("Aucun mot de passe");
+    expect(wrapper.text()).toContain("Privacy Policy");
+    expect(wrapper.text()).toContain("GDPR");
+    expect(wrapper.text()).toContain("No passwords");
     expect(Object.keys(wrapper.element.attributes).some(k => wrapper.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
 
@@ -43,7 +43,7 @@ describe("PrivacyPage", () => {
       global: { plugins: [router] },
     });
     expect(wrapper.text()).toContain("PUUID");
-    expect(wrapper.text()).toContain("Droit à l'effacement");
+    expect(wrapper.text()).toContain("Right to Erasure");
     expect(wrapper.text()).toContain("contact@jeanvg.fr");
     expect(wrapper.findAll("section.legal-card").length).toBeGreaterThanOrEqual(6);
   });
@@ -54,8 +54,8 @@ describe("ReadmePage", () => {
     const wrapper = mount(ReadmePage, {
       global: { plugins: [router] },
     });
-    expect(wrapper.text()).toContain("Comment fonctionne RiftSense");
-    expect(wrapper.text()).toContain("Le problème avec op.gg");
+    expect(wrapper.text()).toContain("How RiftSense works");
+    expect(wrapper.text()).toContain("The problem with op.gg");
     expect(Object.keys(wrapper.element.attributes).some(k => wrapper.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
 });

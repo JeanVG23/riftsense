@@ -45,9 +45,9 @@ describe("buildCoachingContext", () => {
     expect(context.default_scope).toBe("adc");
     expect(context.scopes.map((scope: any) => scope.id)).toEqual(["all", "adc"]);
     expect(context.matches.z0).toMatchObject({ analyzable: true, review_status: "stale" });
-    expect(context.review_samples.adc).toMatchObject({ available: 1, available_losses: 1 });
+    expect(context.review_samples.adc).toMatchObject({ available: 0, available_losses: 0 });
     expect(context.aggregate_status.adc.loss).toMatchObject({
-      review_ts: "2026-09-05", needs_refresh: true, stale_prompt: true,
+      review_ts: "2026-09-05", needs_refresh: false, stale_prompt: true,
     });
   });
   it("classe ready une review CLI sans payload_hash mais au prompt courant", async () => {

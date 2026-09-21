@@ -29,8 +29,8 @@ describe("CoachingControls", () => {
       "/api/c/Spadzze/eval",
       expect.objectContaining({ headers: expect.any(Headers) }),
     );
-    expect(wrapper.text()).toContain("75 % d'erreurs jugées utiles");
-    expect(wrapper.text()).toContain("objectif atteint");
+    expect(wrapper.text()).toContain("75% of mistakes rated useful");
+    expect(wrapper.text()).toContain("target met");
     const attrs = wrapper.element.attributes;
     expect(Object.keys(attrs).some(k => attrs[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
@@ -73,6 +73,6 @@ describe("CoachingControls", () => {
     await flushPromises();
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(wrapper.text()).toContain("80 % d'erreurs jugées utiles");
+    expect(wrapper.text()).toContain("80% of mistakes rated useful");
   });
 });

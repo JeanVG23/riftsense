@@ -60,19 +60,19 @@ onBeforeUnmount(() => {
     v-if="!authenticated"
     type="button"
     class="topbar-auth-btn"
-    title="Connexion pour débloquer les fonctionnalités LLM"
+    title="Sign in to unlock LLM features"
     @click="openCoachAuth()"
   >
     <span class="auth-lock-icon">🔒</span>
-    <span>Connexion coach</span>
+    <span>Coach sign-in</span>
   </button>
   <div v-else class="topbar-auth-logged">
-    <span class="topbar-auth-pill" title="Mode Coach déverrouillé">
+    <span class="topbar-auth-pill" title="Coach mode unlocked">
       <span class="auth-unlock-icon">🔓</span>
-      <span>Coach actif</span>
+      <span>Coach active</span>
     </span>
-    <button type="button" class="topbar-logout-btn" title="Se déconnecter" @click="logout">
-      <span>Déconnexion</span>
+    <button type="button" class="topbar-logout-btn" title="Sign out" @click="logout">
+      <span>Sign out</span>
     </button>
   </div>
 </template>

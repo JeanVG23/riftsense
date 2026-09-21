@@ -61,7 +61,7 @@ const filtered = computed(() => items.value.filter((item) => {
 }));
 const wins = computed(() => items.value.filter(item => gameMeta(item).win === true).length);
 const losses = computed(() => items.value.filter(item => gameMeta(item).win === false).length);
-const champions = computed(() => [...new Set(items.value.map(gameChampion).filter(item => item !== "Partie analysée"))].sort());
+const champions = computed(() => [...new Set(items.value.map(gameChampion).filter(item => item !== "Analyzed game"))].sort());
 
 function feedbackKey(kind: string, index: number): string { return `${kind},${index}`; }
 function feedbackState(kind: string, index: number): FeedbackValue | null { return feedback.value[feedbackKey(kind, index)] || null; }
@@ -100,7 +100,7 @@ async function selectReview(review: GameReview): Promise<void> {
     selected.value = detail;
     await loadFeedback(detail);
   } catch {
-    if (sequence === selectionSequence) detailError.value = "Impossible de charger cette analyse. Réessaie dans un instant.";
+    if (sequence === selectionSequence) detailError.value = "Unable to load this analysis. Try again in a moment.";
   } finally {
     if (sequence === selectionSequence) detailLoading.value = false;
   }
@@ -161,7 +161,7 @@ async function submitFeedback(kind: string, index: number, useful: boolean, tag:
     });
     feedback.value = next; openFeedback.value = null; emit("feedback-saved");
   } catch (error) {
-    feedbackError.value = /429/.test(String(error)) ? "Trop de votes en peu de temps. Réessaie dans une heure." : "Le vote n’a pas été enregistré. Réessaie dans un instant.";
+    feedbackError.value = /429/.test(String(error)) ? "Too many votes in a short period. Try again in an hour." : "Your vote was not saved. Try again in a moment.";
   } finally { feedbackBusy.value = { ...feedbackBusy.value, [key]: false }; }
 }
 
@@ -178,9 +178,9 @@ async function saveNote(kind: string, index: number): Promise<void> {
 
 function coachError(error: unknown): string {
   const raw = String((error as Error)?.message || error || "");
-  if (/401|authentification|non autoris/i.test(raw)) return "Connexion requise : mot de passe coach nécessaire.";
-  if (/429/.test(raw)) return "Le modèle est temporairement limité. Réessaie dans quelques minutes.";
-  return raw || "Le coach n’a pas pu répondre.";
+  if (/401|authentification|authentication|non autoris|unauthoriz/i.test(raw)) return "Sign-in required: the coach password is needed.";
+  if (/429/.test(raw)) return "The model is temporarily rate-limited. Try again in a few minutes.";
+  return raw || "The coach could not respond.";
 }
 
 async function sendChat(): Promise<void> {
@@ -230,43 +230,43 @@ watch([filterResult, filterChampion], applyFilter);
 
 <template>
   <section class="game-reviews" aria-labelledby="game-reviews-title">
-    <div class="game-reviews-heading"><div><p class="eyebrow">ANALYSES DÉTAILLÉES</p><h2 id="game-reviews-title">Revoir une partie, moment par moment</h2><p>Chaque analyse dissèque une partie précise : morts, retours en base, timing d'objectifs et focus pour ta prochaine game.</p></div></div>
-    <div class="review-primer"><strong>Comment cette analyse est construite</strong><span>La timeline de l’API Riot est transformée localement en journal vérifiable ; l’IA ne reçoit que ce journal nettoyé et ne relit jamais le brouillard de guerre.</span></div>
-    <div class="game-privacy-banner"><span class="privacy-icon">🛡️</span><span><strong>Analyse intègre :</strong> reconstruite depuis la timeline Riot avec respect strict de l'asymétrie d'information.</span></div>
-    <div v-if="loading" class="state">Chargement des analyses de parties…</div>
-    <div v-else-if="!items.length" class="state empty-state"><strong>Aucune analyse de partie disponible.</strong><span>Les prochaines analyses individuelles apparaîtront ici.</span></div>
+    <div class="game-reviews-heading"><div><p class="eyebrow">DETAILED ANALYSES</p><h2 id="game-reviews-title">Review a game moment by moment</h2><p>Each analysis breaks down one game: deaths, recalls, objective timing, and the focus for your next match.</p></div></div>
+    <div class="review-primer"><strong>How this analysis is built</strong><span>The Riot API timeline is transformed locally into a verifiable journal. The AI receives only this cleaned journal and never reads through fog of war.</span></div>
+    <div class="game-privacy-banner"><span class="privacy-icon">🛡️</span><span><strong>Fair analysis:</strong> reconstructed from the Riot timeline with strict respect for information asymmetry.</span></div>
+    <div v-if="loading" class="state">Loading game analyses…</div>
+    <div v-else-if="!items.length" class="state empty-state"><strong>No game analyses available.</strong><span>Future individual analyses will appear here.</span></div>
     <div v-else class="game-review-layout">
       <div class="game-review-sidebar">
         <div class="game-filter-bar">
-          <div class="segmented-choice filter-segmented" role="group" aria-label="Filtrer par résultat">
-            <button type="button" :class="{ selected: filterResult === 'all' }" @click="filterResult = 'all'">Toutes ({{ items.length }})</button>
-            <button type="button" :class="{ selected: filterResult === 'win', 'win-choice': filterResult === 'win' }" @click="filterResult = 'win'">Victoires ({{ wins }})</button>
-            <button type="button" :class="{ selected: filterResult === 'loss', 'loss-choice': filterResult === 'loss' }" @click="filterResult = 'loss'">Défaites ({{ losses }})</button>
+          <div class="segmented-choice filter-segmented" role="group" aria-label="Filter by outcome">
+            <button type="button" :class="{ selected: filterResult === 'all' }" @click="filterResult = 'all'">All ({{ items.length }})</button>
+            <button type="button" :class="{ selected: filterResult === 'win', 'win-choice': filterResult === 'win' }" @click="filterResult = 'win'">Wins ({{ wins }})</button>
+            <button type="button" :class="{ selected: filterResult === 'loss', 'loss-choice': filterResult === 'loss' }" @click="filterResult = 'loss'">Losses ({{ losses }})</button>
           </div>
-          <select v-if="champions.length > 1" v-model="filterChampion" class="champ-filter-select"><option value="all">Tous les champions</option><option v-for="champion in champions" :key="champion" :value="champion">{{ champion }}</option></select>
+          <select v-if="champions.length > 1" v-model="filterChampion" class="champ-filter-select"><option value="all">All champions</option><option v-for="champion in champions" :key="champion" :value="champion">{{ champion }}</option></select>
         </div>
-        <nav class="game-review-list" aria-label="Analyses de parties disponibles">
-          <button v-for="item in filtered" :key="item.ts" type="button" class="game-review-option" :class="[selected?.ts === item.ts ? 'selected' : '', gameResult(item) === 'Victoire' ? 'is-win' : 'is-loss']" :aria-current="selected?.ts === item.ts" @click="selectUserReview(item)">
+        <nav class="game-review-list" aria-label="Available game analyses">
+          <button v-for="item in filtered" :key="item.ts" type="button" class="game-review-option" :class="[selected?.ts === item.ts ? 'selected' : '', gameResult(item) === 'Victory' ? 'is-win' : 'is-loss']" :aria-current="selected?.ts === item.ts" @click="selectUserReview(item)">
             <img class="game-option-icon" :src="gameIcon(item)" :alt="gameChampion(item)" loading="lazy" @error="iconFallback($event, gameChampion(item))">
-            <span class="game-option-copy"><span class="game-option-top"><strong>{{ gameChampion(item) }}</strong><span class="game-mini-badge" :class="gameResult(item) === 'Victoire' ? 'win' : 'loss'">{{ gameResult(item) }}</span></span><span class="game-option-sub"><span v-if="gameKda(item)">{{ gameKda(item) }} · </span><span v-if="gameOpponent(item)">vs {{ gameOpponent(item) }} · </span>{{ formatDate(item.ts) }}</span></span><span class="game-option-arrow">→</span>
+            <span class="game-option-copy"><span class="game-option-top"><strong>{{ gameChampion(item) }}</strong><span class="game-mini-badge" :class="gameResult(item) === 'Victory' ? 'win' : 'loss'">{{ gameResult(item) }}</span></span><span class="game-option-sub"><span v-if="gameKda(item)">{{ gameKda(item) }} · </span><span v-if="gameOpponent(item)">vs {{ gameOpponent(item) }} · </span>{{ formatDate(item.ts) }}</span></span><span class="game-option-arrow">→</span>
           </button>
-          <div v-if="!filtered.length" class="state empty-state-compact">Aucune partie pour ce filtre.</div>
-          <button v-if="items.length < total" type="button" class="game-load-more" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? "Chargement…" : "Afficher plus de parties" }}</button>
+          <div v-if="!filtered.length" class="state empty-state-compact">No games match this filter.</div>
+          <button v-if="items.length < total" type="button" class="game-load-more" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? "Loading…" : "Show more games" }}</button>
         </nav>
       </div>
-      <div v-if="detailLoading" class="state game-detail-state">Chargement de l’analyse…</div>
+      <div v-if="detailLoading" class="state game-detail-state">Loading analysis…</div>
       <div v-else-if="detailError" class="state err game-detail-state">{{ detailError }}</div>
       <article v-else-if="selected?.review" class="game-review-detail">
-        <header class="game-detail-header"><div class="game-detail-title"><img class="game-detail-icon" :src="gameIcon(selected)" :alt="gameChampion(selected)" @error="iconFallback($event, gameChampion(selected))"><div><p class="eyebrow">ANALYSE DE PARTIE</p><h3>{{ gameChampion(selected) }}<span v-if="gameOpponent(selected)"> · contre {{ gameOpponent(selected) }}</span></h3><p class="game-match-id">{{ gameMatchId(selected) }}</p></div></div><span class="game-result" :class="gameResult(selected) === 'Victoire' ? 'win' : 'loss'">{{ gameResult(selected) }}</span></header>
-        <div class="game-detail-stats"><span v-if="gameKda(selected)"><small>KDA</small><strong>{{ gameKda(selected) }}</strong></span><span v-if="gameDuration(selected)"><small>Durée</small><strong>{{ gameDuration(selected) }}</strong></span><span v-if="gamePatch(selected)"><small>Patch</small><strong>{{ gamePatch(selected) }}</strong></span><span><small>Confiance</small><strong>{{ Math.round((selected.review.confidence || 0) * 100) }}%</strong></span></div>
-        <section v-if="selected.review.summary" class="game-chief-summary"><span>Synthèse du coach</span><p>{{ selected.review.summary }}</p></section>
-        <section v-if="selected.review.axes?.length" class="game-axis-list" aria-label="Analyses spécialisées"><details v-for="axis in selected.review.axes" :key="axis.axis" class="game-axis"><summary><span>{{ axis.label }}</span><small>{{ axis.strengths.length }} force(s) · {{ axis.mistakes.length }} erreur(s)</small></summary><div class="game-axis-body"><article v-for="(item, index) in [...axis.strengths, ...axis.mistakes]" :key="`${axis.axis}-${index}`"><strong>{{ item.point }}</strong><p>{{ item.cause }}</p><span>{{ item.evidence }}</span></article></div></details></section>
-        <section class="game-focus-card"><span class="game-focus-label">Focus pour ta prochaine partie</span><p class="game-focus-text">{{ selected.review.next_focus }}</p><FeedbackButtons kind="focus" :index="0" :state="feedbackState('focus', 0)" :busy="feedbackBusy['focus,0']" :open-key="openFeedback" prompt @vote="submitFeedback" @tag="(kind, index, tag) => submitFeedback(kind, index, false, tag)" /></section>
+        <header class="game-detail-header"><div class="game-detail-title"><img class="game-detail-icon" :src="gameIcon(selected)" :alt="gameChampion(selected)" @error="iconFallback($event, gameChampion(selected))"><div><p class="eyebrow">GAME ANALYSIS</p><h3>{{ gameChampion(selected) }}<span v-if="gameOpponent(selected)"> · vs {{ gameOpponent(selected) }}</span></h3><p class="game-match-id">{{ gameMatchId(selected) }}</p></div></div><span class="game-result" :class="gameResult(selected) === 'Victory' ? 'win' : 'loss'">{{ gameResult(selected) }}</span></header>
+        <div class="game-detail-stats"><span v-if="gameKda(selected)"><small>KDA</small><strong>{{ gameKda(selected) }}</strong></span><span v-if="gameDuration(selected)"><small>Duration</small><strong>{{ gameDuration(selected) }}</strong></span><span v-if="gamePatch(selected)"><small>Patch</small><strong>{{ gamePatch(selected) }}</strong></span><span><small>Confidence</small><strong>{{ Math.round((selected.review.confidence || 0) * 100) }}%</strong></span></div>
+        <section v-if="selected.review.summary" class="game-chief-summary"><span>Coach summary</span><p>{{ selected.review.summary }}</p></section>
+        <section v-if="selected.review.axes?.length" class="game-axis-list" aria-label="Specialist analyses"><details v-for="axis in selected.review.axes" :key="axis.axis" class="game-axis"><summary><span>{{ axis.label }}</span><small>{{ axis.strengths.length }} strength(s) · {{ axis.mistakes.length }} mistake(s)</small></summary><div class="game-axis-body"><article v-for="(item, index) in [...axis.strengths, ...axis.mistakes]" :key="`${axis.axis}-${index}`"><strong>{{ item.point }}</strong><p>{{ item.cause }}</p><span>{{ item.evidence }}</span></article></div></details></section>
+        <section class="game-focus-card"><span class="game-focus-label">Focus for your next game</span><p class="game-focus-text">{{ selected.review.next_focus }}</p><FeedbackButtons kind="focus" :index="0" :state="feedbackState('focus', 0)" :busy="feedbackBusy['focus,0']" :open-key="openFeedback" prompt @vote="submitFeedback" @tag="(kind, index, tag) => submitFeedback(kind, index, false, tag)" /></section>
         <div class="game-insight-grid">
-          <section class="game-insight-section strengths"><div class="col-head"><span class="col-icon">🛡️</span><h3>Ce qui a bien fonctionné</h3></div><p v-if="!selected.review.strengths?.length" class="game-empty-copy">Aucune force suffisamment nette n’a été retenue pour cette partie.</p><article v-for="(item, index) in selected.review.strengths || []" :key="`strength-${index}`" class="game-insight-item"><h4 class="insight-title">{{ insightTitle(item.point) }}</h4><p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p><details v-if="item.cause" class="cause-details"><summary>Pourquoi ?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-strength">{{ item.evidence }}</span><FeedbackButtons kind="strength" :index="index" :state="feedbackState('strength', index)" :busy="feedbackBusy[feedbackKey('strength', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /></div></article></section>
-          <section class="game-insight-section mistakes"><div class="col-head"><span class="col-icon">⚠️</span><h3>Erreurs à retenir</h3></div><article v-for="(item, index) in selected.review.mistakes || []" :key="`mistake-${index}`" class="game-insight-item"><h4 class="insight-title">{{ insightTitle(item.point) }}</h4><p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p><details v-if="item.cause" class="cause-details" open><summary>Pourquoi ?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-mistake">{{ item.evidence }}</span><div><FeedbackButtons kind="mistake" :index="index" :state="feedbackState('mistake', index)" :busy="feedbackBusy[feedbackKey('mistake', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /><button v-if="feedbackState('mistake', index)" type="button" class="fb-btn-compact" title="Ajouter une note" @click="toggleNote('mistake', index)">✎</button><div v-if="openNotes[feedbackKey('mistake', index)]" class="fb-note-editor"><textarea v-model="noteDraft[feedbackKey('mistake', index)]" class="fb-note-input" rows="3" maxlength="500" placeholder="Précise ce qui t’aide ou ce qui manque…"></textarea><button type="button" class="btn btn-small" :disabled="feedbackBusy[feedbackKey('mistake', index)]" @click="saveNote('mistake', index)">Enregistrer la note</button></div></div></div></article></section>
+          <section class="game-insight-section strengths"><div class="col-head"><span class="col-icon">🛡️</span><h3>What worked well</h3></div><p v-if="!selected.review.strengths?.length" class="game-empty-copy">No sufficiently clear strength was identified for this game.</p><article v-for="(item, index) in selected.review.strengths || []" :key="`strength-${index}`" class="game-insight-item"><h4 class="insight-title">{{ insightTitle(item.point) }}</h4><p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p><details v-if="item.cause" class="cause-details"><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-strength">{{ item.evidence }}</span><FeedbackButtons kind="strength" :index="index" :state="feedbackState('strength', index)" :busy="feedbackBusy[feedbackKey('strength', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /></div></article></section>
+          <section class="game-insight-section mistakes"><div class="col-head"><span class="col-icon">⚠️</span><h3>Mistakes to remember</h3></div><article v-for="(item, index) in selected.review.mistakes || []" :key="`mistake-${index}`" class="game-insight-item"><h4 class="insight-title">{{ insightTitle(item.point) }}</h4><p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p><details v-if="item.cause" class="cause-details" open><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-mistake">{{ item.evidence }}</span><div><FeedbackButtons kind="mistake" :index="index" :state="feedbackState('mistake', index)" :busy="feedbackBusy[feedbackKey('mistake', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /><button v-if="feedbackState('mistake', index)" type="button" class="fb-btn-compact" title="Add a note" @click="toggleNote('mistake', index)">✎</button><div v-if="openNotes[feedbackKey('mistake', index)]" class="fb-note-editor"><textarea v-model="noteDraft[feedbackKey('mistake', index)]" class="fb-note-input" rows="3" maxlength="500" placeholder="Explain what helps or what is missing…"></textarea><button type="button" class="btn btn-small" :disabled="feedbackBusy[feedbackKey('mistake', index)]" @click="saveNote('mistake', index)">Save note</button></div></div></div></article></section>
         </div>
-        <section class="game-chat" aria-labelledby="game-chat-title"><div class="game-chat-heading"><div><span class="game-focus-label">COACH INTERACTIF</span><h3 id="game-chat-title">Conteste, explique ou approfondis.</h3></div><small>Le coach refuse les informations ennemies cachées.</small></div><div v-if="chatMessages.length" class="game-chat-log"><p v-for="(message, index) in chatMessages" :key="index" :class="message.role">{{ message.content }}</p></div><form class="game-chat-form" @submit.prevent="sendChat"><label class="sr-only" for="game-chat-input">Question au coach</label><textarea id="game-chat-input" v-model="chatDraft" rows="2" maxlength="2000" :placeholder="authenticated ? 'Ex. : ce choix était-il vraiment mauvais ?' : '🔒 Connexion requise pour discuter avec le coach IA…'"></textarea><button type="submit" :disabled="chatBusy || (authenticated && !chatDraft.trim())">{{ chatBusy ? "Le coach réfléchit…" : (authenticated ? "Envoyer" : "🔒 Se connecter") }}</button></form><p v-if="chatError" class="feedback-error">{{ chatError }}</p></section>
+        <section class="game-chat" aria-labelledby="game-chat-title"><div class="game-chat-heading"><div><span class="game-focus-label">INTERACTIVE COACH</span><h3 id="game-chat-title">Challenge, explain, or dig deeper.</h3></div><small>The coach refuses to use hidden enemy information.</small></div><div v-if="chatMessages.length" class="game-chat-log"><p v-for="(message, index) in chatMessages" :key="index" :class="message.role">{{ message.content }}</p></div><form class="game-chat-form" @submit.prevent="sendChat"><label class="sr-only" for="game-chat-input">Question for the coach</label><textarea id="game-chat-input" v-model="chatDraft" rows="2" maxlength="2000" :placeholder="authenticated ? 'Example: was this choice really a mistake?' : '🔒 Sign in to chat with the AI coach…'"></textarea><button type="submit" :disabled="chatBusy || (authenticated && !chatDraft.trim())">{{ chatBusy ? "The coach is thinking…" : (authenticated ? "Send" : "🔒 Sign in") }}</button></form><p v-if="chatError" class="feedback-error">{{ chatError }}</p></section>
       </article>
       <p v-if="feedbackError" class="feedback-error">{{ feedbackError }}</p>
     </div>

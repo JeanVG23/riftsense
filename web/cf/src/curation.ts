@@ -33,12 +33,12 @@ export function pedagogicTarget(
         || !finite(lane.gd14) || lane.gd14 < -500 || participation < 3) return null;
     const reasons = ["long_game", "competitive_lane", "active_participation"];
     const laneText = lane.gd14 >= 0
-      ? `Tu avais ${lane.gd14 >= 0 ? "+" : ""}${lane.gd14} g à 14 min.`
-      : `La lane restait compétitive (${lane.gd14} g à 14 min).`;
+      ? `You had ${lane.gd14 >= 0 ? "+" : ""}${lane.gd14} gold at 14 minutes.`
+      : `The lane remained competitive (${lane.gd14} gold at 14 minutes).`;
     return {
       kind: "loss", score: 80 + Math.min(20, Math.max(0, Math.round(duration - 22))), reasons,
-      label: "🎯 Défaite serrée",
-      hint: `${laneText} Partie idéale pour auditer le passage vers le mid-game.`,
+      label: "🎯 Close loss",
+      hint: `${laneText} Ideal game for reviewing the transition into mid game.`,
     };
   }
 
@@ -50,8 +50,8 @@ export function pedagogicTarget(
     return {
       kind: "win", score: 80 + Math.min(20, Math.max(0, Math.round(duration - 24))),
       reasons: ["long_game", "active_participation", "observable_lane_opponent"],
-      label: "🛡️ Victoire disputée",
-      hint: `Victoire de ${Math.round(duration)} min avec participation active. Idéale pour identifier tes leviers reproductibles.`,
+      label: "🛡️ Contested win",
+      hint: `${Math.round(duration)}-minute win with active participation. Ideal for identifying repeatable strengths.`,
     };
   }
   return null;

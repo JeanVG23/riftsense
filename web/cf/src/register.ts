@@ -81,18 +81,18 @@ function queueStub(env: Env) {
 }
 
 export async function apiRegister(request: Request, env: Env): Promise<Response> {
-  if (!env.INGEST_QUEUE) return jsonError(503, "inscription indisponible");
+  if (!env.INGEST_QUEUE) return jsonError(503, "registration unavailable");
   const body = await request.json().catch(() => null) as
     { riot_id?: unknown; platform?: unknown } | null;
   if (typeof body?.riot_id !== "string" || typeof body?.platform !== "string") {
-    return unprocessable("riot_id et platform sont requis");
+    return unprocessable("riot_id and platform are required");
   }
   const platform = body.platform.toLowerCase();
   if (!(PLATFORMS as readonly string[]).includes(platform)) {
-    return unprocessable("plateforme inconnue");
+    return unprocessable("unknown platform");
   }
   const parsed = parseRiotId(body.riot_id);
-  if (!parsed) return unprocessable("Riot ID attendu sous la forme Pseudo#TAG");
+  if (!parsed) return unprocessable("expected Riot ID format: Summoner#TAG");
   // Espaces internes réduits à un seul : "Le  Petit  Chat" et "Le Petit Chat"
   // sont le même Riot ID, sans quoi le même joueur obtiendrait un faux 409.
   const gameName = parsed.gameName.replace(/\s+/g, " ");
@@ -102,7 +102,7 @@ export async function apiRegister(request: Request, env: Env): Promise<Response>
 
   const existing: Account | null = await readAccount(env.DATA, slug);
   if (existing && existing.riot_id.toLowerCase() !== riotId.toLowerCase()) {
-    return jsonError(409, "ce slug est déjà pris par un autre compte");
+    return jsonError(409, "this slug is already used by another account");
   }
   if (existing?.source === "curated") {
     // Une inscription n'est pas qu'une lecture : elle déclenche une collecte, donc
@@ -111,8 +111,8 @@ export async function apiRegister(request: Request, env: Env): Promise<Response>
     // sync_cloudflare.py remplace depuis le local). Sans preuve de propriété, un
     // étranger pourrait réécrire les agrégats d'un compte suivi. Le refus est un
     // 409 déjà existant : la liste des codes d'erreur du service reste fermée.
-    return jsonError(409, "ce compte est déjà suivi et se met à jour tout seul ; "
-                          + "consulte-le directement depuis la page d'accueil");
+    return jsonError(409, "this account is already tracked and updates automatically; "
+                          + "open it directly from the home page");
   }
   const last = existing?.last_ingest_ts ? Date.parse(existing.last_ingest_ts) : NaN;
   if (Number.isFinite(last) && Date.now() - last < FRESH_WINDOW_MS) {
@@ -135,7 +135,7 @@ export async function apiRegister(request: Request, env: Env): Promise<Response>
 function tooEarly(seconds: number): Response {
   const minutes = Math.ceil(seconds / 60);
   return new Response(JSON.stringify({
-    detail: `Données déjà à jour : nouvelle collecte possible dans ${minutes} min`,
+    detail: `Data already up to date: you can refresh again in ${minutes} min`,
     retry_after: seconds,
   }), {
     status: 429,
@@ -162,9 +162,9 @@ function cooldownLeft(lastIngestTs?: string): number {
  * EST la clé du compte : rien n'est deviné, et le Riot ID envoyé au service est
  * celui qui est stocké, pas celui que le navigateur a reconstitué. */
 export async function apiRefresh(env: Env, slug: string): Promise<Response> {
-  if (!env.INGEST_QUEUE) return jsonError(503, "collecte indisponible");
+  if (!env.INGEST_QUEUE) return jsonError(503, "data collection unavailable");
   const account = await readAccount(env.DATA, slug);
-  if (!account) return notFound("compte introuvable");
+  if (!account) return notFound("account not found");
 
   const left = cooldownLeft(account.last_ingest_ts);
   if (left) return tooEarly(left);
@@ -188,7 +188,7 @@ export async function apiRefresh(env: Env, slug: string): Promise<Response> {
 }
 
 export async function apiRegisterStatus(env: Env, slug: string): Promise<Response> {
-  if (!env.INGEST_QUEUE) return jsonError(503, "inscription indisponible");
+  if (!env.INGEST_QUEUE) return jsonError(503, "registration unavailable");
   const response = await queueStub(env)
     .fetch(new Request(`http://do/status?slug=${encodeURIComponent(slug)}`));
   if (response.status === 404) {
@@ -196,7 +196,7 @@ export async function apiRegisterStatus(env: Env, slug: string): Promise<Respons
     const account = await readAccount(env.DATA, slug);
     return account
       ? Response.json({ state: "done", slug })
-      : notFound("inscription inconnue");
+      : notFound("unknown registration");
   }
   return response;
 }

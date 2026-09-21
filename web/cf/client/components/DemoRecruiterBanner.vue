@@ -14,19 +14,19 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <aside class="demo-banner" aria-label="Bandeau de démonstration technique">
+  <aside class="demo-banner" aria-label="Technical demo banner">
     <div class="demo-banner-top">
       <div class="demo-badge">
         <span class="demo-badge-dot" aria-hidden="true"></span>
-        <span class="demo-badge-text">MODE DÉMONSTRATION · PROFIL DE RÉFÉRENCE SPADZZE#EUW</span>
+        <span class="demo-badge-text">DEMO MODE · REFERENCE PROFILE SPADZZE#EUW</span>
       </div>
     </div>
 
     <p class="demo-desc">
-      Ce compte de référence illustre la restitution du pipeline : 47 701 matchs analysés, modèle EBM, attribution SHAP et coaching IA ancré.
+      This reference account showcases the full pipeline: 47,701 analyzed matches, an EBM model, SHAP attribution, and evidence-grounded AI coaching.
     </p>
 
-    <div class="demo-actions" role="toolbar" aria-label="Points d'entrée de la démo">
+    <div class="demo-actions" role="toolbar" aria-label="Demo entry points">
       <button
         type="button"
         class="demo-nav-btn"
@@ -34,7 +34,7 @@ const emit = defineEmits<{
         @click="emit('select-view', 'coaching', 'games', 'EUW1_7898084645')"
       >
         <span class="demo-btn-num">1</span>
-        <span class="demo-btn-label">Analyse de match horodatée</span>
+        <span class="demo-btn-label">Timestamped match analysis</span>
       </button>
 
       <button
@@ -44,7 +44,7 @@ const emit = defineEmits<{
         @click="emit('select-view', 'shap')"
       >
         <span class="demo-btn-num">2</span>
-        <span class="demo-btn-label">Modèle EBM &amp; Waterfall SHAP</span>
+        <span class="demo-btn-label">EBM model &amp; SHAP waterfall</span>
       </button>
 
       <button
@@ -54,7 +54,7 @@ const emit = defineEmits<{
         @click="emit('select-view', 'history')"
       >
         <span class="demo-btn-num">3</span>
-        <span class="demo-btn-label">Historique des 20 parties</span>
+        <span class="demo-btn-label">20-game history</span>
       </button>
     </div>
   </aside>

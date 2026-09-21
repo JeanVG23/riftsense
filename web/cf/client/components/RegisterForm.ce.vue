@@ -124,18 +124,18 @@ onBeforeUnmount(stopPolling);
             <svg class="input-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
               <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
             </svg>
-            <input id="riot-id" v-model="riotId" class="input register-input-id" placeholder="Invocateur#TAG (ex: Spadzze#euw)" required>
+            <input id="riot-id" v-model="riotId" class="input register-input-id" placeholder="Summoner#TAG (e.g. Spadzze#EUW)" required>
           </div>
         </label>
         <label class="field-label register-label-server" for="platform">
-          <span>Serveur</span>
+          <span>Server</span>
           <select id="platform" v-model="platform" class="select register-select-server">
             <option v-for="p in RIOT_PLATFORMS" :key="p.value" :value="p.value">{{ p.label }}</option>
           </select>
         </label>
         <button type="submit" class="btn btn-primary register-submit-btn" :disabled="submitting || !riotId">
           <span v-if="submitting" class="loading-spinner-inline" aria-hidden="true"></span>
-          <span>{{ submitting ? "Collecte…" : "Analyser mes parties" }}</span>
+          <span>{{ submitting ? "Collecting…" : "Analyze my games" }}</span>
           <span v-if="!submitting" class="register-btn-arrow" aria-hidden="true">→</span>
         </button>
       </div>
@@ -147,24 +147,24 @@ onBeforeUnmount(stopPolling);
     <div class="hero-live-pill" :class="{ 'hero-live-pill--error': state === 'error' }">
       <span class="live-indicator-dot" :class="{ 'dot--error': state === 'error' }"></span>
       <span class="hero-live-text">
-        {{ state === "error" ? "ERREUR DE SYNCHRONISATION" : "SYNCHRONISATION RIOT GAMES" }}
+        {{ state === "error" ? "SYNC ERROR" : "RIOT GAMES SYNC" }}
       </span>
     </div>
 
     <h1 class="status-title">
-      <span v-if="state === 'error'" class="text-danger">Analyse impossible</span>
-      <span v-else class="text-ink">Analyse de ton compte en cours</span>
+      <span v-if="state === 'error'" class="text-danger">Unable to analyze account</span>
+      <span v-else class="text-ink">Analyzing your account</span>
     </h1>
 
     <p class="status-subtitle muted">
       {{ state === "error"
-        ? "La récupération des données auprès de l'API Riot Games n'a pas pu aboutir."
-        : "Connexion sécurisée à l'API Riot Games et extraction de tes 20 dernières parties Solo/Duo." }}
+        ? "We could not retrieve data from the Riot Games API."
+        : "Securely connecting to the Riot Games API and retrieving your latest 20 Solo/Duo games." }}
     </p>
 
     <div class="card status-progress-card" :class="{ 'card--error': state === 'error' }">
       <!-- Stepper à 3 étapes -->
-      <div class="status-stepper" aria-label="Progression de l'analyse">
+      <div class="status-stepper" aria-label="Analysis progress">
         <div class="status-step" :class="{
           active: state === 'queued' || state === 'running',
           done: state === 'done',
@@ -188,7 +188,7 @@ onBeforeUnmount(stopPolling);
             <span v-if="state === 'done'">✓</span>
             <span v-else>2</span>
           </span>
-          <span class="step-label">20 parties SoloQ</span>
+          <span class="step-label">20 SoloQ games</span>
         </div>
 
         <div class="step-sep" :class="{ active: state === 'done' }"></div>
@@ -198,7 +198,7 @@ onBeforeUnmount(stopPolling);
             <span v-if="state === 'done'">✓</span>
             <span v-else>3</span>
           </span>
-          <span class="step-label">Profil ML &amp; SHAP</span>
+          <span class="step-label">ML &amp; SHAP profile</span>
         </div>
       </div>
 
@@ -211,27 +211,27 @@ onBeforeUnmount(stopPolling);
             </svg>
           </span>
           <div class="status-error-content">
-            <div class="status-error-heading">Compte introuvable ou inaccessible</div>
+            <div class="status-error-heading">Account not found or unavailable</div>
             <p class="status-error-message">{{ error }}</p>
           </div>
         </div>
 
         <div class="status-error-tips">
-          <div class="tip-title">Conseils pour corriger la saisie :</div>
+          <div class="tip-title">How to fix your entry:</div>
           <ul class="tip-list">
-            <li>Vérifie que l'orthographe et la casse correspondent à ton Riot ID en jeu.</li>
-            <li>Assure-toi d'inclure le tag complet (ex : <code>MonPseudo#EUW</code>).</li>
-            <li>Vérifie que le serveur sélectionné correspond bien à la région de ton compte.</li>
+            <li>Check that the spelling and capitalization match your in-game Riot ID.</li>
+            <li>Include the full tag (for example: <code>MyName#EUW</code>).</li>
+            <li>Make sure the selected server matches your account region.</li>
           </ul>
         </div>
 
         <div class="status-actions-row">
           <a class="btn btn-primary status-action-btn" href="/" @click.prevent="backToForm">
             <span class="btn-arrow-left" aria-hidden="true">←</span>
-            <span>Revenir au formulaire</span>
+            <span>Back to the form</span>
           </a>
           <a class="btn status-secondary-btn" href="/c/spadzze">
-            <span>Explorer la démo (Spadzze)</span>
+            <span>Explore the demo (Spadzze)</span>
             <span class="btn-arrow-right" aria-hidden="true">→</span>
           </a>
         </div>
@@ -246,13 +246,13 @@ onBeforeUnmount(stopPolling);
         <div class="status-desc-wrap">
           <p v-if="state === 'queued'" class="status-step-msg">
             <span class="loading-spinner-inline" aria-hidden="true"></span>
-            <span>En file d'attente auprès du service d'ingestion<span v-if="position"> (position {{ position }})</span>. Démarrage imminent…</span>
+            <span>Queued by the data service<span v-if="position"> (position {{ position }})</span>. Starting shortly…</span>
           </p>
           <p v-if="state === 'running'" class="status-step-msg">
             <span class="loading-spinner-inline" aria-hidden="true"></span>
-            <span>Collecte en cours auprès de l'API Riot (Match-V5 &amp; Timelines). Cela prend environ 30 à 45 secondes…</span>
+            <span>Collecting data from the Riot API (Match-V5 &amp; timelines). This takes about 30–45 seconds…</span>
           </p>
-          <span class="status-note faint">Ne ferme pas cette page, ton tableau de bord s'ouvrira automatiquement dès la fin de l'analyse.</span>
+          <span class="status-note faint">Keep this page open. Your dashboard will appear automatically when the analysis is complete.</span>
         </div>
       </div>
     </div>

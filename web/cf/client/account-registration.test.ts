@@ -24,7 +24,7 @@ describe("account-registration", () => {
     const ok = await submitRegistration({ requireTag: true });
 
     expect(ok).toBe(false);
-    expect(error.value).toBe("Format attendu : Invocateur#TAG");
+    expect(error.value).toBe("Expected format: Summoner#TAG");
   });
 
   it("soumet l'inscription avec succès", async () => {

@@ -56,6 +56,31 @@ poetry run python src/collection/refresh_cloudflare.py --with-ref
 Elle vérifie d'abord `CF_API_TOKEN`, `CF_ACCOUNT_ID` et `CF_NAMESPACE_ID` : sans ces
 variables dans `.env`, elle s'arrête avant tout appel à Riot.
 
+### Collecte quotidienne des comptes curés sur macOS
+
+Le LaunchAgent versionné dans
+`launchd/com.jeanvangysel.coaching-lol.daily-curated.plist` lance chaque jour à
+04:00 la commande suivante :
+
+```bash
+.venv/bin/python src/collection/refresh_curated_daily.py
+```
+
+Elle ne lit que `config/accounts.json` (comptes `curated`) et ne parcourt donc
+jamais les comptes `public` inscrits depuis le navigateur. Match-V5 est borné à
+la veille civile `[00:00, 00:00)` en `Europe/Paris`, les identifiants déjà
+présents dans le silver sont ignorés, puis seuls les comptes ayant de nouvelles
+parties sont publiés dans KV. Une journée sans partie est un succès normal.
+
+Pour rejouer manuellement une journée :
+
+```bash
+.venv/bin/python src/collection/refresh_curated_daily.py --day 2026-09-19
+```
+
+Les sorties du LaunchAgent sont conservées dans
+`data/08_jobs/daily-curated.{out,err}.log`.
+
 Le script de synchronisation seul reste utile pour republier les fichiers locaux sans
 interroger Riot. Il fusionne les données locales avec celles déjà présentes dans KV et ne
 supprime pas l'historique distant. Il reconstruit aussi, depuis le cache raw local, les

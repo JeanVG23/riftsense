@@ -160,51 +160,51 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <nav class="topbar" aria-label="Navigation principale">
+  <nav class="topbar" aria-label="Main navigation">
     <div class="topbar-inner">
       <div class="topbar-left">
-        <a class="brand" href="/" aria-label="RiftSense - Accueil" @click.prevent="go('/')"><span class="brand-mark" aria-hidden="true"><img class="brand-svg" src="/logo.svg" alt="RiftSense Logo" width="28" height="28"></span><span class="brand-text">RiftSense</span><span class="brand-badge">LoL Esport Analytics</span></a>
+        <a class="brand" href="/" aria-label="RiftSense - Home" @click.prevent="go('/')"><span class="brand-mark" aria-hidden="true"><img class="brand-svg" src="/logo.svg" alt="RiftSense Logo" width="28" height="28"></span><span class="brand-text">RiftSense</span><span class="brand-badge">LoL Esports Analytics</span></a>
       </div>
       <div class="topbar-center">
         <NavSearch />
       </div>
       <div class="topbar-right topbar-nav" role="navigation">
         <div ref="switcher" class="switcher">
-          <button class="switcher-btn" :class="{ 'is-selected': route.name === 'account', open: switcherOpen }" type="button" :aria-expanded="switcherOpen" aria-label="Sélectionner ou changer de compte joueur" @click.stop="switcherOpen = !switcherOpen">
-            <div v-if="route.name === 'account'" class="switcher-user-preview"><img class="switcher-avatar" :src="summonerIcon(currentAccount || slug)" alt="" loading="lazy"><div class="switcher-meta"><span class="switcher-label">Joueur actif</span><span class="switcher-name">{{ formatPseudo(currentAccount || slug) }}</span></div></div>
-            <div v-else class="switcher-user-preview"><span class="switcher-icon-wrap" aria-hidden="true"><svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg></span><div class="switcher-meta"><span class="switcher-label">Sélection</span><span class="switcher-name">Joueurs</span></div></div>
+          <button class="switcher-btn" :class="{ 'is-selected': route.name === 'account', open: switcherOpen }" type="button" :aria-expanded="switcherOpen" aria-label="Select or switch player account" @click.stop="switcherOpen = !switcherOpen">
+            <div v-if="route.name === 'account'" class="switcher-user-preview"><img class="switcher-avatar" :src="summonerIcon(currentAccount || slug)" alt="" loading="lazy"><div class="switcher-meta"><span class="switcher-label">Active player</span><span class="switcher-name">{{ formatPseudo(currentAccount || slug) }}</span></div></div>
+            <div v-else class="switcher-user-preview"><span class="switcher-icon-wrap" aria-hidden="true"><svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg></span><div class="switcher-meta"><span class="switcher-label">Select</span><span class="switcher-name">Players</span></div></div>
             <svg class="switcher-arrow" :class="{ rotated: switcherOpen }" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
           </button>
           <div v-if="switcherOpen" class="switcher-dropdown">
-            <div class="switcher-header"><span class="switcher-title">Joueurs</span><span class="switcher-header-count">{{ switcherAccountsCount }} disponible{{ switcherAccountsCount > 1 ? "s" : "" }}</span></div>
+            <div class="switcher-header"><span class="switcher-title">Players</span><span class="switcher-header-count">{{ switcherAccountsCount }} available</span></div>
             <div class="switcher-lists">
               <div v-if="privateRecentAccounts.length" class="switcher-section">
-                <div class="switcher-section-title">Mes comptes récents</div>
+                <div class="switcher-section-title">My recent accounts</div>
                 <div class="switcher-list">
                   <div v-for="account in privateRecentAccounts" :key="account.slug" class="switcher-card-row">
-                    <a class="switcher-card" :class="{ active: route.name === 'account' && slug === account.slug }" :href="`/c/${account.slug}`" @click.prevent="go(`/c/${account.slug}`)"><div class="switcher-card-avatar"><img :src="summonerIcon(account)" alt="" loading="lazy"><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-active-dot"></span></div><div class="switcher-card-content"><div class="switcher-card-header"><span class="switcher-card-slug">{{ formatPseudo(account) }}</span><span class="badge badge-region-mini">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><div class="switcher-card-sub"><span class="switcher-card-riot">{{ account.riot_id }}</span></div></div><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-check" aria-label="Compte actif">✓</span></a>
-                    <button class="switcher-remove" type="button" :aria-label="`Retirer ${account.riot_id} des comptes récents`" title="Retirer de mes comptes récents" @click.stop="forgetRecentAccount(account.slug)">×</button>
+                    <a class="switcher-card" :class="{ active: route.name === 'account' && slug === account.slug }" :href="`/c/${account.slug}`" @click.prevent="go(`/c/${account.slug}`)"><div class="switcher-card-avatar"><img :src="summonerIcon(account)" alt="" loading="lazy"><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-active-dot"></span></div><div class="switcher-card-content"><div class="switcher-card-header"><span class="switcher-card-slug">{{ formatPseudo(account) }}</span><span class="badge badge-region-mini">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><div class="switcher-card-sub"><span class="switcher-card-riot">{{ account.riot_id }}</span></div></div><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-check" aria-label="Active account">✓</span></a>
+                    <button class="switcher-remove" type="button" :aria-label="`Remove ${account.riot_id} from recent accounts`" title="Remove from my recent accounts" @click.stop="forgetRecentAccount(account.slug)">×</button>
                   </div>
                 </div>
               </div>
               <div v-if="ownerAccounts.length" class="switcher-section">
-                <div class="switcher-section-title">Mes comptes</div>
+                <div class="switcher-section-title">My accounts</div>
                 <div class="switcher-list">
-                  <a v-for="account in ownerAccounts" :key="account.slug" class="switcher-card" :class="{ active: route.name === 'account' && slug === account.slug }" :href="`/c/${account.slug}`" @click.prevent="go(`/c/${account.slug}`)"><div class="switcher-card-avatar"><img :src="summonerIcon(account)" alt="" loading="lazy"><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-active-dot"></span></div><div class="switcher-card-content"><div class="switcher-card-header"><span class="switcher-card-slug">{{ formatPseudo(account) }}</span><span class="badge badge-owner-tag-mini">Perso</span><span class="badge badge-region-mini">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><div class="switcher-card-sub"><span class="switcher-card-riot">{{ account.riot_id }}</span><span class="switcher-card-sep">·</span><span class="switcher-card-games">{{ account.games_count }} parties</span></div></div><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-check" aria-label="Compte actif">✓</span></a>
+                  <a v-for="account in ownerAccounts" :key="account.slug" class="switcher-card" :class="{ active: route.name === 'account' && slug === account.slug }" :href="`/c/${account.slug}`" @click.prevent="go(`/c/${account.slug}`)"><div class="switcher-card-avatar"><img :src="summonerIcon(account)" alt="" loading="lazy"><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-active-dot"></span></div><div class="switcher-card-content"><div class="switcher-card-header"><span class="switcher-card-slug">{{ formatPseudo(account) }}</span><span class="badge badge-owner-tag-mini">Personal</span><span class="badge badge-region-mini">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><div class="switcher-card-sub"><span class="switcher-card-riot">{{ account.riot_id }}</span><span class="switcher-card-sep">·</span><span class="switcher-card-games">{{ account.games_count }} games</span></div></div><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-check" aria-label="Active account">✓</span></a>
                 </div>
               </div>
               <div v-if="permanentAccounts.length" class="switcher-section">
-                <div class="switcher-section-title">Comptes permanents</div>
-                <div class="switcher-list"><a v-for="account in permanentAccounts" :key="account.slug" class="switcher-card" :class="{ active: route.name === 'account' && slug === account.slug }" :href="`/c/${account.slug}`" @click.prevent="go(`/c/${account.slug}`)"><div class="switcher-card-avatar"><img :src="summonerIcon(account)" alt="" loading="lazy"><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-active-dot"></span></div><div class="switcher-card-content"><div class="switcher-card-header"><span class="switcher-card-slug">{{ formatPseudo(account) }}</span><span class="badge badge-region-mini">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><div class="switcher-card-sub"><span class="switcher-card-riot">{{ account.riot_id }}</span><span class="switcher-card-sep">·</span><span class="switcher-card-games">{{ account.games_count }} parties</span></div></div><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-check" aria-label="Compte actif">✓</span></a></div>
+                <div class="switcher-section-title">Featured accounts</div>
+                <div class="switcher-list"><a v-for="account in permanentAccounts" :key="account.slug" class="switcher-card" :class="{ active: route.name === 'account' && slug === account.slug }" :href="`/c/${account.slug}`" @click.prevent="go(`/c/${account.slug}`)"><div class="switcher-card-avatar"><img :src="summonerIcon(account)" alt="" loading="lazy"><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-active-dot"></span></div><div class="switcher-card-content"><div class="switcher-card-header"><span class="switcher-card-slug">{{ formatPseudo(account) }}</span><span class="badge badge-region-mini">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><div class="switcher-card-sub"><span class="switcher-card-riot">{{ account.riot_id }}</span><span class="switcher-card-sep">·</span><span class="switcher-card-games">{{ account.games_count }} games</span></div></div><span v-if="route.name === 'account' && slug === account.slug" class="switcher-card-check" aria-label="Active account">✓</span></a></div>
               </div>
-              <div v-if="!switcherAccountsCount" class="switcher-empty">Aucun compte enregistré.</div>
+              <div v-if="!switcherAccountsCount" class="switcher-empty">No saved accounts.</div>
             </div>
-            <div class="switcher-footer"><a class="switcher-home-btn" href="/" @click.prevent="go('/')"><span>Tous les comptes</span><span class="switcher-home-arrow">→</span></a></div>
+            <div class="switcher-footer"><a class="switcher-home-btn" href="/" @click.prevent="go('/')"><span>All accounts</span><span class="switcher-home-arrow">→</span></a></div>
           </div>
         </div>
         <div class="desktop-nav-links">
-          <a class="nav-link" :class="{ active: route.name === 'account' && slug === 'spadzze' }" href="/c/spadzze?review=EUW1_7898084645" @click.prevent="go('/c/spadzze?review=EUW1_7898084645')"><svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg><span>Démo interactive</span></a>
-          <a class="nav-link" :class="{ active: route.name === 'readme' }" href="/readme" @click.prevent="go('/readme')"><svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg><span>Méthodologie</span></a>
+          <a class="nav-link" :class="{ active: route.name === 'account' && slug === 'spadzze' }" href="/c/spadzze?review=EUW1_7898084645" @click.prevent="go('/c/spadzze?review=EUW1_7898084645')"><svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg><span>Interactive demo</span></a>
+          <a class="nav-link" :class="{ active: route.name === 'readme' }" href="/readme" @click.prevent="go('/readme')"><svg class="nav-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg><span>Methodology</span></a>
         </div>
 
         <button
@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
           class="mobile-menu-btn"
           type="button"
           :aria-expanded="mobileMenuOpen"
-          aria-label="Menu principal"
+          aria-label="Main menu"
           @click.stop="mobileMenuOpen = !mobileMenuOpen"
         >
           <span class="hamburger-box" aria-hidden="true">
@@ -228,11 +228,11 @@ onBeforeUnmount(() => {
       ref="mobileMenu"
       class="mobile-drawer"
       role="dialog"
-      aria-label="Menu mobile de navigation"
+      aria-label="Mobile navigation menu"
     >
       <div class="mobile-drawer-inner">
         <div class="mobile-drawer-section">
-          <div class="mobile-drawer-title">Navigation principale</div>
+          <div class="mobile-drawer-title">Main navigation</div>
           <div class="mobile-drawer-links">
             <a
               class="mobile-nav-card"
@@ -246,8 +246,8 @@ onBeforeUnmount(() => {
                 </svg>
               </div>
               <div class="mobile-nav-info">
-                <span class="mobile-nav-heading">Accueil</span>
-                <span class="mobile-nav-desc">Tableau de bord &amp; analyse de compte</span>
+                <span class="mobile-nav-heading">Home</span>
+                <span class="mobile-nav-desc">Dashboard &amp; account analysis</span>
               </div>
             </a>
 
@@ -264,10 +264,10 @@ onBeforeUnmount(() => {
               </div>
               <div class="mobile-nav-info">
                 <div class="mobile-nav-head-row">
-                  <span class="mobile-nav-heading">Démo interactive</span>
+                  <span class="mobile-nav-heading">Interactive demo</span>
                   <span class="badge badge-gold-glow">Spadzze</span>
                 </div>
-                <span class="mobile-nav-desc">Analyse complète et débrief tactique IA</span>
+                <span class="mobile-nav-desc">Full analysis and AI tactical review</span>
               </div>
             </a>
 
@@ -283,8 +283,8 @@ onBeforeUnmount(() => {
                 </svg>
               </div>
               <div class="mobile-nav-info">
-                <span class="mobile-nav-heading">Méthodologie</span>
-                <span class="mobile-nav-desc">Architecture, modèles ML &amp; pipeline Riot</span>
+                <span class="mobile-nav-heading">Methodology</span>
+                <span class="mobile-nav-desc">Architecture, ML models &amp; Riot pipeline</span>
               </div>
             </a>
           </div>
@@ -292,9 +292,9 @@ onBeforeUnmount(() => {
 
         <div class="mobile-drawer-footer">
           <div class="mobile-legal-links">
-            <a href="/terms" class="mobile-legal-link" @click.prevent="go('/terms')">CGU</a>
+            <a href="/terms" class="mobile-legal-link" @click.prevent="go('/terms')">Terms</a>
             <span class="footer-sep">·</span>
-            <a href="/privacy" class="mobile-legal-link" @click.prevent="go('/privacy')">Confidentialité</a>
+            <a href="/privacy" class="mobile-legal-link" @click.prevent="go('/privacy')">Privacy</a>
           </div>
         </div>
       </div>
@@ -315,10 +315,10 @@ onBeforeUnmount(() => {
 
   <footer class="site-footer" role="contentinfo">
     <div class="footer-inner"><div class="footer-grid">
-      <div class="footer-col footer-col-brand"><div class="footer-brand"><span class="brand-mark" aria-hidden="true"><img class="brand-svg" src="/logo.svg" alt="RiftSense Logo" width="26" height="26"></span><span class="footer-brand-title">RiftSense</span><span class="brand-badge">LoL Esport Analytics</span></div><p class="footer-mission">Plateforme d'analyse de performance esportive et coaching tactique sur League of Legends, propulsée par le Machine Learning et l'explicabilité statistique.</p><div class="footer-disclaimer"><span>RiftSense isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</span></div></div>
-      <div class="footer-col"><h4 class="footer-heading">Mes comptes</h4><ul class="footer-accounts-list"><li v-for="account in ownerAccounts" :key="account.slug"><a :href="`/c/${account.slug}`" class="footer-account-link" @click.prevent="go(`/c/${account.slug}`)"><img class="footer-account-avatar" :src="summonerIcon(account)" alt="" loading="lazy"><div class="footer-account-info"><div class="row" style="gap:6px;align-items:center"><span class="footer-account-slug">{{ formatPseudo(account) }}</span><span class="badge badge-region-xs">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><span class="footer-account-games">{{ account.games_count }} parties</span></div></a></li></ul></div>
-      <div class="footer-col"><h4 class="footer-heading">Stack &amp; Architecture</h4><ul class="footer-tech-list"><li><span class="tech-pill">Cloudflare Workers</span><span class="tech-desc">Serving edge &amp; API KV</span></li><li><span class="tech-pill">EBM &amp; SHAP</span><span class="tech-desc">Modèle prédictif du rang</span></li><li><span class="tech-pill">Ollama LLM</span><span class="tech-desc">Génération des revues de match</span></li><li><span class="tech-pill">Riot Games API</span><span class="tech-desc">Collecte de parties et métriques</span></li></ul></div>
-    </div><div class="footer-bottom"><div class="footer-copyright"><span>© 2026 RiftSense</span><span class="footer-sep">·</span><a href="/c/spadzze?review=EUW1_7898084645" class="footer-link-subtle" @click.prevent="go('/c/spadzze?review=EUW1_7898084645')">Démo Spadzze</a><span class="footer-sep">·</span><a href="/readme" class="footer-link-subtle" @click.prevent="go('/readme')">Méthodologie</a><span class="footer-sep">·</span><a href="/terms" class="footer-link-subtle" @click.prevent="go('/terms')">CGU</a><span class="footer-sep">·</span><a href="/privacy" class="footer-link-subtle" @click.prevent="go('/privacy')">Confidentialité</a></div><div class="footer-bottom-actions"><AuthControl /><button class="footer-scroll-top" type="button" aria-label="Remonter en haut de page" @click="scrollTop"><span>Haut de page</span><svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg></button></div></div></div>
+      <div class="footer-col footer-col-brand"><div class="footer-brand"><span class="brand-mark" aria-hidden="true"><img class="brand-svg" src="/logo.svg" alt="RiftSense Logo" width="26" height="26"></span><span class="footer-brand-title">RiftSense</span><span class="brand-badge">LoL Esports Analytics</span></div><p class="footer-mission">League of Legends performance analytics and tactical coaching powered by machine learning and statistical explainability.</p><div class="footer-disclaimer"><span>RiftSense isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</span></div></div>
+      <div class="footer-col"><h4 class="footer-heading">My accounts</h4><ul class="footer-accounts-list"><li v-for="account in ownerAccounts" :key="account.slug"><a :href="`/c/${account.slug}`" class="footer-account-link" @click.prevent="go(`/c/${account.slug}`)"><img class="footer-account-avatar" :src="summonerIcon(account)" alt="" loading="lazy"><div class="footer-account-info"><div class="row" style="gap:6px;align-items:center"><span class="footer-account-slug">{{ formatPseudo(account) }}</span><span class="badge badge-region-xs">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><span class="footer-account-games">{{ account.games_count }} games</span></div></a></li></ul></div>
+      <div class="footer-col"><h4 class="footer-heading">Stack &amp; Architecture</h4><ul class="footer-tech-list"><li><span class="tech-pill">Cloudflare Workers</span><span class="tech-desc">Edge serving &amp; KV API</span></li><li><span class="tech-pill">EBM &amp; SHAP</span><span class="tech-desc">Rank prediction model</span></li><li><span class="tech-pill">Ollama LLM</span><span class="tech-desc">Game review generation</span></li><li><span class="tech-pill">Riot Games API</span><span class="tech-desc">Game and metric collection</span></li></ul></div>
+    </div><div class="footer-bottom"><div class="footer-copyright"><span>© 2026 RiftSense</span><span class="footer-sep">·</span><a href="/c/spadzze?review=EUW1_7898084645" class="footer-link-subtle" @click.prevent="go('/c/spadzze?review=EUW1_7898084645')">Spadzze demo</a><span class="footer-sep">·</span><a href="/readme" class="footer-link-subtle" @click.prevent="go('/readme')">Methodology</a><span class="footer-sep">·</span><a href="/terms" class="footer-link-subtle" @click.prevent="go('/terms')">Terms</a><span class="footer-sep">·</span><a href="/privacy" class="footer-link-subtle" @click.prevent="go('/privacy')">Privacy</a></div><div class="footer-bottom-actions"><AuthControl /><button class="footer-scroll-top" type="button" aria-label="Back to top" @click="scrollTop"><span>Back to top</span><svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg></button></div></div></div>
   </footer>
   <AuthModal />
 </template>

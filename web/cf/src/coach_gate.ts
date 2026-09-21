@@ -15,7 +15,7 @@ export class CoachGate {
 
   async fetch(request: Request): Promise<Response> {
     if (this.active) {
-      return Response.json({ detail: "une analyse est déjà en cours" }, { status: 409 });
+      return Response.json({ detail: "an analysis is already in progress" }, { status: 409 });
     }
     this.active = true;
     try {
@@ -23,7 +23,7 @@ export class CoachGate {
       const activeUntil = await this.state.storage.get<number>("active_until");
       if (activeUntil && activeUntil > now) {
         this.active = false;
-        return Response.json({ detail: "une analyse est déjà en cours" }, { status: 409 });
+        return Response.json({ detail: "an analysis is already in progress" }, { status: 409 });
       }
       await this.state.storage.put("active_until", now + CoachGate.LOCK_TTL_MS);
     } catch (error) {

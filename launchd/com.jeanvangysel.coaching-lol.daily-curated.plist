@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Collecte Riot quotidienne des seuls comptes curés de config/accounts.json. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jeanvangysel.coaching-lol.daily-curated</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jeanvangysel/code/website/coaching_lol/.venv/bin/python</string>
+        <string>/Users/jeanvangysel/code/website/coaching_lol/src/collection/refresh_curated_daily.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jeanvangysel/code/website/coaching_lol</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jeanvangysel/code/website/coaching_lol/data/08_jobs/daily-curated.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jeanvangysel/code/website/coaching_lol/data/08_jobs/daily-curated.err.log</string>
+</dict>
+</plist>

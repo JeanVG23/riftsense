@@ -33,8 +33,8 @@ describe("garde-fou d'asymétrie du chat", () => {
       role: "user", content: "Où était le jungler ennemi à ce moment-là ?",
     }];
     expect(asksForHiddenEnemyPosition(messages, {})).toBe(true);
-    expect(SYSTEM_CHAT).toContain("refuse explicitement");
-    expect(SYSTEM_CHAT).toContain("timeline complète");
+    expect(SYSTEM_CHAT).toContain("explicitly refuse");
+    expect(SYSTEM_CHAT).toContain("complete timeline");
   });
 
   it("refuse mécaniquement sans appeler le LLM et persiste l'échange", async () => {

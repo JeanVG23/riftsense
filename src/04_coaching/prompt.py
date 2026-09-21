@@ -27,18 +27,18 @@ SYSTEM = _prompt("system")
 def render(payload: dict) -> tuple[str, str]:
     m = payload["meta"]
     body = json.dumps(payload, ensure_ascii=False, indent=2)
-    user = (f"Signaux de tes {m['n_games_me']} dernières games "
-            f"({m['scope']}, issue={m['outcome_focus']}, vs {m['target']}) :\n\n"
-            f"{body}\n\nProduis la review.")
+    user = (f"Signals from your latest {m['n_games_me']} games "
+            f"({m['scope']}, outcome={m['outcome_focus']}, vs {m['target']}):\n\n"
+            f"{body}\n\nProduce the review.")
     if m.get("qualitative_mode") == "unbalanced" or m.get("unbalanced_causes"):
-        issue = ("défaites" if m.get("n_game_reviews_available_losses",
+        issue = ("losses" if m.get("n_game_reviews_available_losses",
                                       m.get("n_game_reviews_losses", 0)) > 0
-                 else "victoires")
+                 else "wins")
         available = m.get("n_game_reviews_available", 1)
-        user += (f"\n\nNOTE BIAIS D'ÉCHANTILLONNAGE : Le joueur n'a fait analyser que des {issue} "
-                 f"en partie unitaire ({available} disponible(s), une seule injectée). "
-                 f"Cette cause isolée n'est PAS représentative de tout son profil. "
-                 f"Fonde prioritairement tes constats sur les signaux statistiques réels.")
+        user += (f"\n\nSAMPLE-BIAS NOTE: The player has only had {issue} analyzed "
+                 f"as individual games ({available} available, only one included). "
+                 f"This isolated cause is NOT representative of their full profile. "
+                 f"Base your conclusions primarily on the actual statistical signals.")
     return SYSTEM, user
 
 
@@ -48,11 +48,11 @@ SYSTEM_GAME = _prompt("system_game")
 def render_game(payload: dict) -> tuple[str, str]:
     m = payload["meta"]
     body = json.dumps(payload, ensure_ascii=False, indent=2)
-    issue = "victoire" if m.get("win") else "défaite"
-    user = (f"Journal de ta game {m['match_id']} — {m['champion']} vs "
+    issue = "win" if m.get("win") else "loss"
+    user = (f"Timeline of your game {m['match_id']} — {m['champion']} vs "
             f"{m.get('opponent') or '?'} ({m['role']}, {issue}, "
-            f"{m['duration_min']} min), repères {m['target']} :\n\n"
-            f"{body}\n\nProduis la review de cette game.")
+            f"{m['duration_min']} min), {m['target']} benchmarks:\n\n"
+            f"{body}\n\nProduce the review for this game.")
     return SYSTEM_GAME, user
 
 
@@ -66,8 +66,8 @@ SPECIALIST_SYSTEMS = {
 }
 
 AXIS_LABELS = {
-    "death_positioning": "Morts & positionnement",
-    "economy_build": "Économie & build",
+    "death_positioning": "Deaths & positioning",
+    "economy_build": "Economy & build",
 }
 
 
@@ -84,15 +84,15 @@ def _axis_payload(payload: dict, axis: str) -> dict:
                           for death in journal.get("deaths", [])]
         return {**common, "journal": {"deaths": economy_deaths,
                                       "recalls": journal.get("recalls", [])}}
-    raise KeyError(f"axe inconnu : {axis}")
+    raise KeyError(f"unknown axis: {axis}")
 
 
 def render_specialist(payload: dict, axis: str) -> tuple[str, str]:
     sliced = _axis_payload(payload, axis)
     return (SPECIALIST_SYSTEMS[axis],
-            f"Analyse l'axe {AXIS_LABELS[axis]} de cette game :\n\n"
+            f"Analyze the {AXIS_LABELS[axis]} axis for this game:\n\n"
             f"{json.dumps(sliced, ensure_ascii=False, indent=2)}\n\n"
-            "Produis uniquement la review JSON de ton axe.")
+            "Return only the JSON review for your axis.")
 
 
 SYSTEM_CHIEF = _prompt("system_chief")
@@ -100,9 +100,9 @@ SYSTEM_CHIEF = _prompt("system_chief")
 
 def render_chief(indexed_axes: list[dict]) -> tuple[str, str]:
     return (SYSTEM_CHIEF,
-            "Analyses des sous-agents :\n\n"
+            "Sub-agent analyses:\n\n"
             f"{json.dumps(indexed_axes, ensure_ascii=False, indent=2)}\n\n"
-            "Sélectionne les identifiants prioritaires.")
+            "Select the priority identifiers.")
 
 
 # --- versionnage des prompts -------------------------------------------------

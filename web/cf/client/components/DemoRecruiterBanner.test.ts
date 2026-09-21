@@ -12,8 +12,8 @@ describe("DemoRecruiterBanner", () => {
       },
     });
 
-    expect(wrapper.text()).toContain("MODE DÉMONSTRATION · PROFIL DE RÉFÉRENCE SPADZZE#EUW");
-    expect(wrapper.text()).toContain("47 701 matchs analysés");
+    expect(wrapper.text()).toContain("DEMO MODE · REFERENCE PROFILE SPADZZE#EUW");
+    expect(wrapper.text()).toContain("47,701 analyzed matches");
   });
 
   it("émet l'événement select-view lors du clic sur le bouton d'analyse de partie", async () => {

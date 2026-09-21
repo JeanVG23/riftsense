@@ -31,18 +31,18 @@ describe("game history formatters", () => {
   });
 
   it("conserve les libellés pédagogiques des objectifs et des sides", () => {
-    expect(objectiveLabel({ type: "DRAGON", sub_type: "FIRE_DRAGON", minute: 12 })).toBe("Dragon Infernal");
+    expect(objectiveLabel({ type: "DRAGON", sub_type: "FIRE_DRAGON", minute: 12 })).toBe("Infernal Drake");
     expect(sideSummary({
       ...game,
       sides: { ally_start: "BLUE", enemy_start: "RED", ally_weakside: "BOT", enemy_weakside: "BOT" },
-    })).toContain("Double Weakside bot");
+    })).toContain("Double bot weakside");
   });
 
   it("formate la date de partie et la date complète", () => {
     // 1786379613694 -> 10 août 2026
     const ts = 1786379613694;
-    expect(formatGameDate(ts)).toContain("10 août 2026");
-    expect(formatFullDate(ts)).toContain("10 août 2026");
+    expect(formatGameDate(ts)).toContain("Aug 10, 2026");
+    expect(formatFullDate(ts)).toContain("August 10, 2026");
     expect(formatGameDate(null)).toBe("");
     expect(formatGameDate(undefined)).toBe("");
     expect(formatGameDate("invalide")).toBe("");

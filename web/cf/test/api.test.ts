@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handle, type Env } from "../src/index";
 import { KEYS, type KVLike } from "../src/readers";
+import { SYSTEM, SYSTEM_GAME, versionOf } from "../src/prompt";
 
 class MemoryKV implements KVLike {
   store = new Map<string, string>();
@@ -22,6 +23,10 @@ function makeEnv(): { env: Env; kv: MemoryKV } {
 
 async function seed(): Promise<{ env: Env; kv: MemoryKV }> {
   const { env, kv } = makeEnv();
+  const [aggregatePromptVersion, gamePromptVersion] = await Promise.all([
+    versionOf(SYSTEM),
+    versionOf(SYSTEM_GAME),
+  ]);
   await kv.put(KEYS.account("spadzze"), JSON.stringify({
     slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
   }));
@@ -39,11 +44,20 @@ async function seed(): Promise<{ env: Env; kv: MemoryKV }> {
   }));
   await kv.put(KEYS.shap("spadzze"), JSON.stringify([{ feature: "gd10", sv: 0.3 }]));
   await kv.put(KEYS.reviews("spadzze"), [
-    JSON.stringify({ ts: "2026-08-30T11:00:00", model: "kimi-k2.6", review: {} }),
+    JSON.stringify({
+      ts: "2026-08-30T11:00:00", model: "kimi-k2.6",
+      run: { prompt_version: aggregatePromptVersion }, review: {},
+    }),
     JSON.stringify({
       ts: "2026-08-30T12:00:00", kind: "game", model: "kimi-k2.6", match_id: "EUW1_30",
+      run: { prompt_version: gamePromptVersion },
       payload: { meta: { champion: "Jinx", win: false } },
       review: { strengths: [], mistakes: [{ point: "m", evidence: "12:30", cause: "c" }], next_focus: "focus", confidence: 0.7 },
+    }),
+    JSON.stringify({
+      ts: "2026-08-29T12:00:00", kind: "game", model: "legacy-fr", match_id: "EUW1_10",
+      run: { prompt_version: "legacy-french-prompt" },
+      review: { mistakes: [{ point: "Ancienne analyse française" }] },
     }),
   ].join("\n"));
   await kv.put(KEYS.feedback("spadzze"), JSON.stringify({
@@ -243,7 +257,7 @@ describe("GET /api/c/{slug}/reviews|feedback|shap", () => {
     const { env } = await seed();
     const report = await (await handle(new Request("http://x/api/c/spadzze/eval"), env))
       .json() as { n_game_reviews: number; objective: Record<string, unknown>; target_met: boolean };
-    expect(report.n_game_reviews).toBe(1);
+    expect(report.n_game_reviews).toBe(2);
     expect(report.objective).toMatchObject({ target_n: 10, target_rate: 0.7 });
     expect(report.target_met).toBe(false);
   });
@@ -312,7 +326,7 @@ describe("contexte et coaching unitaire", () => {
       body: JSON.stringify({ slug: "spadzze", match_id: "EUW1_30" }),
     }), env);
     expect(missingKey.status).toBe(500);
-    expect(await missingKey.json()).toEqual({ detail: "OLLAMA_API_KEY non configuré" });
+    expect(await missingKey.json()).toEqual({ detail: "OLLAMA_API_KEY is not configured" });
   });
 
   it("POST /api/coach: 401 si non authentifié", async () => {

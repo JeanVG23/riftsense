@@ -43,7 +43,7 @@ function onKeydown(event: KeyboardEvent): void {
 async function login(): Promise<void> {
   const trimmedPassword = password.value.trim();
   if (!trimmedPassword) {
-    error.value = "Veuillez saisir le mot de passe coach.";
+    error.value = "Enter the coach password.";
     return;
   }
 
@@ -57,7 +57,7 @@ async function login(): Promise<void> {
     });
     const data = await response.json().catch(() => ({})) as LoginResponse;
     if (!response.ok || !data.ok || !data.token) {
-      throw new Error(data.detail || "Mot de passe incorrect.");
+      throw new Error(data.detail || "Incorrect password.");
     }
 
     setStoredAuthToken(data.token);
@@ -66,7 +66,7 @@ async function login(): Promise<void> {
     close();
     if (pendingAction) window.setTimeout(pendingAction, 100);
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : "Erreur de connexion.";
+    error.value = caught instanceof Error ? caught.message : "Connection error.";
   } finally {
     loading.value = false;
   }
@@ -92,16 +92,16 @@ onBeforeUnmount(() => {
             <span class="auth-modal-icon">🔐</span>
           </div>
           <div>
-            <h3 id="auth-modal-title" class="auth-modal-title">Accès Coach IA</h3>
-            <p class="auth-modal-sub">Mot de passe requis pour générer de nouvelles analyses et utiliser le LLM.</p>
+            <h3 id="auth-modal-title" class="auth-modal-title">AI Coach Access</h3>
+            <p class="auth-modal-sub">A password is required to generate new analyses and use the LLM.</p>
           </div>
         </div>
-        <button type="button" class="auth-modal-close" aria-label="Fermer la fenêtre" @click="close">✕</button>
+        <button type="button" class="auth-modal-close" aria-label="Close dialog" @click="close">✕</button>
       </div>
 
       <form class="auth-modal-form" @submit.prevent="login">
         <div class="auth-field-group">
-          <label for="coach-auth-password-input" class="auth-label">Mot de passe coach</label>
+          <label for="coach-auth-password-input" class="auth-label">Coach password</label>
           <div class="auth-input-wrapper">
             <input
               id="coach-auth-password-input"
@@ -109,7 +109,7 @@ onBeforeUnmount(() => {
               v-model="password"
               type="password"
               class="auth-input"
-              placeholder="Saisis le mot de passe…"
+              placeholder="Enter the password…"
               autocomplete="current-password"
               required
             >
@@ -122,9 +122,9 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="auth-modal-actions">
-          <button type="button" class="btn btn-secondary auth-cancel-btn" @click="close">Annuler</button>
+          <button type="button" class="btn btn-secondary auth-cancel-btn" @click="close">Cancel</button>
           <button type="submit" class="btn btn-primary auth-submit-btn" :disabled="loading || !password.trim()">
-            <span>{{ loading ? "Vérification…" : "Déverrouiller" }}</span>
+            <span>{{ loading ? "Checking…" : "Unlock" }}</span>
             <span v-if="!loading" aria-hidden="true">🔓</span>
           </button>
         </div>

@@ -73,7 +73,7 @@ describe("AuthModal", () => {
 
   it("affiche l'erreur du service sans fermer le dialogue", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
-      JSON.stringify({ detail: "Mot de passe incorrect." }),
+      JSON.stringify({ detail: "Incorrect password." }),
       { status: 401, headers: { "content-type": "application/json" } },
     )));
     wrapper = mount(AuthModal);
@@ -84,7 +84,7 @@ describe("AuthModal", () => {
     await wrapper.get("form").trigger("submit");
     await flushPromises();
 
-    expect(wrapper.get('[role="alert"]').text()).toContain("Mot de passe incorrect.");
+    expect(wrapper.get('[role="alert"]').text()).toContain("Incorrect password.");
     expect(wrapper.get('[role="dialog"]').isVisible()).toBe(true);
     expect(window.localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
   });

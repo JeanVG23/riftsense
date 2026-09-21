@@ -48,7 +48,7 @@ describe("NavSearch", () => {
     await flushPromises();
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain("Format attendu : Invocateur#TAG");
+    expect(wrapper.text()).toContain("Expected format: Summoner#TAG");
   });
 
   it("permet de sélectionner un autre serveur (ex: NA)", async () => {

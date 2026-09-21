@@ -3,15 +3,15 @@ import { render, renderGame, SYSTEM, SYSTEM_GAME, versionOf } from "../src/promp
 
 describe("prompt", () => {
   it("SYSTEM porte les règles d'asymétrie et de benchmark", () => {
-    expect(SYSTEM).toContain("ASYMÉTRIE");
-    expect(SYSTEM).toContain("BENCHMARK-RELATIF");
+    expect(SYSTEM).toContain("INFORMATION ASYMMETRY");
+    expect(SYSTEM).toContain("BENCHMARK-RELATIVE");
     expect(SYSTEM).toContain("game_review_causes");
-    expect(SYSTEM).toContain("INTERDICTION");
+    expect(SYSTEM).toContain("NEVER");
     expect(SYSTEM.length).toBeGreaterThan(500);
   });
 
   it("garde la même version que le prompt Python", async () => {
-    expect(await versionOf(SYSTEM)).toBe("ba5a8458369c");
+    expect(await versionOf(SYSTEM)).toBe("280fff44c0f2");
   });
 
   it("render(payload) sérialise le contexte utilisateur", () => {
@@ -26,20 +26,20 @@ describe("prompt", () => {
     };
     const [system, user] = render(payload);
     expect(system).toBe(SYSTEM);
-    expect(user).toContain("Signaux de tes 18 dernières games");
+    expect(user).toContain("Signals from your latest 18 games");
     expect(user).toContain("adc");
     expect(user).toContain("challenger");
     expect(user).toContain(JSON.stringify(payload, undefined, 2));
-    expect(user.trimEnd().endsWith("Produis la review.")).toBe(true);
+    expect(user.trimEnd().endsWith("Produce the review.")).toBe(true);
   });
 });
 
 describe("prompt par partie", () => {
   it("porte les règles d'ancrage, asymétrie et recalls", async () => {
-    expect(SYSTEM_GAME).toContain("ASYMÉTRIE");
+    expect(SYSTEM_GAME).toContain("INFORMATION ASYMMETRY");
     expect(SYSTEM_GAME).toContain("mm:ss");
     expect(SYSTEM_GAME).toContain("cheapest_item_cost");
-    expect(await versionOf(SYSTEM_GAME)).toBe("350f7c404b5b");
+    expect(await versionOf(SYSTEM_GAME)).toBe("c55ac98bec44");
   });
 
   it("sérialise la partie et son issue", () => {
@@ -50,7 +50,7 @@ describe("prompt par partie", () => {
     const [system, user] = renderGame(payload);
     expect(system).toBe(SYSTEM_GAME);
     expect(user).toContain("EUW1_42");
-    expect(user).toContain("défaite");
+    expect(user).toContain("loss");
     expect(user).toContain(JSON.stringify(payload, undefined, 2));
   });
 });

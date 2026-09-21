@@ -128,12 +128,12 @@ async function loadReviews(): Promise<void> {
 
 const dynamicScopes = computed(() => {
   if (coachingContext.value?.scopes?.length) return coachingContext.value.scopes;
-  const list: any[] = [{ id: "all", label: "Toutes", rawLabel: "Toutes" }, { id: "adc", label: "ADC", rawLabel: "ADC" }];
+  const list: any[] = [{ id: "all", label: "All", rawLabel: "All" }, { id: "adc", label: "ADC", rawLabel: "ADC" }];
   const counts: Record<string, number> = {};
   for (const game of games.value) if (game?.champion) counts[game.champion] = (counts[game.champion] || 0) + 1;
   for (const item of gameReviews.value) {
     const champion = gameChampion(item);
-    if (champion !== "Partie analysée") counts[champion] = (counts[champion] || 0) + 1;
+    if (champion !== "Analyzed game") counts[champion] = (counts[champion] || 0) + 1;
   }
   Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 3).forEach((champion, index) => {
     const id = champion.toLowerCase();
@@ -170,9 +170,9 @@ function syncGameReviews(payload: { items: GameReview[]; total: number; page: nu
 
 function coachError(error: unknown): string {
   const raw = String((error as Error)?.message || error || "");
-  if (/401|authentification|non autoris/i.test(raw)) return "Connexion requise : mot de passe coach nécessaire pour les générations IA.";
-  if (/429/.test(raw)) return "Le modèle est temporairement limité. Attends quelques minutes avant de relancer le coaching.";
-  return raw || "Le coaching n’a pas pu être généré. Réessaie dans un instant.";
+  if (/401|authentification|authentication|non autoris|unauthoriz/i.test(raw)) return "Sign-in required: the coach password is needed for AI generation.";
+  if (/429/.test(raw)) return "The model is temporarily rate-limited. Wait a few minutes before trying again.";
+  return raw || "Coaching could not be generated. Try again in a moment.";
 }
 
 async function consumeSse(response: Response, onEvent: (event: string, data: any) => void): Promise<void> {
@@ -195,10 +195,10 @@ async function generateGlobal(): Promise<void> {
   try {
     const response = await fetch("/api/coach", { method: "POST", headers: withAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ slug: props.slug, scope: scope.value, outcome: outcome.value, target: target.value }) });
     if (response.status === 401) { setStoredAuthToken(null); window.dispatchEvent(new CustomEvent("coach-auth-change", { detail: { authenticated: false } })); openCoachAuth(() => void generateGlobal()); throw new Error("HTTP 401"); }
-    if (!response.ok) throw new Error(response.status === 409 ? "Une analyse est déjà en cours." : `HTTP ${response.status}`);
+    if (!response.ok) throw new Error(response.status === 409 ? "An analysis is already in progress." : `HTTP ${response.status}`);
     await consumeSse(response, (event, data) => {
-      if (event === "payload") job.value = { type: "coach", status: "running", progress: "payload construit" };
-      else if (event === "llm") job.value = { type: "coach", status: "running", progress: "génération LLM…" };
+      if (event === "payload") job.value = { type: "coach", status: "running", progress: "payload ready" };
+      else if (event === "llm") job.value = { type: "coach", status: "running", progress: "LLM generation…" };
       else if (event === "review") job.value = { type: "coach", status: "done" };
       else if (event === "error") throw new Error(data.error);
     });
@@ -210,19 +210,19 @@ async function generateGame(game: any, force = false): Promise<void> {
   if (!game?.match_id || coachBusy.value) return;
   if (!authToken) { openCoachAuth(() => void generateGame(game, force)); return; }
   const matchId = game.match_id;
-  job.value = { type: "game-coach", matchId, status: "running", progress: "lecture du journal…" };
+  job.value = { type: "game-coach", matchId, status: "running", progress: "reading game journal…" };
   try {
     const response = await fetch("/api/coach/game", { method: "POST", headers: withAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ slug: props.slug, match_id: matchId, force }) });
     if (response.status === 401) { setStoredAuthToken(null); window.dispatchEvent(new CustomEvent("coach-auth-change", { detail: { authenticated: false } })); openCoachAuth(() => void generateGame(game, force)); throw new Error("HTTP 401"); }
-    if (!response.ok) throw new Error(response.status === 409 ? "Une analyse est déjà en cours." : `HTTP ${response.status}`);
+    if (!response.ok) throw new Error(response.status === 409 ? "An analysis is already in progress." : `HTTP ${response.status}`);
     let completed = false;
     await consumeSse(response, (event, data) => {
-      if (event === "payload") job.value = { type: "game-coach", matchId, status: "running", progress: "journal prêt" };
-      else if (event === "llm") job.value = { type: "game-coach", matchId, status: "running", progress: "génération LLM…" };
+      if (event === "payload") job.value = { type: "game-coach", matchId, status: "running", progress: "journal ready" };
+      else if (event === "llm") job.value = { type: "game-coach", matchId, status: "running", progress: "LLM generation…" };
       else if (event === "review") completed = true;
       else if (event === "error") throw new Error(data.error);
     });
-    if (!completed) throw new Error("Flux interrompu avant la réception de l’analyse.");
+    if (!completed) throw new Error("The stream ended before the analysis was received.");
     job.value = { type: "game-coach", matchId, status: "done" };
     await Promise.all([loadReviews(), loadCoachingContext()]);
     goToGameReview(matchId);
@@ -235,8 +235,9 @@ function hasReview(matchId: string): boolean {
 }
 
 function gameCoachAction(game: any): void {
-  if (hasReview(game?.match_id)) goToGameReview(game.match_id);
-  else void generateGame(game);
+  const status = coachingContext.value?.matches?.[game?.match_id]?.review_status;
+  if (status === "ready") goToGameReview(game.match_id);
+  else void generateGame(game, status === "stale");
 }
 
 function goToGameReview(matchId: string): void {
@@ -296,7 +297,7 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
       @prediction-loaded="predictedRank = $event"
       @open-shap="setTab('shap')"
     />
-    <details v-if="ownerView" class="sync-help"><summary>Mettre à jour mes données</summary><p>Depuis ton terminal, lance <code>poetry run python src/collection/refresh_cloudflare.py</code>. Les nouvelles parties sont ensuite publiées automatiquement sur ce site.</p></details>
+    <details v-if="ownerView" class="sync-help"><summary>Update my data</summary><p>Run <code>poetry run python src/collection/refresh_cloudflare.py</code> from your terminal. New games will then be published to this site automatically.</p></details>
     <JobBanner :job="job" />
 
     <!-- Séparateur céleste Targon -->
@@ -306,9 +307,9 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
       <span class="divider-line"></span>
     </div>
 
-    <div class="tabs" role="tablist" aria-label="Sections du compte">
+    <div class="tabs" role="tablist" aria-label="Account sections">
       <button
-        v-for="item in ([['history', 'Parties classées'], ['shap', 'Profil ML & SHAP'], ['coaching', 'Coaching IA']] as const)"
+        v-for="item in ([['history', 'Ranked games'], ['shap', 'ML & SHAP profile'], ['coaching', 'AI coaching']] as const)"
         :key="item[0]"
         type="button"
         class="tab"

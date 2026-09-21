@@ -24,82 +24,82 @@ function goToReadme(): void {
     <header class="cs-hero">
       <div class="cs-eyebrow">
         <span class="cs-eyebrow-dot"></span>
-        <span>ÉTUDE DE CAS TECHNIQUE · DATA ENGINEERING &amp; MACHINE LEARNING</span>
+        <span>TECHNICAL CASE STUDY · DATA ENGINEERING &amp; MACHINE LEARNING</span>
       </div>
       <h1 class="cs-title">
-        RiftSense : Système prédictif et coaching esport <span class="text-gold">de bout en bout</span>
+        RiftSense: an <span class="text-gold">end-to-end</span> predictive esports coaching system
       </h1>
       <p class="cs-subline">
-        Conception, entraînement et mise en production d'une plateforme d'analyse tactique pour League of Legends : de l'ingestion brute de 95 000 parties de haut niveau (API Riot Games) à l'explicabilité locale SHAP et au coaching IA sans boîte noire.
+        Design, training, and production deployment of a League of Legends tactical analytics platform: from ingesting 95,000 high-elo matches through the Riot Games API to local SHAP explainability and transparent AI coaching.
       </p>
 
       <div class="cs-hero-actions">
         <button type="button" class="btn btn-primary cs-btn-primary" @click="goToDemo">
-          <span>Tester le profil de démonstration (Spadzze#EUW)</span>
+          <span>Try the demo profile (Spadzze#EUW)</span>
           <span class="cs-btn-arrow" aria-hidden="true">→</span>
         </button>
         <button type="button" class="btn cs-btn-secondary" @click="goToReadme">
-          <span>Consulter la méthodologie complète (/readme)</span>
+          <span>Read the full methodology (/readme)</span>
         </button>
       </div>
     </header>
 
     <!-- KPI Metric Strip -->
-    <section class="cs-metrics-grid" aria-label="Métriques clés du projet">
+    <section class="cs-metrics-grid" aria-label="Key project metrics">
       <div class="cs-metric-card">
         <div class="cs-metric-val">47 701</div>
-        <div class="cs-metric-label">Matchs analysés</div>
-        <div class="cs-metric-sub">95 416 profils joueurs extraits (patch 16.13, EUW)</div>
+        <div class="cs-metric-label">Matches analyzed</div>
+        <div class="cs-metric-sub">95,416 player profiles extracted (patch 16.13, EUW)</div>
       </div>
       <div class="cs-metric-card">
         <div class="cs-metric-val highlight">0.677 AUC</div>
         <div class="cs-metric-label">Test Held-out</div>
-        <div class="cs-metric-sub">Frontière Apex : GM/Challenger vs Master/Diamond</div>
+        <div class="cs-metric-sub">Apex boundary: GM/Challenger vs Master/Diamond</div>
       </div>
       <div class="cs-metric-card">
         <div class="cs-metric-val">100%</div>
-        <div class="cs-metric-label">Explicabilité locale</div>
-        <div class="cs-metric-sub">EBM (Explainable Boosting Machine) &amp; valeurs SHAP</div>
+        <div class="cs-metric-label">Local explainability</div>
+        <div class="cs-metric-sub">EBM (Explainable Boosting Machine) &amp; SHAP values</div>
       </div>
       <div class="cs-metric-card">
         <div class="cs-metric-val">&lt; 50 ms</div>
-        <div class="cs-metric-label">Latence de restitution</div>
-        <div class="cs-metric-sub">Architecture serverless Cloudflare Workers &amp; KV cache</div>
+        <div class="cs-metric-label">Response latency</div>
+        <div class="cs-metric-sub">Serverless Cloudflare Workers architecture &amp; KV cache</div>
       </div>
     </section>
 
-    <section class="cs-visual-band" aria-label="Illustration de la trajectoire du projet">
+    <section class="cs-visual-band" aria-label="Project journey illustration">
       <div class="cs-visual-media" role="presentation"></div>
       <div class="cs-visual-copy">
-        <span class="cs-visual-eyebrow">Ascension data</span>
-        <h2 class="cs-visual-title">Du signal brut au coaching actionnable</h2>
-        <p class="cs-visual-sub">Chaque métrique remonte à une décision de jeu identifiable. Le reste, silencieux, sert le modèle sans servir de jugement.</p>
+        <span class="cs-visual-eyebrow">Data journey</span>
+        <h2 class="cs-visual-title">From raw signals to actionable coaching</h2>
+        <p class="cs-visual-sub">Every displayed metric maps to an identifiable game decision. Everything else supports the model without becoming a judgment.</p>
       </div>
     </section>
 
     <!-- Section 1 : Problématique métier -->
     <section class="cs-section">
       <div class="cs-section-header">
-        <span class="cs-section-tag">01 · CONTEXTE MÉTIER</span>
-        <h2 class="cs-section-title">Le défi : dépasser les statistiques superficielles</h2>
+        <span class="cs-section-tag">01 · PRODUCT CONTEXT</span>
+        <h2 class="cs-section-title">The challenge: moving beyond surface-level statistics</h2>
       </div>
       <div class="cs-grid-two">
         <div class="cs-card">
-          <h3 class="cs-card-title">Le problème des statistiques classiques (KDA)</h3>
+          <h3 class="cs-card-title">The problem with conventional statistics (KDA)</h3>
           <p class="cs-text">
-            Dans le jeu compétitif, les outils publics traditionnels se limitent à agréger des métriques de résultat (KDA, Winrate, Dégâts totaux). Ces indicateurs sont sujets au <strong>biais du survivant</strong> : un joueur peut afficher un bon KDA tout en perdant la partie en refusant de contester les objectifs majeurs (Baron Nashor, Dragon).
+            Traditional competitive-game tools aggregate outcome metrics such as KDA, win rate, and total damage. These indicators suffer from <strong>survivorship bias</strong>: a player can preserve a good KDA while losing by refusing to contest major objectives.
           </p>
           <p class="cs-text">
-            L'objectif de RiftSense est d'isoler la <strong>causalité réelle</strong> : identifier les choix de timing (GD@14, synchronisation de recall, punitions de mort) qui font la différence entre un joueur moyen et un joueur d'élite.
+            RiftSense aims to isolate <strong>real causal mechanisms</strong>: timing choices such as GD@14, synchronized recalls, and the cost of deaths that separate average from elite players.
           </p>
         </div>
         <div class="cs-card cs-card--accent">
-          <h3 class="cs-card-title">Règle éthique : l'intégrité du « Fog of War »</h3>
+          <h3 class="cs-card-title">Ethical rule: preserving fog of war</h3>
           <p class="cs-text">
-            Un coach humain ne doit jamais reprocher à un joueur une action qu'il ne pouvait pas anticiper. Dans le pipeline de données, toutes les features basées sur des proxys de vision adverse sont classées <code class="cs-code">ML_ONLY</code>.
+            A coach should never criticize an action the player could not anticipate. Every feature based on enemy-vision proxies is classified as <code class="cs-code">ML_ONLY</code> in the data pipeline.
           </p>
           <p class="cs-text">
-            Une assertion stricte dans le code fait <strong>crasher le processus d'inférence</strong> si une feature non vérifiée tente d'atteindre la couche de coaching. Sur les 17 métriques de positionnement, seules les 14 métriques garanties <code class="cs-code">COACHING_SAFE</code> sont exploitées pour le retour au joueur.
+            A strict assertion <strong>stops inference</strong> if an unverified feature reaches the coaching layer. Of 17 positioning metrics, only the 14 guaranteed <code class="cs-code">COACHING_SAFE</code> metrics can produce player-facing feedback.
           </p>
         </div>
       </div>
@@ -109,50 +109,50 @@ function goToReadme(): void {
     <section class="cs-section">
       <div class="cs-section-header">
         <span class="cs-section-tag">02 · DATA ENGINEERING</span>
-        <h2 class="cs-section-title">Architecture du pipeline de bout en bout</h2>
+        <h2 class="cs-section-title">End-to-end pipeline architecture</h2>
       </div>
 
       <div class="cs-pipeline-flow">
         <div class="cs-pipe-step">
-          <div class="cs-pipe-num">Étape 1</div>
-          <div class="cs-pipe-name">Collecte &amp; Ingestion</div>
+          <div class="cs-pipe-num">Step 1</div>
+          <div class="cs-pipe-name">Collection &amp; Ingestion</div>
           <p class="cs-pipe-desc">
-            Interrogation des endpoints Riot (<code class="cs-code">account-v1</code>, <code class="cs-code">match-v5</code>). Récupération des timelines complètes avec événements échantillonnés toutes les 60 secondes.
+            Query Riot endpoints (<code class="cs-code">account-v1</code>, <code class="cs-code">match-v5</code>) and retrieve full timelines sampled every 60 seconds.
           </p>
-          <span class="cs-pipe-badge">Backoff exponentiel &amp; KV cache</span>
+          <span class="cs-pipe-badge">Exponential backoff &amp; KV cache</span>
         </div>
 
         <div class="cs-pipe-arrow">→</div>
 
         <div class="cs-pipe-step">
-          <div class="cs-pipe-num">Étape 2</div>
+          <div class="cs-pipe-num">Step 2</div>
           <div class="cs-pipe-name">Feature Engineering</div>
           <p class="cs-pipe-desc">
-            Reconstitution des états de lane : différentiel d'or et d'XP à 14 min (<code class="cs-code">GD@14</code>), temps de mort punitif, conversion d'objectifs et synchronisation des recalls.
+            Reconstruct lane states: gold and XP differences at 14 minutes (<code class="cs-code">GD@14</code>), death cost, objective conversion, and recall synchronization.
           </p>
-          <span class="cs-pipe-badge">95k profils construits</span>
+          <span class="cs-pipe-badge">95k profiles built</span>
         </div>
 
         <div class="cs-pipe-arrow">→</div>
 
         <div class="cs-pipe-step">
-          <div class="cs-pipe-num">Étape 3</div>
-          <div class="cs-pipe-name">Modèle EBM &amp; SHAP</div>
+          <div class="cs-pipe-num">Step 3</div>
+          <div class="cs-pipe-name">EBM Model &amp; SHAP</div>
           <p class="cs-pipe-desc">
-            Inférence via l'algorithme <em>Explainable Boosting Machine</em>. Calcul direct et exact des contributions locales SHAP pour chaque partie et feature sans approximation.
+            Run <em>Explainable Boosting Machine</em> inference and calculate exact local contributions for every feature without approximation.
           </p>
-          <span class="cs-pipe-badge">Interprétabilité 100% native</span>
+          <span class="cs-pipe-badge">100% native interpretability</span>
         </div>
 
         <div class="cs-pipe-arrow">→</div>
 
         <div class="cs-pipe-step">
-          <div class="cs-pipe-num">Étape 4</div>
-          <div class="cs-pipe-name">Inférence LLM &amp; Edge</div>
+          <div class="cs-pipe-num">Step 4</div>
+          <div class="cs-pipe-name">LLM Inference &amp; Edge</div>
           <p class="cs-pipe-desc">
-            Génération de revues de match horodatées via Ollama. Packaging des résultats pré-calculés et déploiement mondial sur Cloudflare Workers.
+            Generate timestamped match reviews through Ollama, package precomputed results, and deploy globally on Cloudflare Workers.
           </p>
-          <span class="cs-pipe-badge">Restitution &lt; 50ms</span>
+          <span class="cs-pipe-badge">Response &lt; 50ms</span>
         </div>
       </div>
     </section>
@@ -161,27 +161,27 @@ function goToReadme(): void {
     <section class="cs-section">
       <div class="cs-section-header">
         <span class="cs-section-tag">03 · MACHINE LEARNING</span>
-        <h2 class="cs-section-title">Modélisation EBM et élimination des fuites de données</h2>
+        <h2 class="cs-section-title">EBM modeling and data-leakage prevention</h2>
       </div>
 
       <div class="cs-grid-two">
         <div class="cs-card">
-          <h3 class="cs-card-title">Pourquoi Explainable Boosting Machine (EBM) ?</h3>
+          <h3 class="cs-card-title">Why Explainable Boosting Machine (EBM)?</h3>
           <p class="cs-text">
-            Les modèles boîtes noires (XGBoost profond, réseaux de neurones) nécessitent des approches a posteriori (KernelSHAP) très lentes et approximatives pour expliquer leurs décisions.
+            Black-box models require slower, approximate post-hoc methods such as KernelSHAP to explain decisions.
           </p>
           <p class="cs-text">
-            L'algorithme <strong>EBM</strong> (Generalized Additive Model avec termes d'interaction par paires) offre un niveau de performance équivalent tout en rendant le modèle <strong>intrinsèquement transparent</strong> : chaque feature apporte une fonction de score visible et explicable mathématiquement au joueur.
+            <strong>EBM</strong>, a generalized additive model with pairwise interactions, provides comparable performance while remaining <strong>intrinsically transparent</strong>: every feature contributes a visible scoring function.
           </p>
         </div>
 
         <div class="cs-card">
-          <h3 class="cs-card-title">Purged Cross-Validation (Matchs miroirs)</h3>
+          <h3 class="cs-card-title">Purged Cross-Validation (Mirrored matches)</h3>
           <p class="cs-text">
-            Dans la base de données, environ <strong>37% des parties</strong> opposaient deux joueurs du dataset. Leurs métriques de lane étaient donc en miroir exact. Une validation croisée classique aurait laissé fuir de l'information entre les plis d'entraînement et de test.
+            About <strong>37% of games</strong> matched two players from the dataset, producing mirrored lane metrics. Conventional cross-validation would leak information between train and test folds.
           </p>
           <p class="cs-text">
-            Un protocole de <strong>Purged CV</strong> a été conçu : à chaque fold, les statistiques sont recalculées en excluant les parties partagées. Cette rigueur évite une surestimation artificielle mesurée de <strong>+0.005 AUC</strong>.
+            A <strong>purged CV</strong> protocol recalculates statistics at each fold while excluding shared games, preventing a measured artificial gain of <strong>+0.005 AUC</strong>.
           </p>
         </div>
       </div>
@@ -190,21 +190,21 @@ function goToReadme(): void {
     <!-- Section 4 : Coaching Génératif LLM -->
     <section class="cs-section">
       <div class="cs-section-header">
-        <span class="cs-section-tag">04 · GÉNÉRATION LLM SANS HALLUCINATION</span>
-        <h2 class="cs-section-title">Ancrage chronologique et contextualisation des parties</h2>
+        <span class="cs-section-tag">04 · GROUNDED LLM GENERATION</span>
+        <h2 class="cs-section-title">Timeline grounding and game context</h2>
       </div>
 
       <div class="cs-card cs-card--full">
         <div class="cs-llm-banner">
           <div>
-            <h3 class="cs-card-title">Un LLM guidé par des preuves chiffrées, pas par l'intuition</h3>
+            <h3 class="cs-card-title">An LLM guided by quantified evidence, not intuition</h3>
             <p class="cs-text">
-              Pour éviter les hallucinations fréquentes des modèles génératifs dans le domaine du jeu vidéo, les revues tactiques sont générées via un modèle open-source (Ollama) conditionné par les métriques exactes extraites de la timeline :
+              To reduce hallucinations, tactical reviews are generated through Ollama and grounded in exact metrics extracted from the timeline:
             </p>
             <ul class="cs-list">
-              <li><strong>Horodatage obligatoire :</strong> Chaque erreur ou force relevée est attachée à une minute exacte (ex: 18:24).</li>
-              <li><strong>Preuve mesurée :</strong> Comparaison chiffrée avec le vis-à-vis direct et les standards de référence Challenger.</li>
-              <li><strong>Conseil actionnable :</strong> Focalisation sur un seul axe d'effort prioritaire pour le match suivant.</li>
+              <li><strong>Timestamp required:</strong> Every mistake or strength is tied to an exact time, such as 18:24.</li>
+              <li><strong>Measured evidence:</strong> Quantified comparison with the direct opponent and Challenger reference standards.</li>
+              <li><strong>Actionable coaching:</strong> One priority improvement area for the next match.</li>
             </ul>
           </div>
         </div>
@@ -214,8 +214,8 @@ function goToReadme(): void {
     <!-- Section 5 : Stack Technique -->
     <section class="cs-section">
       <div class="cs-section-header">
-        <span class="cs-section-tag">05 · STACK &amp; OUTILS</span>
-        <h2 class="cs-section-title">Technologies mobilisées</h2>
+        <span class="cs-section-tag">05 · STACK &amp; TOOLS</span>
+        <h2 class="cs-section-title">Technology stack</h2>
       </div>
 
       <div class="cs-stack-grid">
@@ -224,11 +224,11 @@ function goToReadme(): void {
           <span class="cs-stack-name">Python · Scikit-Learn · Interpret (EBM) · Pandas · Polars</span>
         </div>
         <div class="cs-stack-pill">
-          <span class="cs-stack-category">Inférence LLM</span>
-          <span class="cs-stack-name">Ollama · Prompt Engineering déterministe · Structured JSON</span>
+          <span class="cs-stack-category">LLM inference</span>
+          <span class="cs-stack-name">Ollama · Deterministic prompt engineering · Structured JSON</span>
         </div>
         <div class="cs-stack-pill">
-          <span class="cs-stack-category">Ingestion &amp; Pipeline</span>
+          <span class="cs-stack-category">Ingestion &amp; pipeline</span>
           <span class="cs-stack-name">Riot Games API · Match-V5 &amp; Timelines · Poetry · Pytest</span>
         </div>
         <div class="cs-stack-pill">
@@ -241,16 +241,16 @@ function goToReadme(): void {
     <!-- Section 6 : Call to action de clôture -->
     <section class="cs-closing-card">
       <div class="cs-closing-content">
-        <h2 class="cs-closing-title">Tester la restitution en conditions réelles</h2>
+        <h2 class="cs-closing-title">Try the production experience</h2>
         <p class="cs-closing-text">
-          Le projet est entièrement déployé en production. Vous pouvez tester immédiatement un profil complet disposant des valeurs SHAP calculées et de revues de match générées.
+          The project is fully deployed in production. Try a complete profile with calculated SHAP values and generated match reviews.
         </p>
         <div class="cs-closing-actions">
           <button type="button" class="btn btn-primary cs-btn-primary" @click="goToDemo">
-            <span>Ouvrir le profil de référence (Spadzze#EUW) →</span>
+            <span>Open the reference profile (Spadzze#EUW) →</span>
           </button>
           <a class="btn cs-btn-secondary" href="https://github.com/JeanVG23/riftsense" target="_blank" rel="noopener noreferrer">
-            <span>Code source sur GitHub ↗</span>
+            <span>Source code on GitHub ↗</span>
           </a>
         </div>
       </div>

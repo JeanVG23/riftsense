@@ -22,9 +22,9 @@ import generate_shared  # noqa: E402
 
 
 def test_prompt_versions_are_frozen():
-    assert PR.PROMPT_VERSION == "ba5a8458369c"
-    assert PR.GAME_PROMPT_VERSION == "350f7c404b5b"
-    assert PR.SPECIALIZED_PROMPT_VERSION == "942a61913afa"
+    assert PR.PROMPT_VERSION == "280fff44c0f2"
+    assert PR.GAME_PROMPT_VERSION == "c55ac98bec44"
+    assert PR.SPECIALIZED_PROMPT_VERSION == "71acb45dfaf9"
 
 
 def test_generated_files_match_the_generator():

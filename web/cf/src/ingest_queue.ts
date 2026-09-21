@@ -99,7 +99,7 @@ export class IngestQueue {
       const status = await this.statusOf(slug);
       return status
         ? Response.json(status)
-        : Response.json({ detail: "inscription inconnue" }, { status: 404 });
+        : Response.json({ detail: "unknown registration" }, { status: 404 });
     }
     return Response.json({ detail: "Not Found" }, { status: 404 });
   }

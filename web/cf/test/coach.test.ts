@@ -89,7 +89,7 @@ describe("coachFlow", () => {
     }, PARAMS));
     expect(calls).toBe(2);
     expect(events.map((event) => event.event)).toEqual(["payload", "llm", "error"]);
-    expect(events[2].data.error).toContain("schéma");
+    expect(events[2].data.error).toContain("schema");
     expect(await readJsonl(kv, KEYS.reviews("spadzze"))).toEqual([]);
   });
 
@@ -102,7 +102,7 @@ describe("coachFlow", () => {
       generate: async () => { calls += 1; return REVIEW; },
     }, PARAMS));
     expect(events.map((event) => event.event)).toEqual(["error"]);
-    expect(events[0].data.error).toContain("sync");
+    expect(events[0].data.error).toContain("refresh");
     expect(calls).toBe(0);
   });
 
@@ -117,7 +117,7 @@ describe("coachFlow", () => {
       generate: async () => { calls += 1; return REVIEW; },
     }, { ...PARAMS, scope: "zeri" }));
     expect(events).toEqual([{
-      event: "error", data: { error: "scope de benchmark inconnu : zeri" },
+      event: "error", data: { error: "unknown benchmark scope: zeri" },
     }]);
     expect(calls).toBe(0);
   });
@@ -168,18 +168,18 @@ describe("apiCoach", () => {
   it("404 pour un compte inconnu", async () => {
     const response = await apiCoach(request("inconnu"), env("secret"));
     expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({ detail: "compte inconnu" });
+    expect(await response.json()).toEqual({ detail: "unknown account" });
   });
 
   it("500 si OLLAMA_API_KEY est absent", async () => {
     const response = await apiCoach(request("spadzze"), env());
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ detail: "OLLAMA_API_KEY non configuré" });
+    expect(await response.json()).toEqual({ detail: "OLLAMA_API_KEY is not configured" });
   });
 
   it("422 pour un ancien scope champion", async () => {
     const response = await apiCoach(request("spadzze", "zeri"), env("secret"));
     expect(response.status).toBe(422);
-    expect(await response.json()).toEqual({ detail: "scope de benchmark invalide" });
+    expect(await response.json()).toEqual({ detail: "invalid benchmark scope" });
   });
 });

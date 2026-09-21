@@ -54,7 +54,7 @@ const evaluation = ref<EvaluationReport | null>(null);
 let requestSequence = 0;
 
 function percent(value: number | null | undefined): string {
-  return value == null ? "—" : `${Math.round(value * 100)} %`;
+  return value == null ? "—" : `${Math.round(value * 100)}%`;
 }
 
 async function loadEvaluation(): Promise<void> {
@@ -75,14 +75,14 @@ onMounted(loadEvaluation);
 </script>
 
 <template>
-  <div class="coach-view-tabs" role="tablist" aria-label="Type de coaching">
+  <div class="coach-view-tabs" role="tablist" aria-label="Coaching type">
     <button
       type="button"
       :class="{ active: view === 'overall' }"
       :aria-selected="view === 'overall'"
       @click="emit('view-change', 'overall')"
     >
-      Coaching global
+      Overall coaching
     </button>
     <button
       type="button"
@@ -90,32 +90,32 @@ onMounted(loadEvaluation);
       :aria-selected="view === 'games'"
       @click="emit('view-change', 'games')"
     >
-      Analyses de parties <span v-if="gameReviewsCount" class="coach-tab-count">{{ gameReviewsCount }}</span>
+      Game analyses <span v-if="gameReviewsCount" class="coach-tab-count">{{ gameReviewsCount }}</span>
     </button>
   </div>
 
   <template v-if="view === 'overall'">
     <div v-if="evaluation" class="eval-strip">
       <div class="eval-head">
-        <span class="eval-kicker">QUALITÉ MESURÉE</span>
-        <strong>{{ evaluation.objective?.mistake_useful_rate == null ? "Pas encore de note" : `${percent(evaluation.objective.mistake_useful_rate)} d'erreurs jugées utiles` }}</strong>
-        <span class="eval-meta">{{ evaluation.objective?.n_game_reviews_annotated || 0 }} / {{ evaluation.objective?.target_n || 10 }} analyses annotées</span>
+        <span class="eval-kicker">MEASURED QUALITY</span>
+        <strong>{{ evaluation.objective?.mistake_useful_rate == null ? "No ratings yet" : `${percent(evaluation.objective.mistake_useful_rate)} of mistakes rated useful` }}</strong>
+        <span class="eval-meta">{{ evaluation.objective?.n_game_reviews_annotated || 0 }} / {{ evaluation.objective?.target_n || 10 }} rated analyses</span>
         <span class="eval-badge" :class="evaluation.target_met ? 'met' : 'pending'">
-          {{ evaluation.target_met ? "objectif atteint" : "objectif ≥70 %" }}
+          {{ evaluation.target_met ? "target met" : "target ≥70%" }}
         </span>
       </div>
-      <p class="eval-note">Ce taux vient de tes votes sur les erreurs des analyses par partie ; il est recalculé sans nouvel appel LLM.</p>
+      <p class="eval-note">This rate comes from your votes on per-game analysis mistakes. It is recalculated without another LLM call.</p>
     </div>
 
     <section class="coach-builder" aria-labelledby="coach-builder-title">
       <div class="coaching-intro">
-        <span class="coaching-kicker">ANALYSE GLOBALE &amp; HABITUDES</span>
-        <h2 id="coach-builder-title">Prends du recul sur ton jeu</h2>
-        <p>Explore tes habitudes comparées aux joueurs Challenger selon le périmètre et le résultat souhaités.</p>
+        <span class="coaching-kicker">OVERALL ANALYSIS &amp; HABITS</span>
+        <h2 id="coach-builder-title">See the bigger picture</h2>
+        <p>Compare your habits with Challenger players by champion pool and game outcome.</p>
       </div>
       <div class="coach-options">
-        <div class="choice-group" role="group" aria-label="Parties à analyser">
-          <span class="choice-label">Périmètre</span>
+        <div class="choice-group" role="group" aria-label="Games to analyze">
+          <span class="choice-label">Scope</span>
           <div class="segmented-choice">
             <button
               v-for="item in scopes"
@@ -129,20 +129,20 @@ onMounted(loadEvaluation);
             </button>
           </div>
         </div>
-        <div class="choice-group" role="group" aria-label="Résultat à analyser">
-          <span class="choice-label">Résultat</span>
+        <div class="choice-group" role="group" aria-label="Outcome to analyze">
+          <span class="choice-label">Outcome</span>
           <div class="segmented-choice">
-            <button type="button" :class="{ selected: outcome === 'loss', 'loss-choice': outcome === 'loss' }" :aria-pressed="outcome === 'loss'" @click="emit('outcome-change', 'loss')">Défaites</button>
-            <button type="button" :class="{ selected: outcome === 'win', 'win-choice': outcome === 'win' }" :aria-pressed="outcome === 'win'" @click="emit('outcome-change', 'win')">Victoires</button>
-            <button type="button" :class="{ selected: outcome === 'overall' }" :aria-pressed="outcome === 'overall'" @click="emit('outcome-change', 'overall')">Global</button>
+            <button type="button" :class="{ selected: outcome === 'loss', 'loss-choice': outcome === 'loss' }" :aria-pressed="outcome === 'loss'" @click="emit('outcome-change', 'loss')">Losses</button>
+            <button type="button" :class="{ selected: outcome === 'win', 'win-choice': outcome === 'win' }" :aria-pressed="outcome === 'win'" @click="emit('outcome-change', 'win')">Wins</button>
+            <button type="button" :class="{ selected: outcome === 'overall' }" :aria-pressed="outcome === 'overall'" @click="emit('outcome-change', 'overall')">Overall</button>
           </div>
         </div>
-        <div class="coach-reference" aria-label="Référence : joueurs Challenger">
+        <div class="coach-reference" aria-label="Reference: Challenger players">
           <img class="coach-ref-emblem" :src="rankEmblem('challenger')" alt="Challenger" loading="lazy">
-          <div><span>Référence</span><strong>Joueurs Challenger</strong></div>
+          <div><span>Reference</span><strong>Challenger players</strong></div>
         </div>
         <button class="btn btn-primary coach-generate" :disabled="busy" @click="emit('generate')">
-          <span>{{ busy ? "Analyse en cours…" : (authenticated ? "Générer ce coaching" : "🔒 Déverrouiller le coaching") }}</span>
+          <span>{{ busy ? "Analyzing…" : (authenticated ? "Generate coaching" : "🔒 Unlock coaching") }}</span>
           <span v-if="!busy" aria-hidden="true">→</span>
         </button>
       </div>

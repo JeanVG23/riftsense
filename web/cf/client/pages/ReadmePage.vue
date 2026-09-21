@@ -36,19 +36,19 @@ function goPrivacy(): void {
 
     <div class="legal-header">
       <div class="legal-breadcrumbs">
-        <a href="/" @click.prevent="goHome">Accueil</a>
+        <a href="/" @click.prevent="goHome">Home</a>
         <span class="legal-sep">/</span>
-        <span class="current">À propos &amp; Méthode</span>
+        <span class="current">About &amp; Method</span>
       </div>
-      <h1 class="legal-title">Comment fonctionne <span class="text-gold">RiftSense</span></h1>
+      <h1 class="legal-title">How <span class="text-gold">RiftSense</span> works</h1>
       <p class="legal-meta">
-        <span class="badge badge-legal">Documentation &amp; Méthode</span>
-        <span>Mise à jour : Saison 2026</span>
+        <span class="badge badge-legal">Documentation &amp; Method</span>
+        <span>Updated: 2026 Season</span>
         <span class="legal-sep">·</span>
-        <span>Architecture, Data Science &amp; Pipeline IA</span>
+        <span>Architecture, Data Science &amp; AI Pipeline</span>
       </p>
       <p class="legal-subline">
-        Le projet de bout en bout : de <strong>l'ingestion des données</strong> à la <strong>boucle d'évaluation</strong>. Les recommandations sont <strong>benchmarkées</strong>, <strong>vérifiables</strong> et respectent rigoureusement <strong>ce que le joueur savait réellement en cours de partie</strong>.
+        The end-to-end project: from <strong>data ingestion</strong> to the <strong>evaluation loop</strong>. Recommendations are <strong>benchmarked</strong>, <strong>verifiable</strong>, and strictly respect <strong>what the player actually knew during the game</strong>.
       </p>
     </div>
 
@@ -59,20 +59,20 @@ function goPrivacy(): void {
       <span class="divider-line"></span>
     </div>
 
-    <section class="legal-visual-band" aria-label="Illustration méthodologique">
+    <section class="legal-visual-band" aria-label="Methodology illustration">
       <div class="legal-visual-media" role="presentation"></div>
       <div class="legal-visual-copy">
-        <h2 class="legal-visual-title">De la donnée brute à la preuve chiffrée</h2>
-        <p class="legal-visual-sub">Un pipeline documenté, une explicabilité locale et une boucle d’évaluation mesurable.</p>
+        <h2 class="legal-visual-title">From raw data to quantified evidence</h2>
+        <p class="legal-visual-sub">A documented pipeline, local explainability, and a measurable evaluation loop.</p>
       </div>
     </section>
 
-    <div class="tabs" role="tablist" aria-label="Sections de présentation">
-      <button type="button" class="tab" :class="tab === 'overview' ? 'active' : ''" @click="setTab('overview')" :aria-selected="tab === 'overview'">Vue d'ensemble</button>
-      <button type="button" class="tab" :class="tab === 'data' ? 'active' : ''" @click="setTab('data')" :aria-selected="tab === 'data'">Données &amp; API Riot</button>
+    <div class="tabs" role="tablist" aria-label="Presentation sections">
+      <button type="button" class="tab" :class="tab === 'overview' ? 'active' : ''" @click="setTab('overview')" :aria-selected="tab === 'overview'">Overview</button>
+      <button type="button" class="tab" :class="tab === 'data' ? 'active' : ''" @click="setTab('data')" :aria-selected="tab === 'data'">Data &amp; Riot API</button>
       <button type="button" class="tab" :class="tab === 'features' ? 'active' : ''" @click="setTab('features')" :aria-selected="tab === 'features'">Features</button>
       <button type="button" class="tab" :class="tab === 'ml' ? 'active' : ''" @click="setTab('ml')" :aria-selected="tab === 'ml'">Data Science &amp; ML</button>
-      <button type="button" class="tab" :class="tab === 'coaching' ? 'active' : ''" @click="setTab('coaching')" :aria-selected="tab === 'coaching'">Coaching IA</button>
+      <button type="button" class="tab" :class="tab === 'coaching' ? 'active' : ''" @click="setTab('coaching')" :aria-selected="tab === 'coaching'">AI Coaching</button>
       <button type="button" class="tab" :class="tab === 'feedback' ? 'active' : ''" @click="setTab('feedback')" :aria-selected="tab === 'feedback'">Feedback</button>
     </div>
 
@@ -80,35 +80,35 @@ function goPrivacy(): void {
     <template v-if="tab === 'overview'">
       <div class="legal-sections">
         <section class="card legal-card">
-          <h2>Le problème avec op.gg &amp; co.</h2>
-          <p>Les outils existants (op.gg, u.gg, score OP…) s'appuient principalement sur des <strong>statistiques descriptives globales</strong> — KDA, nombre de tourelles, cumul d'or. Résultat : des conseils génériques du type « meurs moins », là où la décision critique réside dans le positionnement spatial et temporel (« place-toi ici plutôt que là avant le spawn de l'objectif »). Ce projet part d'un principe inverse : reconstruire <strong>le positionnement et les déplacements réels</strong> des 10 joueurs depuis la timeline Riot Match-V5, révélant la dynamique macro bien plus fidèlement qu'un simple agrégat de fin de partie.</p>
+          <h2>The problem with op.gg and similar tools</h2>
+          <p>Existing tools mainly rely on <strong>global descriptive statistics</strong> such as KDA, turrets, and total gold. This leads to generic advice like “die less,” even when the critical decision is spatial and temporal: where to stand before an objective spawns. RiftSense takes the opposite approach by reconstructing the <strong>actual positioning and movement</strong> of all ten players from the Riot Match-V5 timeline, revealing macro dynamics more faithfully than end-of-game aggregates.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Respect de l'asymétrie d'information</h2>
-          <p>Le coach ne reproche <strong>jamais</strong> au joueur une décision basée sur une information dont il ne disposait pas (fog of war / brouillard de guerre). Par exemple, il ne dira pas « tu n'aurais pas dû push, le jungler ennemi était botside » si l'équipe n'avait aucune vision sur lui. Le système raisonne uniquement sur l'information réellement disponible au joueur au moment T. L'information complète post-game sert à <em>labelliser a posteriori</em> et contextualiser les situations, jamais à porter un jugement omniscient — ce principe fondamental traverse tout le pipeline, de l'extraction des features (onglet Features) jusqu'au prompt envoyé au LLM (onglet Coaching IA).</p>
+          <h2>Respecting information asymmetry</h2>
+          <p>The coach <strong>never</strong> criticizes a decision based on information the player did not have through fog of war. It will not say “you should not have pushed because the enemy jungler was bot side” when the team had no vision of that jungler. Complete post-game information is used to label and contextualize situations after the fact, never to make omniscient judgments. This principle runs through the entire pipeline, from feature extraction to the prompt sent to the LLM.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Benchmark challenger, pas opinion absolue</h2>
-          <p>« Tu recalls à 1450 g en moyenne, les challengers de ce matchup à 1100 g » est concret et <strong>vérifiable</strong>. « Recall plus tôt » est une opinion creuse. Les benchmarks viennent directement des timelines high-elo de l'API Riot, à issue et contexte de lane égaux. Une recommandation sans preuve chiffrée issue des données n'est pas retenue — c'est la règle stricte qui contraint tout le pipeline, du calcul des features au schéma de validation du LLM.</p>
+          <h2>Challenger benchmark, not absolute opinion</h2>
+          <p>“You recall with 1,450 gold on average, versus 1,100 for Challenger players in this matchup” is concrete and <strong>verifiable</strong>. “Recall earlier” is not. Benchmarks come directly from high-elo Riot API timelines with matched outcomes and lane contexts. Recommendations without quantified evidence are rejected throughout the pipeline.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Le pipeline, de bout en bout</h2>
+          <h2>The end-to-end pipeline</h2>
           <ol style="margin:6px 0 0; padding-left:20px">
-            <li><strong>Collecte</strong> — API Riot (Match-V5 + Timeline) pour les parties du joueur et pour un référentiel de milliers de parties high-elo. <span class="faint">→ onglet Données</span></li>
-            <li><strong>Extraction</strong> — la timeline brute devient des features macro (phase de lane, positionnement spatial, morts, contexte de matchup). <span class="faint">→ onglet Features</span></li>
-            <li><strong>Agrégation</strong> — les features du profil sont comparées aux médianes du référentiel, à issue et contexte égaux (là où les statistiques classiques s'arrêtent, cette agrégation contextualisée constitue le point de départ).</li>
-            <li><strong>Machine Learning</strong> — un ensemble de modèles classe les profils par rang et explique quelles features pèsent le plus, via SHAP. <span class="faint">→ onglet Data Science</span></li>
-            <li><strong>Narration</strong> — un LLM transforme ce différentiel chiffré en 1 à 3 forces, 3 erreurs, 2 habitudes et 1 focus, sous contrainte de schéma strict. <span class="faint">→ onglet Coaching IA</span></li>
-            <li><strong>Évaluation</strong> — chaque insight peut être noté utile/faux par le joueur ou le relecteur, pour mesurer si le coach s'améliore réellement. <span class="faint">→ onglet Feedback</span></li>
+            <li><strong>Collection</strong> — Riot API (Match-V5 + Timeline) for the player's games and thousands of high-elo reference games. <span class="faint">→ Data tab</span></li>
+            <li><strong>Extraction</strong> — raw timelines become macro features: laning phase, positioning, deaths, and matchup context. <span class="faint">→ Features tab</span></li>
+            <li><strong>Aggregation</strong> — profile features are compared with reference medians under matched outcomes and contexts.</li>
+            <li><strong>Machine learning</strong> — an ensemble ranks profiles and uses SHAP to explain which features matter most. <span class="faint">→ Data Science tab</span></li>
+            <li><strong>Narration</strong> — an LLM turns the quantified differences into 1–3 strengths, 3 mistakes, 2 habits, and 1 focus under a strict schema. <span class="faint">→ AI Coaching tab</span></li>
+            <li><strong>Evaluation</strong> — every insight can be rated useful or incorrect to measure whether the coach truly improves. <span class="faint">→ Feedback tab</span></li>
           </ol>
         </section>
 
         <section class="card legal-card">
-          <h2>Où en est le projet</h2>
-          <p>L'approche Riot-first (100% API, zéro capture vidéo ni OCR) est validée et opérationnelle : le positionnement reconstruit depuis la timeline fournit un signal dense et exploitable. Le référentiel multi-rangs (Diamond → Challenger) est constitué, le pipeline ML (XGBoost / Random Forest / EBM + SHAP) est calibré, et la génération de coaching structuré (LLM) avec boucle de rétroaction tourne en production sur cette application. La capture en direct et la vision par ordinateur constituent un axe de recherche distinct hors périmètre actuel : le système capitalise avec rigueur sur la timeline officielle post-game.</p>
+          <h2>Project status</h2>
+          <p>The Riot-first approach—100% API, no video capture or OCR—is operational. Reconstructed timeline positioning provides dense, usable signals. The multi-rank reference corpus (Diamond to Challenger), calibrated ML pipeline (XGBoost / Random Forest / EBM + SHAP), structured LLM coaching, and feedback loop all run in production. Live capture and computer vision remain a separate research direction outside the current scope.</p>
         </section>
       </div>
     </template>
@@ -118,51 +118,51 @@ function goPrivacy(): void {
       <div class="legal-sections">
         <section class="card legal-card">
           <h2>Riot-first</h2>
-          <p>Décision d'architecture centrale : <strong>la capture live et la vision par ordinateur ne sont pas la source active</strong>. L'API Riot post-game fournit gratuitement, sans erreur d'OCR, l'essentiel de la donnée nécessaire à un coach de positionnement.</p>
+          <p>Core architectural decision: <strong>live capture and computer vision are not the active source</strong>. The post-game Riot API provides most of the data needed for positioning coaching without OCR errors.</p>
           <ul>
-            <li><strong>Match-V5 + Timeline</strong> (post-game) — positions x/y de <em>tous</em> les champions toutes les 60 s, gold/XP/items par joueur, et tous les événements discrets (kills, objectifs, wards, level-ups, achats).</li>
+            <li><strong>Match-V5 + Timeline</strong> (post-game) — X/Y positions for <em>every</em> champion every 60 seconds, gold/XP/items per player, and discrete events such as kills, objectives, wards, level-ups, and purchases.</li>
           </ul>
         </section>
 
         <section class="card legal-card">
-          <h2>Le mécanisme de l'asymétrie</h2>
-          <p>C'est le garde-fou qui rend le principe d'asymétrie (onglet Vue d'ensemble) réellement applicable, et pas juste une intention :</p>
+          <h2>How information asymmetry is enforced</h2>
+          <p>This guardrail makes the asymmetry principle enforceable rather than aspirational:</p>
           <ul>
-            <li><strong>« Ce qui peut être prescrit »</strong> — uniquement les features exactes et vérifiables depuis la timeline (<span class="mono">COACHING_SAFE</span>).</li>
-            <li><strong>« Ce qui reste statistique »</strong> — les proxys <span class="mono">ML_ONLY</span> servent le modèle, mais ne sont jamais formulés comme un reproche.</li>
-            <li><strong>« Ce qui sert à labelliser »</strong> — la timeline complète et les benchmarks comparent et labellisent après coup ; ils ne sont jamais présentés au LLM comme une connaissance que le joueur avait au moment T.</li>
+            <li><strong>What can be prescribed</strong> — only exact, verifiable timeline features (<span class="mono">COACHING_SAFE</span>).</li>
+            <li><strong>What remains statistical</strong> — <span class="mono">ML_ONLY</span> proxies support the model but are never phrased as criticism.</li>
+            <li><strong>What is used for labels</strong> — complete timelines and benchmarks compare situations afterward; they are never presented to the LLM as knowledge the player had at the time.</li>
           </ul>
         </section>
 
         <section class="card legal-card">
-          <h2>Les APIs utilisées</h2>
+          <h2>APIs used</h2>
           <div style="overflow-x:auto">
           <table class="readme-table">
             <thead>
-              <tr><th>API</th><th>Endpoint clé</th><th>Rôle</th><th>Routing</th></tr>
+              <tr><th>API</th><th>Key endpoint</th><th>Purpose</th><th>Routing</th></tr>
             </thead>
             <tbody>
-              <tr><td>account-v1</td><td class="mono">accounts/by-riot-id/{gameName}/{tagLine}</td><td>Riot ID → puuid, porte d'entrée</td><td>régional</td></tr>
-              <tr><td>match-v5</td><td class="mono">matches/{id}/timeline</td><td>Cœur du projet : positions/60s + events</td><td>régional</td></tr>
-              <tr><td>league-v4</td><td class="mono">entries/by-puuid/{puuid}</td><td>Elo/LP pour contexte de rang</td><td>plateforme</td></tr>
+              <tr><td>account-v1</td><td class="mono">accounts/by-riot-id/{gameName}/{tagLine}</td><td>Riot ID → PUUID entry point</td><td>regional</td></tr>
+              <tr><td>match-v5</td><td class="mono">matches/{id}/timeline</td><td>Core data: positions every 60s + events</td><td>regional</td></tr>
+              <tr><td>league-v4</td><td class="mono">entries/by-puuid/{puuid}</td><td>Rank and LP context</td><td>platform</td></tr>
             </tbody>
           </table>
           </div>
-          <p class="faint" style="margin-top:10px">account-v1 et match-v5 utilisent le routing <strong>régional</strong> (europe/americas/asia) ; league-v4 utilise le routing <strong>plateforme</strong> (euw1…). Clé de production : pas de rate-limiting agressif nécessaire, juste un backoff poli sur 429.</p>
+          <p class="faint" style="margin-top:10px">account-v1 and match-v5 use <strong>regional</strong> routing (Europe/Americas/Asia), while league-v4 uses <strong>platform</strong> routing (euw1, etc.). The production key only needs polite backoff on HTTP 429.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Architecture de stockage — un médaillon en couches numérotées</h2>
-          <p>Chaque couche a un rôle unique et ne fait qu'une seule transformation, pour pouvoir tout régénérer sans re-taper l'API :</p>
+          <h2>Storage architecture — numbered medallion layers</h2>
+          <p>Each layer has one purpose and performs one transformation, so everything can be rebuilt without calling the API again:</p>
           <ul>
-            <li><span class="mono">01_raw</span> — JSON brut de l'API Riot, compressé zstd, caché par matchId. Ne change plus jamais une fois écrit.</li>
-            <li><span class="mono">02_silver</span> — une ligne par game nettoyée (features + comp), extraite depuis le raw.</li>
-            <li><span class="mono">03_gold</span> — agrégats/benchmarks (par rang, par joueur), facettes win/loss et contexte de lane.</li>
-            <li><span class="mono">04_dataset</span> — table tabulaire consolidée, prête pour le Machine Learning.</li>
-            <li><span class="mono">05_model</span> / <span class="mono">06_shap</span> — modèles entraînés et sorties d'explicabilité.</li>
-            <li><span class="mono">07_coaching</span> — reviews LLM et feedback persistés, par joueur.</li>
+            <li><span class="mono">01_raw</span> — raw Riot API JSON, zstd-compressed and cached by match ID; immutable after writing.</li>
+            <li><span class="mono">02_silver</span> — one cleaned row per game (features + composition), extracted from raw data.</li>
+            <li><span class="mono">03_gold</span> — aggregates and benchmarks by rank and player, with win/loss facets and lane context.</li>
+            <li><span class="mono">04_dataset</span> — consolidated tabular data ready for machine learning.</li>
+            <li><span class="mono">05_model</span> / <span class="mono">06_shap</span> — trained models and explainability outputs.</li>
+            <li><span class="mono">07_coaching</span> — persisted LLM reviews and player feedback.</li>
           </ul>
-          <p>Séparer raw/silver/gold veut dire qu'une évolution des features (ex. ajout du positionnement) se rejoue <strong>sans un seul appel API supplémentaire</strong> : on ré-extrait le silver depuis le raw déjà caché.</p>
+          <p>Separating raw, silver, and gold means feature changes can be replayed <strong>without a single additional API call</strong>: silver is simply re-extracted from cached raw data.</p>
         </section>
       </div>
     </template>
@@ -171,28 +171,28 @@ function goPrivacy(): void {
     <template v-if="tab === 'features'">
       <div class="legal-sections">
         <section class="card legal-card">
-          <h2>Quatre familles de features</h2>
+          <h2>Four feature families</h2>
           <ul>
-            <li><strong>Lane</strong> — différentiel d'or, de CS et d'expérience à 10, 14 et 20 minutes face au vis-à-vis direct au même poste.</li>
-            <li><strong>Positionnement</strong> (17 features) — présence par zone de carte, roam mid, indice d'over-extension, vision posée/détruite, temps mort de gold (gold dead time). Calculées uniquement depuis les positions x/y de la timeline — <strong>zéro vision par ordinateur</strong>.</li>
-            <li><strong>Morts</strong> — répartition par zone et par phase de partie, morts en fog de guerre vs morts sous vision alliée, état du gold (avance/retard) au moment de mourir.</li>
-            <li><strong>Contexte de matchup</strong> — dérivé de la composition des 6 champions botlane : un axe <em>lane_pattern</em> (poke / all-in / scaling / mixed) et un axe <em>gank_exposure</em> (bas/moyen/haut, pression du jungler et du mid ennemis atténuée par la présence du jungler allié). Sert uniquement de contexte de benchmark, jamais à reprocher une décision sur une information cachée.</li>
+            <li><strong>Lane</strong> — gold, CS, and experience differences at 10, 14, and 20 minutes against the direct role opponent.</li>
+            <li><strong>Positioning</strong> (17 features) — presence by map area, mid roams, overextension index, wards placed/cleared, and gold dead time. Calculated only from timeline X/Y positions, with <strong>no computer vision</strong>.</li>
+            <li><strong>Deaths</strong> — distribution by area and game phase, deaths in fog versus allied vision, and gold state at the time of death.</li>
+            <li><strong>Matchup context</strong> — derived from the six bot-side champions: a <em>lane_pattern</em> axis (poke / all-in / scaling / mixed) and <em>gank_exposure</em> (low/medium/high). Used only for benchmark context, never to criticize a decision using hidden information.</li>
           </ul>
         </section>
 
         <section class="card legal-card">
-          <h2>Le manifeste d'asymétrie mécanique : COACHING_SAFE vs ML_ONLY</h2>
-          <p>Toutes les features de positionnement ne se valent pas du point de vue de l'asymétrie. On distingue formellement :</p>
+          <h2>The mechanical asymmetry contract: COACHING_SAFE vs ML_ONLY</h2>
+          <p>Not all positioning features are equally safe under information asymmetry. The system formally separates:</p>
           <ul>
-            <li><strong>COACHING_SAFE</strong> (14 features) — mesures exactes et vérifiables depuis la timeline (ex. distance moyenne aux alliés, wards posées/détruites). Utilisables à la fois pour le Machine Learning <em>et</em> pour prescrire un conseil au joueur.</li>
-            <li><strong>ML_ONLY</strong> (3 features) — des proxys plus flous, utiles au modèle statistique mais qu'on ne peut pas transformer en instruction actionnable sans sur-interpréter. Elles nourrissent le classement ML (onglet Data Science) mais ne sont <strong>jamais</strong> formulées comme un reproche.</li>
+            <li><strong>COACHING_SAFE</strong> (14 features) — exact, verifiable timeline measures such as average ally distance and wards placed or cleared. They may be used for both ML and actionable coaching.</li>
+            <li><strong>ML_ONLY</strong> (3 features) — noisier proxies that help the statistical model but cannot safely become actionable instructions. They support ML ranking but are <strong>never</strong> phrased as criticism.</li>
           </ul>
-          <p class="faint">Cas particulier : la profondeur de carte (avg/max_map_depth) a un sens contre-intuitif — une valeur haute est un marqueur de rang élevé, pas un défaut à corriger. Elle est donc descriptive uniquement, jamais prescriptive.</p>
+          <p class="faint">Special case: map depth (avg/max_map_depth) is counterintuitive—a high value marks higher rank, not a flaw. It is therefore descriptive only, never prescriptive.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Benchmarker à issue et contexte égaux</h2>
-          <p>Une comparaison brute contre la moyenne challenger est trompeuse — un joueur qui gagne facilement sa lane n'adopte pas les mêmes choix qu'un joueur sous pression dans un matchup difficile. Chaque feature est donc benchmarkée en conditionnant sur deux axes : la <strong>facette win/loss</strong> (neutralise le biais d'issue) et le <strong>contexte de matchup</strong> (lane_pattern / gank_exposure), avec un seuil de repli si l'échantillon contextuel devient trop fin. C'est ce double conditionnement qui rend une observation comme « les joueurs challenger en matchup all-in font X » réellement comparable à la partie analysée.</p>
+          <h2>Benchmarking matched outcomes and contexts</h2>
+          <p>A raw comparison with the Challenger average is misleading: a player comfortably winning lane makes different choices from one under pressure in a difficult matchup. Every feature is therefore conditioned on both <strong>win/loss outcome</strong> and <strong>matchup context</strong> (lane_pattern / gank_exposure), with fallback thresholds when a contextual sample becomes too small.</p>
         </section>
       </div>
     </template>
@@ -201,64 +201,64 @@ function goPrivacy(): void {
     <template v-if="tab === 'ml'">
       <div class="legal-sections">
         <section class="card legal-card">
-          <h2>Les features d'abord, le modèle ensuite</h2>
-          <p>La qualité du coaching final dépend à ~90% de la couche de features, pas du modèle statistique. Le Machine Learning n'a donc pas vocation à remplacer les heuristiques déterministes (onglet Features) : il sert à valider qu'un signal existe au-delà du laning, et à hiérarchiser objectivement quelles features comptent le plus.</p>
+          <h2>Features first, model second</h2>
+          <p>Final coaching quality depends primarily on the feature layer, not the statistical model. Machine learning does not replace deterministic heuristics: it validates that signals extend beyond laning and objectively ranks which features matter most.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>De la game au dataset</h2>
-          <p>Chaque ligne du dataset ML représente <strong>un ADC dans une partie donnée</strong> (pas une partie entière) : les deux ADC — le joueur ciblé et son adversaire direct — sont ré-extraits depuis les données brutes pour densifier le référentiel, plutôt que de se limiter au seul joueur ciblé par la collecte silver. Le rang de collecte est transféré aux deux ADC du lobby, sous l'hypothèse d'un MMR proche entre les deux camps en solo queue high-elo — une approximation documentée et mesurée comme telle.</p>
+          <h2>From game to dataset</h2>
+          <p>Each ML dataset row represents <strong>one ADC in one game</strong>, not an entire match. Both ADCs—the targeted player and direct opponent—are re-extracted from raw data to densify the reference corpus. The collected rank is assigned to both lobby ADCs under the documented approximation that high-elo SoloQ teams have similar MMR.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Un ensemble à trois biais inductifs distincts</h2>
-          <p>Plutôt qu'un seul modèle, la classification (élo haut vs bas) s'appuie sur trois familles d'algorithmes qui apprennent différemment des mêmes données — si les trois convergent, le signal est plus robuste qu'une coïncidence d'un seul modèle :</p>
+          <h2>An ensemble with three distinct inductive biases</h2>
+          <p>Rather than one model, high-vs-low-elo classification uses three algorithm families that learn differently from the same data. Agreement across all three is more robust than a coincidence in one model:</p>
           <ul>
-            <li><strong>XGBoost</strong> — boosting de gradient (GBDT), construit ses arbres séquentiellement en corrigeant les erreurs des précédents. Capture des interactions complexes entre features.</li>
-            <li><strong>Random Forest</strong> — bagging d'arbres indépendants, moyenné. Plus robuste au bruit, biais et variance différents de XGBoost.</li>
-            <li><strong>EBM</strong> (Explainable Boosting Machine) — un modèle additif généralisé avec interactions par paires (GA²M), <em>glass-box</em> par construction : on peut lire directement sa fonction de décision, sans avoir besoin d'une méthode d'explicabilité a posteriori. Sert de validateur indépendant des deux autres.</li>
+            <li><strong>XGBoost</strong> — gradient-boosted trees built sequentially to correct earlier errors; captures complex feature interactions.</li>
+            <li><strong>Random Forest</strong> — averaged bagging of independent trees; more noise-resistant with different bias and variance from XGBoost.</li>
+            <li><strong>EBM</strong> (Explainable Boosting Machine) — a generalized additive model with pairwise interactions (GA²M), glass-box by design. Its decision function can be read directly and independently validates the other two.</li>
           </ul>
         </section>
 
         <section class="card legal-card">
-          <h2>SHAP — expliquer une prédiction, pas juste la faire</h2>
-          <p>Les valeurs de Shapley (SHAP) répartissent la prédiction d'un modèle entre ses features d'entrée, en s'appuyant sur un résultat de théorie des jeux : pour chaque feature, on mesure sa contribution marginale moyenne en la retirant/ajoutant sur tous les sous-ensembles possibles de features. Concrètement, ça permet deux lectures :</p>
+          <h2>SHAP — explaining a prediction, not just making one</h2>
+          <p>SHAP values distribute a model prediction across input features using game theory: each feature's average marginal contribution is measured across possible feature subsets. This supports two views:</p>
           <ul>
-            <li><strong>Globale</strong> — quelles features, en moyenne sur tout le référentiel, séparent le mieux les rangs élevés des rangs bas.</li>
-            <li><strong>Individuelle</strong> — pour un profil donné, quelles features précises poussent son classement vers un rang plutôt qu'un autre — la base du rang ML affiché sur la page d'un compte.</li>
+            <li><strong>Global</strong> — which features best separate higher from lower ranks across the reference corpus.</li>
+            <li><strong>Individual</strong> — which exact features push a given profile toward one rank or another, forming the basis of the ML estimate shown on account pages.</li>
           </ul>
-          <p>Comme XGBoost et Random Forest sont tous deux des arbres, leurs SHAP sont moyennés ensemble ; l'EBM, additif par construction, sert de <strong>cross-check indépendant</strong> — s'il pointe dans la même direction qu'un SHAP issu d'un modèle boîte noire, la lecture est d'autant plus fiable.</p>
+          <p>Because XGBoost and Random Forest are both tree models, their SHAP values are averaged. The additive EBM provides an <strong>independent cross-check</strong>; agreement with a black-box model's SHAP makes the interpretation more reliable.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Model card : les chiffres, le protocole et ce qui ne marche pas</h2>
-          <p>Un chiffre sans son protocole ne prouve rien. Les deux modèles servis sont évalués sur un <strong>test held-out</strong>, jamais sur du out-of-fold optimiste :</p>
+          <h2>Model card: metrics, protocol, and negative results</h2>
+          <p>A metric without its protocol proves nothing. Both deployed models are evaluated on a <strong>held-out test set</strong>, never optimistic out-of-fold results:</p>
           <div style="overflow-x:auto">
           <table class="readme-table">
             <thead>
-              <tr><th>Modèle</th><th>Unité</th><th>Sélection (CV purgée sur le train)</th><th>Test held-out</th></tr>
+              <tr><th>Model</th><th>Unit</th><th>Selection (purged CV on train)</th><th>Held-out test</th></tr>
             </thead>
             <tbody>
-              <tr><td>Rang (binaire high-elo)</td><td>1 joueur, ≥15 games ADC</td><td>AUC 0.591 (n=687)</td><td><strong>AUC 0.677</strong> (n=147)</td></tr>
-              <tr><td>Régression LP</td><td>1 joueur apex</td><td>Spearman 0.493 (n=805)</td><td><strong>Spearman 0.537</strong> (n=170)</td></tr>
+              <tr><td>Rank (binary high elo)</td><td>1 player, ≥15 ADC games</td><td>AUC 0.591 (n=687)</td><td><strong>AUC 0.677</strong> (n=147)</td></tr>
+              <tr><td>LP regression</td><td>1 apex player</td><td>Spearman 0.493 (n=805)</td><td><strong>Spearman 0.537</strong> (n=170)</td></tr>
             </tbody>
           </table>
           </div>
-          <p style="margin-top:10px"><strong>Purged CV.</strong> Environ 37 % des parties des joueurs du dataset opposent <em>deux</em> joueurs du dataset : leurs features sont en miroir, ce qui fait fuir de l'information entre folds. À chaque fold, les agrégats d'entraînement sont recalculés en excluant ces parties. La fuite a été <strong>mesurée, pas supposée</strong> : ≈ +0,005 d'AUC.</p>
-          <p><strong>Ce que le modèle regarde vraiment.</strong> Les statistiques de dispersion (écart-type, p10, p90) concentrent <strong>65 %</strong> du signal SHAP, contre 20 % pour la moyenne. Autrement dit : le rang tient au <em>plancher</em>, pas à la moyenne. Ce n'est pas la bonne partie qui distingue un joueur, c'est la mauvaise.</p>
-          <p><strong>Résultats négatifs, assumés.</strong> Les taire donnerait une image fausse du projet :</p>
+          <p style="margin-top:10px"><strong>Purged CV.</strong> About 37% of games pair <em>two</em> players from the dataset, creating mirrored features and fold leakage. Training aggregates are recalculated at every fold with those games excluded. Leakage was <strong>measured, not assumed</strong>: approximately +0.005 AUC.</p>
+          <p><strong>What the model actually uses.</strong> Dispersion statistics (standard deviation, p10, p90) account for <strong>65%</strong> of the SHAP signal, versus 20% for the mean. Rank is driven by a player's <em>floor</em>, not their average: bad games distinguish players more than good ones.</p>
+          <p><strong>Negative results, reported openly.</strong> Hiding them would misrepresent the project:</p>
           <ul>
-            <li>Le pré-entraînement auto-supervisé (mask-and-reconstruct) <strong>n'apporte rien</strong> : delta −0,019, et −0,025 pour une v2 censée l'améliorer.</li>
-            <li>La frontière Master / Grandmaster <strong>plafonne à ≈ 0,589</strong> : la calibration place master à 0,489 et grandmaster à 0,487, un ordre inversé. Ces deux tiers sont confondus sur des features macro.</li>
-            <li>Augmenter le nombre de parties par joueur <strong>n'aide pas au-delà de ~30</strong> (0,635 au pic, 0,599 à N=50).</li>
-            <li>Le modèle par-partie a été <strong>déprécié</strong> : trop instable pour être affiché.</li>
+            <li>Self-supervised mask-and-reconstruct pretraining <strong>adds no value</strong>: −0.019 delta, and −0.025 for a v2 intended to improve it.</li>
+            <li>The Master / Grandmaster boundary <strong>tops out around 0.589</strong>: calibration places Master at 0.489 and Grandmaster at 0.487, reversing the expected order. Macro features do not separate these tiers.</li>
+            <li>Increasing games per player <strong>does not help beyond roughly 30</strong> (0.635 peak, 0.599 at N=50).</li>
+            <li>The per-game model was <strong>deprecated</strong> because it was too unstable to display.</li>
           </ul>
-          <p class="faint">Limites documentées : un seul patch (16.13) et une seule région (EUW) ; rang transféré aux deux ADC du lobby ; Grandmaster sous-représenté (16 joueurs dans le test) donc métriques GM non interprétables ; drift connu entre le modèle servi et le dataset courant. Détail complet dans la <a href="https://github.com/JeanVG23/riftsense/blob/master/docs/MODEL_CARD.md" target="_blank" rel="noopener">model card</a>.</p>
+          <p class="faint">Documented limitations: one patch (16.13) and one region (EUW); rank transferred to both lobby ADCs; Grandmaster underrepresented (16 test players), making GM metrics uninterpretable; known drift between the served model and current dataset. Full details are in the <a href="https://github.com/JeanVG23/riftsense/blob/master/docs/MODEL_CARD.md" target="_blank" rel="noopener">model card</a>.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Du score au rang affiché</h2>
-          <p>Le modèle de classification est binaire (élo haut vs bas), donc pas directement un rang. Une étape de calibration transforme la probabilité moyenne de l'ensemble en un rang précis : on mesure comment cette probabilité se distribue par rang réel sur le référentiel, puis on place un joueur au rang calibré le plus proche de sa probabilité moyenne sur ses dernières games. Le niveau de confiance est toujours affiché explicitement à côté du rang estimé — jamais présenté comme une certitude.</p>
+          <h2>From score to displayed rank</h2>
+          <p>The classifier is binary (high vs low elo), not a direct rank predictor. Calibration maps the ensemble's mean probability to a specific rank by measuring its distribution across real reference ranks, then selecting the closest calibrated rank for the player's latest games. Confidence is always displayed next to the estimate and never presented as certainty.</p>
         </section>
       </div>
     </template>
@@ -267,42 +267,42 @@ function goPrivacy(): void {
     <template v-if="tab === 'coaching'">
       <div class="legal-sections">
         <section class="card legal-card">
-          <h2>Le LLM ne voit pas la game, il raconte un diff chiffré</h2>
-          <p>Le modèle de langage ne reçoit jamais de vidéo, de timeline brute ou de log d'événements. Il reçoit un <strong>payload déterministe</strong>, déjà réduit à l'essentiel : les features du joueur comparées à celles du référentiel, à issue et contexte égaux. La qualité du récit dépend de la qualité de ce payload, pas de l'intelligence du modèle — cohérent avec le principe « features d'abord » (onglet Data Science).</p>
+          <h2>The LLM does not see the game; it explains quantified differences</h2>
+          <p>The language model never receives video, raw timelines, or event logs. It receives a <strong>deterministic payload</strong> reduced to the essentials: player features compared with matched reference data. The narrative quality depends on payload quality, consistent with the features-first principle.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Construction du payload — safe-only</h2>
-          <p>Le payload est assemblé à partir du gold (perso + référentiel). Il applique strictement le manifeste d'asymétrie de l'onglet Features : seules les features <strong>COACHING_SAFE</strong> du positionnement y figurent ; la profondeur de carte y est marquée explicitement <span class="mono">descriptive_only</span> pour empêcher le LLM de la formuler comme un reproche. Le payload est déterministe — deux exécutions sur les mêmes games produisent le même contenu, seule la formulation du LLM peut varier.</p>
+          <h2>Payload construction — safe features only</h2>
+          <p>The payload is assembled from player and reference gold data. It strictly applies the asymmetry contract: only <strong>COACHING_SAFE</strong> positioning features are included, while map depth is explicitly marked <span class="mono">descriptive_only</span> to prevent criticism. Two runs on the same games produce the same content; only the LLM wording may vary.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Le prompt — deux règles cardinales</h2>
-          <p>Le prompt système encode explicitement les deux contraintes qui traversent tout le projet, pour que le modèle ne les redécouvre pas tout seul :</p>
+          <h2>The prompt — two cardinal rules</h2>
+          <p>The system prompt explicitly encodes the two constraints that govern the project:</p>
           <ul>
-            <li><strong>Asymétrie</strong> — ne jamais juger une décision sur une information que le joueur n'avait pas au moment où il l'a prise.</li>
-            <li><strong>Preuve chiffrée obligatoire</strong> — toute affirmation doit s'appuyer sur un chiffre comparatif issu du payload (le profil analysé vs le référentiel). Une affirmation sans preuve chiffrée est systématiquement écartée.</li>
+            <li><strong>Information asymmetry</strong> — never judge a decision using information the player did not have at the time.</li>
+            <li><strong>Quantified evidence required</strong> — every claim must cite a comparative number from the payload. Claims without evidence are rejected.</li>
           </ul>
-          <p>Le reste du prompt est en français, écrit pour un ton direct et actionnable plutôt qu'un compte-rendu de stats.</p>
+          <p>The rest of the prompt is written in concise, direct English focused on actionable coaching rather than a statistical report.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Sortie strictement typée</h2>
-          <p>Le LLM ne répond pas en texte libre : la sortie est contrainte par un schéma JSON (validé par Pydantic) pour éviter les résumés qui partent en vrille. La structure imposée :</p>
+          <h2>Strictly typed output</h2>
+          <p>The LLM does not return free-form text. A Pydantic-validated JSON schema constrains the output:</p>
           <ul>
-            <li><span class="mono">strengths[1..3]</span> — 1 à 3 points forts</li>
-            <li><span class="mono">mistakes[3]</span> — 3 erreurs prioritaires</li>
-            <li><span class="mono">habits[2]</span> — 2 habitudes à corriger</li>
-            <li><span class="mono">next_focus[1]</span> — 1 seul focus pour la prochaine game</li>
-            <li><span class="mono">confidence</span> — niveau de confiance du modèle sur sa propre analyse</li>
+            <li><span class="mono">strengths[1..3]</span> — 1 to 3 strengths</li>
+            <li><span class="mono">mistakes[3]</span> — 3 priority mistakes</li>
+            <li><span class="mono">habits[2]</span> — 2 habits to correct</li>
+            <li><span class="mono">next_focus[1]</span> — one focus for the next game</li>
+            <li><span class="mono">confidence</span> — the model's confidence in its analysis</li>
           </ul>
-          <p>Chaque force et chaque erreur porte son <span class="mono">evidence</span> — la preuve chiffrée qui la justifie, fusionnée dans le même objet plutôt que laissée en annexe.</p>
-          <p>La borne basse des forces est passée de 3 à 1 après lecture des annotations : exiger exactement trois forces poussait le modèle au remplissage, et c'était la cause des retours « trop vague ». Les erreurs restent à 3 (le compte-rendu doit trancher), les habitudes à 2.</p>
+          <p>Every strength and mistake includes <span class="mono">evidence</span>: the quantified proof that supports it.</p>
+          <p>The minimum strength count was reduced from three to one after reviewing feedback: requiring exactly three encouraged vague filler. Mistakes remain fixed at three, and habits at two.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Le modèle</h2>
-          <p>L'inférence passe par Ollama Cloud plutôt qu'un modèle local, avec sortie au format JSON-schema. Le modèle par défaut a été retenu après un A/B test entre plusieurs candidats sur la qualité du récit produit — surclassable via une option si besoin, mais un choix par défaut délibéré plutôt qu'arbitraire.</p>
+          <h2>The model</h2>
+          <p>Inference runs through Ollama Cloud with JSON-schema output. The default model was selected through A/B testing of narrative quality across multiple candidates. It can be overridden, but the default is a deliberate choice.</p>
         </section>
       </div>
     </template>
@@ -311,40 +311,40 @@ function goPrivacy(): void {
     <template v-if="tab === 'feedback'">
       <div class="legal-sections">
         <section class="card legal-card">
-          <h2>Pourquoi mesurer, pas juste générer</h2>
-          <p>Sans boucle de rétroaction, impossible de savoir si le coach s'améliore ou s'il formule simplement des observations plausibles. Un coaching benchmarké (onglet Vue d'ensemble) est intrinsèquement plus vérifiable qu'une opinion absolue de LLM — à condition de mesurer si le joueur ou le lecteur le juge effectivement utile.</p>
+          <h2>Why measure instead of only generating</h2>
+          <p>Without a feedback loop, there is no way to know whether the coach improves or merely produces plausible observations. Benchmarked coaching is more verifiable than an absolute LLM opinion only when players and reviewers can rate its usefulness.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Annoter, insight par insight</h2>
-          <p>Chaque insight généré (une force, une erreur, une habitude ou le focus) est annotable indépendamment des autres — pas un score global sur toute la review, qui diluerait le signal. Deux façons d'annoter, qui écrivent dans le même fichier :</p>
+          <h2>Rate each insight independently</h2>
+          <p>Every generated insight—a strength, mistake, habit, or focus—can be rated independently. A single score for an entire review would dilute the signal. Two interfaces write to the same feedback data:</p>
           <ul>
-            <li><strong>CLI</strong> — <span class="mono">feedback.py annotate --player X</span> parcourt chaque insight persisté et demande utile / faux / passer, plus une note libre optionnelle.</li>
-            <li><strong>Web</strong> — un ✓/✗ directement sous chaque item de la review, avec un champ de note libre qui apparaît une fois l'item noté, envoyé au même endpoint que le CLI.</li>
+            <li><strong>CLI</strong> — <span class="mono">feedback.py annotate --player X</span> walks through persisted insights and asks useful / incorrect / skip, with an optional note.</li>
+            <li><strong>Web</strong> — a ✓/✗ control under every review item, plus an optional note field, sent to the same endpoint as the CLI.</li>
           </ul>
         </section>
 
         <section class="card legal-card">
-          <h2>Le tag, la note, et pourquoi les deux comptent</h2>
-          <p>Un jugement négatif (✗) impose de choisir un tag parmi une liste fermée : <em>asymétrie</em>, <em>stat inventée</em>, <em>profondeur en faute</em>, <em>trop vague</em>, <em>non actionnable</em>, <em>autre</em>. Chaque tag correspond à une façon typique dont un coaching automatisé peut se planter. Mais le tag dit seulement <strong>quoi</strong> est faux ; la note libre associée dit <strong>pourquoi</strong> — c'est elle qui guide la correction du prompt ou des features sans avoir à deviner à partir du seul tag.</p>
+          <h2>Tags, notes, and why both matter</h2>
+          <p>A negative rating requires one tag from a fixed list: <em>hidden information</em>, <em>invented statistic</em>, <em>misread map depth</em>, <em>too vague</em>, <em>not actionable</em>, or <em>other</em>. A tag says <strong>what</strong> failed; the free-form note explains <strong>why</strong>, guiding prompt or feature corrections without guesswork.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Le critère de succès, chiffré et publié</h2>
-          <p>La boucle n'a de valeur que si elle porte un seuil décidé <strong>avant</strong> de regarder les résultats : <strong>≥70 % d'erreurs jugées utiles sur au moins 10 analyses de parties annotées</strong>. La métrique ne retient que les erreurs des analyses par-partie, parce que ce sont les seules vérifiables moment par moment (une habitude multi-games ne l'est pas). Le taux courant est affiché en haut de l'onglet Coaching d'un compte, atteint ou non : un chiffre qu'on ne publierait que s'il est bon ne prouve rien. Chaque analyse persistée porte aussi la trace de son run (version de prompt, modèle, latence, tokens), sans quoi une variation du taux ne serait attribuable ni au prompt ni au modèle.</p>
+          <h2>A quantified, published success criterion</h2>
+          <p>The loop has value only with a threshold chosen <strong>before</strong> seeing results: <strong>at least 70% of mistakes rated useful across at least 10 rated game analyses</strong>. The metric uses per-game mistakes because they are verifiable moment by moment. The current rate is always shown in the Coaching tab, whether or not the target is met. Every persisted analysis also records prompt version, model, latency, and token usage.</p>
         </section>
 
         <section class="card legal-card">
-          <h2>Ce que révèle l'agrégation</h2>
-          <p>Le résumé des annotations calcule un taux d'utilité par section (forces / erreurs / habitudes / focus), les tags les plus fréquents, une ventilation par modèle LLM utilisé (utile pour comparer objectivement deux modèles sur le même joueur), et signale explicitement les tendances calculées sur un petit échantillon (moins de 10 annotations) pour ne pas en tirer de conclusion prématurée. Jusqu'à deux verbatims de note libre sont conservés par tag, pour garder la nuance qu'un simple pourcentage effacerait.</p>
+          <h2>What aggregation reveals</h2>
+          <p>The feedback summary calculates usefulness by section, most frequent tags, and results by LLM model, enabling objective comparisons on the same player. Trends based on fewer than ten ratings are explicitly flagged, and up to two note excerpts per tag preserve nuance that a percentage would erase.</p>
         </section>
       </div>
     </template>
 
     <div class="legal-footer-nav">
-      <a href="/" class="btn btn-secondary" @click.prevent="goHome">← Retour à l'accueil</a>
-      <a href="/terms" class="btn btn-secondary" @click.prevent="goTerms">Conditions d'utilisation</a>
-      <a href="/privacy" class="btn btn-secondary" @click.prevent="goPrivacy">Politique de confidentialité →</a>
+      <a href="/" class="btn btn-secondary" @click.prevent="goHome">← Back to home</a>
+      <a href="/terms" class="btn btn-secondary" @click.prevent="goTerms">Terms of Use</a>
+      <a href="/privacy" class="btn btn-secondary" @click.prevent="goPrivacy">Privacy Policy →</a>
     </div>
   </div>
 </template>

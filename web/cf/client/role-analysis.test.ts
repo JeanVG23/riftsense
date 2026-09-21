@@ -69,7 +69,7 @@ describe("libellés et messages", () => {
       TOP: "Toplane", JUNGLE: "Jungle", MIDDLE: "Midlane", BOTTOM: "Botlane", SUPPORT: "Support",
     });
     expect(roleLabel("MIDDLE")).toBe("Midlane");
-    expect(roleLabel(null)).toBe("rôle inconnu");
+    expect(roleLabel(null)).toBe("unknown role");
   });
 
   it("couvre exactement les 9 motifs connus, service et client", () => {
@@ -82,16 +82,16 @@ describe("libellés et messages", () => {
 
   it("chaque motif d'indisponibilité a son message typé", () => {
     expect(reasonMessage("role_closed"))
-      .toBe("L'analyse ML pour ce rôle n'est pas encore ouverte au public.");
+      .toBe("ML analysis for this role is not publicly available yet.");
     expect(reasonMessage("window_too_short"))
-      .toBe("Moins de 20 parties sur ton rôle principal : la décomposition exige une fenêtre de 20.");
+      .toBe("Fewer than 20 games on your main role: the breakdown requires a 20-game window.");
     expect(reasonMessage("fetch_failed"))
-      .toBe("L'analyse n'a pas pu être chargée ; recharge la page et réessaie.");
+      .toBe("The analysis could not be loaded. Refresh the page and try again.");
   });
 
   it("un motif inconnu reste visible, jamais masqué par un message générique", () => {
     expect(reasonMessage("nouveau_motif_v7"))
-      .toBe("Analyse indisponible (motif : nouveau_motif_v7)");
+      .toBe("Analysis unavailable (reason: nouveau_motif_v7)");
   });
 
   it("formate la frontière et le logit signé, sans aucune conversion", () => {

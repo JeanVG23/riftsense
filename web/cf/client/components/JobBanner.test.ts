@@ -11,15 +11,15 @@ describe("JobBanner", () => {
 
   it("décrit la progression puis l'erreur de façon accessible", async () => {
     const wrapper = mount(JobBanner, {
-      props: { job: { type: "game-coach", status: "running", progress: "génération LLM…" } },
+      props: { job: { type: "game-coach", status: "running", progress: "generating with the LLM…" } },
     });
-    expect(wrapper.text()).toContain("Analyse de partie en cours… génération LLM…");
+    expect(wrapper.text()).toContain("Game analysis in progress… generating with the LLM…");
     expect(wrapper.get("[aria-live=polite]").attributes("aria-live")).toBe("polite");
 
     await wrapper.setProps({
-      job: { type: "game-coach", status: "error", error: "Service indisponible" },
+      job: { type: "game-coach", status: "error", error: "Service unavailable" },
     });
     expect(wrapper.get(".job-banner").classes()).toContain("err");
-    expect(wrapper.text()).toContain("Service indisponible");
+    expect(wrapper.text()).toContain("Service unavailable");
   });
 });

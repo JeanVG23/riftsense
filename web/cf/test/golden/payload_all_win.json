@@ -2165,7 +2165,7 @@
    {
     "group": "positioning",
     "key": "avg_dist_to_ally",
-    "label": "isolement (allié)",
+    "label": "ally isolation",
     "you": 2084.3666,
     "ref": 2513.1996,
     "delta": -428.833,
@@ -2175,7 +2175,7 @@
    {
     "group": "positioning",
     "key": "avg_map_depth",
-    "label": "profondeur moy.",
+    "label": "average map depth",
     "you": 713.0422,
     "ref": 770.8878,
     "delta": -57.8456,
@@ -2196,7 +2196,7 @@
    {
     "group": "positioning",
     "key": "frac_base",
-    "label": "% en base",
+    "label": "% at base",
     "you": 0.08,
     "ref": 0.1,
     "delta": -0.02,
@@ -2206,7 +2206,7 @@
    {
     "group": "positioning",
     "key": "frac_enemy_half",
-    "label": "% moitié ennemie",
+    "label": "% enemy half",
     "you": 0.3529,
     "ref": 0.3929,
     "delta": -0.04,
@@ -2257,7 +2257,7 @@
    {
     "group": "positioning",
     "key": "gold_dead_time",
-    "label": "temps mort (s)",
+    "label": "dead time (s)",
     "you": 136.0,
     "ref": 104.5,
     "delta": 31.5,
@@ -2267,7 +2267,7 @@
    {
     "group": "positioning",
     "key": "max_map_depth",
-    "label": "profondeur max",
+    "label": "maximum map depth",
     "you": 8333.9605,
     "ref": 6654.5819,
     "delta": 1679.3786,
@@ -2278,7 +2278,7 @@
    {
     "group": "positioning",
     "key": "wards_killed",
-    "label": "wards détruites",
+    "label": "wards cleared",
     "you": 3,
     "ref": 2,
     "delta": 1,
@@ -2288,7 +2288,7 @@
    {
     "group": "positioning",
     "key": "wards_placed",
-    "label": "wards posées",
+    "label": "wards placed",
     "you": 7,
     "ref": 8,
     "delta": -1,
@@ -2308,7 +2308,7 @@
    {
     "group": "deaths_zone_phase",
     "key": "BOT|early",
-    "label": "morts BOT|early",
+    "label": "deaths BOT|early",
     "you": 0.3333,
     "ref": 0.1349,
     "delta": 0.1984,
@@ -2318,7 +2318,7 @@
    {
     "group": "deaths_zone_phase",
     "key": "BOT|mid",
-    "label": "morts BOT|mid",
+    "label": "deaths BOT|mid",
     "you": 0.1053,
     "ref": 0.0721,
     "delta": 0.0332,
@@ -2328,7 +2328,7 @@
    {
     "group": "deaths_zone_phase",
     "key": "JUNGLE/RIVER|mid",
-    "label": "morts JUNGLE/RIVER|mid",
+    "label": "deaths JUNGLE/RIVER|mid",
     "you": 0.1579,
     "ref": 0.1275,
     "delta": 0.0304,
@@ -2338,7 +2338,7 @@
    {
     "group": "deaths_zone_phase",
     "key": "MID|late",
-    "label": "morts MID|late",
+    "label": "deaths MID|late",
     "you": 0.0877,
     "ref": 0.0684,
     "delta": 0.0193,
@@ -2348,7 +2348,7 @@
    {
     "group": "deaths_zone_phase",
     "key": "TOP|late",
-    "label": "morts TOP|late",
+    "label": "deaths TOP|late",
     "you": 0.0,
     "ref": 0.0129,
     "delta": -0.0129,
@@ -2358,7 +2358,7 @@
    {
     "group": "death_gold_state",
     "key": "ahead",
-    "label": "morts en avance",
+    "label": "deaths while ahead",
     "you": 0.2456,
     "ref": 0.3031,
     "delta": -0.0575,
@@ -2368,7 +2368,7 @@
    {
     "group": "death_gold_state",
     "key": "even",
-    "label": "morts à égalité",
+    "label": "deaths while even",
     "you": 0.3333,
     "ref": 0.4362,
     "delta": -0.1029,
@@ -2378,7 +2378,7 @@
    {
     "group": "death_gold_state",
     "key": "behind",
-    "label": "morts en retard",
+    "label": "deaths while behind",
     "you": 0.4211,
     "ref": 0.2606,
     "delta": 0.1605,

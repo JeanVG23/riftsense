@@ -18,14 +18,14 @@ const label = computed(() => {
   if (!props.job) return "";
   if (props.job.type === "game-coach") {
     if (props.job.status === "running") {
-      return `Analyse de partie en cours… ${props.job.progress || ""}`.trim();
+      return `Game analysis in progress… ${props.job.progress || ""}`.trim();
     }
-    return props.job.status === "done" ? "✅ Analyse de partie prête" : "⛔ Erreur";
+    return props.job.status === "done" ? "✅ Game analysis ready" : "⛔ Error";
   }
   if (props.job.status === "running") {
-    return `Coaching en cours… ${props.job.progress || ""}`.trim();
+    return `Coaching in progress… ${props.job.progress || ""}`.trim();
   }
-  return props.job.status === "done" ? "✅ Coaching prêt" : "⛔ Erreur";
+  return props.job.status === "done" ? "✅ Coaching ready" : "⛔ Error";
 });
 </script>
 

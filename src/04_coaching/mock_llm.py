@@ -31,7 +31,7 @@ def payload_from_user(user: str) -> dict:
     """
     start, end = user.find("{"), user.rfind("}")
     if start < 0 or end <= start:
-        raise llm_client.LLMError("payload introuvable dans le message utilisateur")
+        raise llm_client.LLMError("payload not found in the user message")
     return json.loads(user[start:end + 1])
 
 
@@ -48,41 +48,41 @@ def _game_review(pl: dict) -> dict:
     mistakes = []
     if worst:
         mistakes.append({
-            "point": f"Tu meurs avec de l'or non dépensé en {worst.get('zone', '?')}.",
-            "cause": (f"mort {'en solo' if worst.get('is_solo') else 'à plusieurs'} "
-                      f"contre {worst.get('killer_champ') or 'un adversaire'}, "
-                      f"phase {worst.get('phase', '?')}"),
-            "evidence": (f"mort à {worst.get('clock', '0:00')} en "
+            "point": f"You die with unspent gold in {worst.get('zone', '?')}.",
+            "cause": (f"{'solo death' if worst.get('is_solo') else 'outnumbered death'} "
+                      f"against {worst.get('killer_champ') or 'an opponent'}, "
+                      f"during the {worst.get('phase', '?')} phase"),
+            "evidence": (f"death at {worst.get('clock', '0:00')} in "
                          f"{worst.get('zone', '?')}, "
-                         f"{_fmt_gold(worst.get('unspent_gold'))} non dépensés"),
+                         f"{_fmt_gold(worst.get('unspent_gold'))} unspent"),
         })
     if first and first is not worst:
         mistakes.append({
-            "point": f"Ta première mort arrive en {first.get('zone', '?')}.",
-            "cause": f"tué par {first.get('killer_champ') or 'un adversaire'}",
-            "evidence": (f"mort à {first.get('clock', '0:00')} en "
+            "point": f"Your first death happens in {first.get('zone', '?')}.",
+            "cause": f"killed by {first.get('killer_champ') or 'an opponent'}",
+            "evidence": (f"death at {first.get('clock', '0:00')} in "
                          f"{first.get('zone', '?')}"),
         })
     if not mistakes:                       # journal sans mort : le schéma en exige une
         mistakes.append({
-            "point": "Rien à reprocher sur les morts de cette game.",
-            "cause": "aucune mort au journal",
-            "evidence": "0 mort relevée entre 0:00 et la fin de partie",
+            "point": "No death-related mistake to flag in this game.",
+            "cause": "no deaths in the timeline",
+            "evidence": "0 deaths recorded between 0:00 and the end of the game",
         })
 
     strengths = []
     if recalls:
         r = recalls[0]
         strengths.append({
-            "point": "Tu repasses à la base avec de quoi acheter.",
-            "cause": "recall déclenché sur un seuil d'or, pas sur une mort",
-            "evidence": (f"recall à {r.get('clock', '0:00')} avec "
+            "point": "You return to base with enough gold to buy.",
+            "cause": "recall triggered by a gold threshold, not by a death",
+            "evidence": (f"recall at {r.get('clock', '0:00')} with "
                          f"{_fmt_gold(r.get('gold_before'))}"),
         })
     # La confiance suit la matière disponible : c'est la règle que le harnais
     # contrefactuel vérifie (journal vidé -> confiance en baisse).
     return {"strengths": strengths, "mistakes": mistakes[:3],
-            "next_focus": "Dépenser avant de reprendre un duel.",
+            "next_focus": "Spend your gold before taking another fight.",
             "confidence": round(min(0.9, 0.2 + 0.1 * len(deaths)), 2)}
 
 
@@ -94,7 +94,7 @@ def _fmt(signal: dict) -> str:
     unit = {"pct": " %", "g": " g", "cs": " cs", "u": " u"}.get(signal.get("unit"), "")
     scale = 100 if signal.get("unit") == "pct" else 1
     return (f"{signal['label']} : {round(signal['you'] * scale, 1)}{unit} "
-            f"contre {round(signal['ref'] * scale, 1)}{unit} en référence")
+            f"versus a {round(signal['ref'] * scale, 1)}{unit} benchmark")
 
 
 def _review(pl: dict) -> dict:
@@ -110,20 +110,20 @@ def _review(pl: dict) -> dict:
     worst = signals[:3]
     deaths = (meta.get("deaths_per_game") or {}).get("loss") or {}
 
-    mistakes = [_insight(f"Écart marqué sur {s['label']}.", _fmt(s)) for s in worst]
+    mistakes = [_insight(f"Large gap in {s['label']}.", _fmt(s)) for s in worst]
     while len(mistakes) < 3:                 # le schéma en exige exactement 3
         mistakes.append(_insight(
-            "Tu meurs plus que la référence en défaite.",
-            f"{deaths.get('you', 0)} morts/game contre {deaths.get('ref', 0)}"))
+            "You die more often than the benchmark in losses.",
+            f"{deaths.get('you', 0)} deaths/game versus {deaths.get('ref', 0)}"))
     return {
         "strengths": [_insight(
-            "Le pool analysé est assez homogène pour être comparé.",
-            f"{meta.get('n_games_me', 0)} games sur le scope, "
-            f"contre {meta.get('n_games_ref', 0)} en référence")],
+            "The analyzed pool is consistent enough for comparison.",
+            f"{meta.get('n_games_me', 0)} games in scope, "
+            f"versus {meta.get('n_games_ref', 0)} in the benchmark")],
         "mistakes": mistakes[:3],
-        "habits": ["Vérifier l'or non dépensé avant chaque duel.",
-                   "Reculer d'un cran dès que la vision de rivière est perdue."],
-        "next_focus": "Tenir l'avance acquise entre la 14e et la 20e minute.",
+        "habits": ["Check your unspent gold before every fight.",
+                   "Step back as soon as river vision is lost."],
+        "next_focus": "Protect the lead you build between 14 and 20 minutes.",
         "confidence": 0.3 if meta.get("low_sample") else 0.6,
     }
 

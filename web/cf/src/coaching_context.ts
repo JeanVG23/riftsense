@@ -21,7 +21,7 @@ export async function buildCoachingContext(kv: KVLike, slug: string): Promise<Js
   ]);
   const adcGames = games.filter((game) => game.role === "BOTTOM");
   const scopes = [
-    { id: "all", label: "Toutes", rawLabel: "Toutes", kind: "role", n_games: games.length,
+    { id: "all", label: "All", rawLabel: "All", kind: "role", n_games: games.length,
       share: games.length ? 1 : 0 },
     { id: "adc", label: "ADC", rawLabel: "ADC", kind: "role", n_games: adcGames.length,
       share: adcGames.length ? 1 : 0 },
@@ -36,6 +36,9 @@ export async function buildCoachingContext(kv: KVLike, slug: string): Promise<Js
     if (matchId && !latestByMatch.has(matchId)) latestByMatch.set(matchId, review);
   }
   const latestGameReviews = [...latestByMatch.values()];
+  const currentGameReviews = latestGameReviews.filter((review) =>
+    review.run?.prompt_version === promptVersion
+  );
 
   const matches: JsonRecord = {};
   for (const game of games) {
@@ -67,7 +70,7 @@ export async function buildCoachingContext(kv: KVLike, slug: string): Promise<Js
   const aggregateReviews = reviews.filter((review) => review.kind !== "game")
     .sort((a, b) => String(b.ts ?? "").localeCompare(String(a.ts ?? "")));
   for (const scope of scopes) {
-    const eligible = latestGameReviews.filter((review) => reviewMatchesScope(review, scope.id));
+    const eligible = currentGameReviews.filter((review) => reviewMatchesScope(review, scope.id));
     const wins = eligible.filter((review) => review.payload?.meta?.win === true).length;
     reviewSamples[scope.id] = {
       available: eligible.length,

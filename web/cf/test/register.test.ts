@@ -185,7 +185,7 @@ describe("apiRegister", () => {
     expect(response.status).toBe(409);
     expect(seen.body).toBeUndefined();
     const body = await response.json() as { detail?: string };
-    expect(body.detail).toMatch(/suivi/);
+    expect(body.detail).toMatch(/already tracked/);
   });
 
   it("refuse un slug déjà pris par un autre Riot ID", async () => {

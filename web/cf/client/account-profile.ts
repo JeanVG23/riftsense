@@ -157,7 +157,7 @@ export function formatPseudo(slugOrAccount: unknown): string {
 }
 
 export function rankLabel(rank: CurrentRank | null): string {
-  if (!rank?.tier) return "Non renseigné";
+  if (!rank?.tier) return "Not available";
   return `${titleCase(rank.tier)} ${rank.division || ""} · ${rank.league_points ?? 0} LP`;
 }
 
@@ -166,7 +166,7 @@ export function rankWinrate(rank: CurrentRank | null): string | null {
   const wins = Number(rank.wins) || 0;
   const losses = Number(rank.losses) || 0;
   const games = wins + losses;
-  return games ? `${wins}V ${losses}D · ${Math.round((wins / games) * 100)}% WR` : null;
+  return games ? `${wins}W ${losses}L · ${Math.round((wins / games) * 100)}% WR` : null;
 }
 
 export const CURATED_RANKS: Record<string, CurrentRank> = {
@@ -179,13 +179,13 @@ export const CURATED_RANKS: Record<string, CurrentRank> = {
 };
 
 export const TIER_NAMES_FR: Record<string, string> = {
-  iron: "Fer",
+  iron: "Iron",
   bronze: "Bronze",
-  silver: "Argent",
-  gold: "Or",
-  platinum: "Platine",
-  emerald: "Émeraude",
-  diamond: "Diamant",
+  silver: "Silver",
+  gold: "Gold",
+  platinum: "Platinum",
+  emerald: "Emerald",
+  diamond: "Diamond",
   master: "Master",
   grandmaster: "Grandmaster",
   challenger: "Challenger",
@@ -233,7 +233,7 @@ export function formatDate(value?: string): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-  return new Intl.DateTimeFormat("fr-FR", {
+  return new Intl.DateTimeFormat("en-US", {
     day: "numeric", month: "short", year: "numeric",
   }).format(date);
 }

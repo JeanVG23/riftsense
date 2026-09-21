@@ -34,13 +34,13 @@ export const CHAT_SCHEMA = {
 };
 
 export const SYSTEM_CHAT = [
-  "Tu es le coach interactif d'une partie League of Legends déjà analysée.",
-  "Réponds en français, en tutoyant le joueur, de façon concise et actionnable.",
-  "Le `payload` déterministe est la seule source factuelle. La `current_review` est une ancienne sortie LLM que le joueur peut contester : ne la traite jamais comme une preuve.",
-  "ASYMÉTRIE ABSOLUE : ne juge une décision qu'avec l'information que le joueur avait à cet instant (champ select, scoreboard visible, ses propres morts/dégâts, achats, gold et timers HUD).",
-  "Si le joueur demande où se trouvait un ennemi, ce que savait l'ennemi, une information sous fog of war ou toute position reconstruite après coup, refuse explicitement et mets `refused_hidden_info` à true. N'utilise JAMAIS la timeline complète pour répondre.",
-  "Quand le joueur explique son intention, tranche : reconnais un cas particulier valide, ou explique le meilleur choix alternatif en l'ancrant sur le payload. N'invente aucun événement ni chiffre.",
-  "Réponds uniquement par le JSON demandé.",
+  "You are the interactive coach for an already analyzed League of Legends game.",
+  "Answer in concise, direct, actionable English using 'you'.",
+  "The deterministic `payload` is the only factual source. `current_review` is previous LLM output the player may challenge; never treat it as evidence.",
+  "ABSOLUTE INFORMATION ASYMMETRY: judge a decision only with information the player had at that moment (champ select, visible scoreboard, their own deaths/damage, purchases, gold, and HUD timers).",
+  "If the player asks where an enemy was, what an enemy knew, about information hidden by fog of war, or about a position reconstructed afterward, explicitly refuse and set `refused_hidden_info` to true. NEVER use the complete timeline to answer.",
+  "When the player explains their intent, make a clear judgment: acknowledge a valid special case or explain a better alternative grounded in the payload. Never invent an event or number.",
+  "Respond only with the requested JSON.",
 ].join("\n");
 
 function normalize(text: string): string {
@@ -87,12 +87,12 @@ export async function chatTurn(
 ): Promise<{ response: ChatResponse; record: JsonRecord }> {
   const reviews = await readJsonl<JsonRecord>(deps.kv, KEYS.reviews(params.slug));
   const review = reviews.find((item) => item.ts === params.reviewTs && item.kind === "game");
-  if (!review) throw new Error("analyse de partie introuvable");
+  if (!review) throw new Error("game analysis not found");
   const payload = review.payload ?? {};
   let response: ChatResponse;
   if (asksForHiddenEnemyPosition(params.messages, payload)) {
     response = {
-      answer: "Je ne peux pas utiliser une position ennemie qui t’était cachée au moment de la décision. Je peux en revanche analyser ce que ton HUD, ta vision et le champ select te permettaient raisonnablement de faire.",
+      answer: "I can't use an enemy position that was hidden from you when you made the decision. I can analyze what your HUD, vision, and champ select reasonably allowed you to do.",
       refused_hidden_info: true,
     };
   } else {
@@ -103,7 +103,7 @@ export async function chatTurn(
     });
     response = validateResponse(await deps.generate(
       params.model, SYSTEM_CHAT, user, CHAT_SCHEMA,
-    )) ?? (() => { throw new Error("sortie chat non conforme au schéma"); })();
+    )) ?? (() => { throw new Error("chat output does not match the schema"); })();
   }
   const record = {
     ts: deps.now(), review_ts: params.reviewTs, model: params.model,
@@ -116,12 +116,12 @@ export async function chatTurn(
 export async function apiChat(request: Request, env: Env): Promise<Response> {
   const body = await request.json().catch(() => null) as JsonRecord | null;
   const slug = typeof body?.slug === "string" ? body.slug : "";
-  if (!await readAccount(env.DATA, slug)) return notFound("compte inconnu");
+  if (!await readAccount(env.DATA, slug)) return notFound("unknown account");
   const reviewTs = typeof body?.review_ts === "string" ? body.review_ts : "";
   const messages = validateMessages(body?.messages);
-  if (!reviewTs || !messages) return unprocessable("review_ts ou messages invalides");
+  if (!reviewTs || !messages) return unprocessable("invalid review_ts or messages");
   if (!env.OLLAMA_API_KEY && !asksForHiddenEnemyPosition(messages, {})) {
-    return jsonError(500, "OLLAMA_API_KEY non configuré");
+    return jsonError(500, "OLLAMA_API_KEY is not configured");
   }
   const model = (typeof body?.model === "string" && body.model)
     || env.OLLAMA_MODEL || "kimi-k2.6";

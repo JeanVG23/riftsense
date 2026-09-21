@@ -39,16 +39,16 @@ async function feedbackRateLimited(request: Request, env: Env): Promise<boolean>
 }
 
 function badKey(key: string): Response {
-  return unprocessable(`clé de réponse invalide : '${key}' (attendu 'kind,index')`);
+  return unprocessable(`invalid response key: '${key}' (expected 'kind,index')`);
 }
 
 /** Les 4 validations par réponse ne différaient que par le motif d'invalidité. */
 function badResponse(key: string, why: string): Response {
-  return unprocessable(`réponse invalide pour '${key}' : ${why}`);
+  return unprocessable(`invalid response for '${key}': ${why}`);
 }
 
 export async function apiFeedback(request: Request, env: Env): Promise<Response> {
-  if (foreignOrigin(request)) return jsonError(403, "origine non autorisée");
+  if (foreignOrigin(request)) return jsonError(403, "origin not allowed");
   const body = await request.json().catch(() => null) as {
     slug?: unknown;
     ts?: unknown;
@@ -57,21 +57,21 @@ export async function apiFeedback(request: Request, env: Env): Promise<Response>
   if (!body || typeof body.slug !== "string" || typeof body.ts !== "string"
       || typeof body.responses !== "object" || body.responses === null
       || Array.isArray(body.responses)) {
-    return unprocessable("requête feedback invalide");
+    return unprocessable("invalid feedback request");
   }
   const slug = body.slug;
-  if (!await readAccount(env.DATA, slug)) return notFound("compte inconnu");
+  if (!await readAccount(env.DATA, slug)) return notFound("unknown account");
 
   const reviews = await readJsonl<{ ts: string; model: string; kind?: string; review: unknown }>(
     env.DATA,
     KEYS.reviews(slug),
   );
   const found = reviews.find((review) => review.ts === body.ts);
-  if (!found) return notFound("review introuvable");
+  if (!found) return notFound("review not found");
   const review = found.kind === "game"
     ? validateGameReview(found.review)
     : validateReview(found.review);
-  if (!review) return jsonError(500, "review stockée non conforme");
+  if (!review) return jsonError(500, "stored review is invalid");
 
   const sections: [string, unknown[]][] = [
     ["strength", review.strengths],
@@ -90,20 +90,20 @@ export async function apiFeedback(request: Request, env: Env): Promise<Response>
     const section = allowedSections.get(kind);
     if (!section || index >= section.length) return badKey(key);
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-      return badResponse(key, "objet requis");
+      return badResponse(key, "object required");
     }
     const value = raw as Record<string, unknown>;
     if (typeof value.useful !== "boolean") {
-      return badResponse(key, "useful booléen requis");
+      return badResponse(key, "boolean useful value required");
     }
     const tag = value.tag ?? null;
     const note = value.note ?? null;
     if (tag !== null
         && (typeof tag !== "string" || !(NEG_TAGS as readonly string[]).includes(tag))) {
-      return badResponse(key, "tag inconnu");
+      return badResponse(key, "unknown tag");
     }
     if (note !== null && typeof note !== "string") {
-      return badResponse(key, "note doit être une chaîne");
+      return badResponse(key, "note must be a string");
     }
     // Clé normalisée (index numérique) : `key` brut peut porter des zéros non
     // significatifs, la lecture plus bas reconstruit `${kind},${index}`.
@@ -111,7 +111,7 @@ export async function apiFeedback(request: Request, env: Env): Promise<Response>
   }
 
   if (await feedbackRateLimited(request, env)) {
-    return jsonError(429, "trop de votes en peu de temps ; réessaie dans une heure");
+    return jsonError(429, "too many votes in a short period; try again in an hour");
   }
 
   const items: Array<{
@@ -128,7 +128,7 @@ export async function apiFeedback(request: Request, env: Env): Promise<Response>
     });
   }
   if (items.some((item) => !item.useful && item.tag === null)) {
-    return unprocessable("feedback invalide (tag requis si useful=False)");
+    return unprocessable("invalid feedback (tag required when useful=false)");
   }
 
   const feedback = {

@@ -223,7 +223,8 @@ class RiotClient:
 
     # match-v5 (régional)
     def match_ids(self, puuid: str, count: int = 20, queue: int | None = None,
-                  start: int = 0, start_time: int | None = None) -> list[str]:
+                  start: int = 0, start_time: int | None = None,
+                  end_time: int | None = None) -> list[str]:
         params = {"count": count, "start": start}
         if queue is not None:
             params["queue"] = queue
@@ -232,6 +233,8 @@ class RiotClient:
             # (Unix seconds). Évite de fetcher N timelines de vieux patches juste pour
             # les filtrer ensuite (économise ~30 appels/joueur inactif).
             params["startTime"] = start_time
+        if end_time is not None:
+            params["endTime"] = end_time
         return self._get(self.regional,
                          f"/lol/match/v5/matches/by-puuid/{puuid}/ids", **params) or []
 

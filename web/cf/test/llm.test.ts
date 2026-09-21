@@ -42,7 +42,7 @@ describe("generateJson", () => {
     ));
     await expect(generateJson("m", "s", "u", {}, {
       apiKey: "k", fetchImpl, sleepImpl: noSleep,
-    })).rejects.toThrow("dernier motif : contenu LLM non JSON");
+    })).rejects.toThrow("last reason: contenu LLM non JSON");
     expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
@@ -50,7 +50,7 @@ describe("generateJson", () => {
     const fetchImpl = vi.fn().mockResolvedValue(response(503));
     await expect(generateJson("m", "s", "u", {}, {
       apiKey: "k", fetchImpl, sleepImpl: noSleep,
-    })).rejects.toThrow("dernier motif : HTTP 503");
+    })).rejects.toThrow("last reason: HTTP 503");
   });
 
   it("erreur réseau -> retry, puis réussit", async () => {

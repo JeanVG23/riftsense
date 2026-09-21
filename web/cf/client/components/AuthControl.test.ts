@@ -43,7 +43,7 @@ describe("AuthControl", () => {
     const requestOptions = fetchMock.mock.calls[0][1] as RequestInit;
     expect(fetchMock.mock.calls[0][0]).toBe("/api/auth/status");
     expect(new Headers(requestOptions.headers).get("Authorization")).toBe("Bearer signed-token");
-    expect(wrapper.text()).toContain("Coach actif");
+    expect(wrapper.text()).toContain("Coach active");
   });
 
   it("oublie un jeton refusé et propose la connexion", async () => {
@@ -57,7 +57,7 @@ describe("AuthControl", () => {
     await flushPromises();
 
     expect(window.localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
-    expect(wrapper.text()).toContain("Connexion coach");
+    expect(wrapper.text()).toContain("Coach sign-in");
   });
 
   it("ouvre le dialogue puis sait déconnecter la session", async () => {
@@ -89,6 +89,6 @@ describe("AuthControl", () => {
 
     expect(fetchMock).toHaveBeenLastCalledWith("/api/auth/logout", { method: "POST" });
     expect(window.localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
-    expect(wrapper.text()).toContain("Connexion coach");
+    expect(wrapper.text()).toContain("Coach sign-in");
   });
 });

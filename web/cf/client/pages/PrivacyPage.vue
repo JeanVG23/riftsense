@@ -18,16 +18,16 @@ function goHome(): void {
 
     <div class="legal-header">
       <div class="legal-breadcrumbs">
-        <a href="/" @click.prevent="goHome">Accueil</a>
+        <a href="/" @click.prevent="goHome">Home</a>
         <span class="legal-sep">/</span>
-        <span class="current">Politique de confidentialité</span>
+        <span class="current">Privacy Policy</span>
       </div>
-      <h1 class="legal-title">Politique de Confidentialité</h1>
+      <h1 class="legal-title">Privacy Policy</h1>
       <p class="legal-meta">
-        <span class="badge badge-legal">Protection des données</span>
-        <span>Dernière mise à jour : Mars 2026</span>
+        <span class="badge badge-legal">Data protection</span>
+        <span>Last updated: March 2026</span>
         <span class="legal-sep">·</span>
-        <span>Conforme RGPD (UE 2016/679) &amp; Riot API</span>
+        <span>GDPR (EU 2016/679) &amp; Riot API compliant</span>
       </p>
     </div>
 
@@ -48,9 +48,9 @@ function goHome(): void {
           </svg>
         </div>
         <div class="legal-disclaimer-content">
-          <strong>Engagement de transparence et de minimisation des données</strong>
+          <strong>Our commitment to transparency and data minimization</strong>
           <p>
-            RiftSense traite exclusivement des données statistiques publiques de parties issues de l'API Riot Games. Nous ne demandons <strong>jamais</strong> de mot de passe, de données bancaires, ni d'informations d'identification privée de votre compte Riot.
+            RiftSense only processes public game statistics provided by the Riot Games API. We <strong>never</strong> request your password, payment information, or private Riot account credentials.
           </p>
         </div>
       </div>
@@ -58,7 +58,7 @@ function goHome(): void {
 
     <!-- Executive Summary for Riot Reviewers -->
     <div class="card legal-card legal-reviewer-box">
-      <div class="legal-reviewer-badge">Privacy &amp; Compliance Summary (EN)</div>
+      <div class="legal-reviewer-badge">Privacy &amp; Compliance Summary</div>
       <p class="legal-reviewer-text">
         <strong>RiftSense</strong> complies with the European General Data Protection Regulation (GDPR) and Riot Games Developer Policies.
       </p>
@@ -72,117 +72,117 @@ function goHome(): void {
     <div class="legal-sections">
       <!-- Section 1 -->
       <section class="card legal-card" id="responsable">
-        <h2>1. Responsable du traitement des données</h2>
+        <h2>1. Data Controller</h2>
         <p>
-          Le responsable du traitement des données pour le site <strong>RiftSense</strong> (<code>riftsense.jeanvg.fr</code>) est :
+          The data controller for <strong>RiftSense</strong> (<code>riftsense.jeanvg.fr</code>) is:
         </p>
         <p>
           <strong>Jean Van Gysel</strong><br>
-          Courriel de contact : <a href="mailto:contact@jeanvg.fr">contact@jeanvg.fr</a>
+          Contact email: <a href="mailto:contact@jeanvg.fr">contact@jeanvg.fr</a>
         </p>
       </section>
 
       <!-- Section 2 -->
       <section class="card legal-card" id="donnees-collectees">
-        <h2>2. Données collectées et sources</h2>
-        <p>RiftSense traite deux catégories restreintes de données :</p>
+        <h2>2. Data We Process and Its Sources</h2>
+        <p>RiftSense processes two limited categories of data:</p>
 
-        <h3 class="legal-subheading">A. Données publiques de jeu (via l'API officielle Riot Games)</h3>
+        <h3 class="legal-subheading">A. Public game data (through the official Riot Games API)</h3>
         <ul>
-          <li><strong>Identifiant Riot public :</strong> Nom d'invocateur et tagline (ex. <code>Spadzze#EUW</code>).</li>
-          <li><strong>Identifiant technique anonymisé :</strong> Le PUUID (Player Universally Unique Identifier) attribué par Riot Games.</li>
-          <li><strong>Historique de parties classées :</strong> Identifiants de parties (Match IDs) en file Solo/Duo.</li>
-          <li><strong>Métriques de partie :</strong> Positions spatiales horodatées (timeline toutes les 60 secondes), champions joués, KDA, CS, or accumulé, objets achetés, balises de vision et runes.</li>
+          <li><strong>Public Riot ID:</strong> Game name and tag line (for example, <code>Spadzze#EUW</code>).</li>
+          <li><strong>Pseudonymous technical identifier:</strong> The PUUID assigned by Riot Games.</li>
+          <li><strong>Ranked game history:</strong> Match IDs from the Solo/Duo queue.</li>
+          <li><strong>Game metrics:</strong> Timestamped map positions (every 60 seconds), champions played, KDA, CS, accumulated gold, purchased items, wards, and runes.</li>
         </ul>
 
-        <h3 class="legal-subheading">B. Données de navigation locale (sur votre terminal)</h3>
+        <h3 class="legal-subheading">B. Local browsing data (on your device)</h3>
         <ul>
-          <li><strong>Historique de consultation récent :</strong> Stocké exclusivement dans le <code>localStorage</code> de votre navigateur (clé <code>riftsense_recent_accounts</code>). Ces données restent sur votre machine et ne sont jamais transmises à des tiers.</li>
-          <li><strong>Session de coaching optionnelle :</strong> Le cas échéant, un jeton de session chiffré dans le <code>localStorage</code> (clé <code>riftsense_coach_pwd</code>) pour l'accès aux revues de match approfondies.</li>
+          <li><strong>Recent viewing history:</strong> Stored only in your browser's <code>localStorage</code> (key <code>riftsense_recent_accounts</code>). This data remains on your device and is never shared with third parties.</li>
+          <li><strong>Optional coaching session:</strong> When applicable, an encrypted session token in <code>localStorage</code> (key <code>riftsense_coach_pwd</code>) grants access to detailed match reviews.</li>
         </ul>
       </section>
 
       <!-- Section 3 -->
       <section class="card legal-card" id="donnees-exclues">
-        <h2>3. Données formellement exclues</h2>
-        <p>RiftSense ne collecte, ne stocke et ne traite <strong>aucune</strong> des données suivantes :</p>
+        <h2>3. Data We Explicitly Exclude</h2>
+        <p>RiftSense does <strong>not</strong> collect, store, or process any of the following:</p>
         <ul>
-          <li><strong>Aucun mot de passe</strong> ou identifiant de connexion de votre compte Riot Games.</li>
-          <li><strong>Aucune adresse email</strong> associée à votre compte Riot Games.</li>
-          <li><strong>Aucune information de paiement</strong>, de facturation ou bancaire.</li>
-          <li><strong>Aucune communication privée</strong> (messagerie de jeu, liste d'amis, chat textuel ou vocal).</li>
-          <li><strong>Aucun cookie publicitaire</strong> ni traqueur d'analyse tiers (pas de Google Analytics, pas de Facebook Pixel).</li>
+          <li><strong>No passwords</strong> or Riot Games login credentials.</li>
+          <li><strong>No email addresses</strong> associated with Riot accounts.</li>
+          <li><strong>No payment, billing, or banking information.</strong></li>
+          <li><strong>No private communications</strong>, including in-game messages, friends lists, text chat, or voice chat.</li>
+          <li><strong>No advertising cookies</strong> or third-party analytics trackers such as Google Analytics or Facebook Pixel.</li>
         </ul>
       </section>
 
       <!-- Section 4 -->
       <section class="card legal-card" id="finalites">
-        <h2>4. Finalités et bases légales du traitement</h2>
-        <p>Les données sont collectées et traitées sur la base de l'intérêt légitime (art. 6.1.f du RGPD) pour les finalités suivantes :</p>
+        <h2>4. Purposes and Legal Basis</h2>
+        <p>Data is processed on the basis of legitimate interest (GDPR Art. 6(1)(f)) for the following purposes:</p>
         <ul>
-          <li>Afficher les statistiques de performance de jeu et l'historique récent des parties.</li>
-          <li>Calculer les indicateurs de positionnement (lane patterns, morts évitables, présence sur objectifs).</li>
-          <li>Calculer le modèle d'explicabilité SHAP et estimer le rang par Machine Learning (EBM / XGBoost).</li>
-          <li>Générer des retours pédagogiques post-partie (coaching automatisé).</li>
+          <li>Display performance statistics and recent game history.</li>
+          <li>Calculate positioning indicators such as lane patterns, avoidable deaths, and objective presence.</li>
+          <li>Run SHAP explainability and estimate rank with machine learning (EBM / XGBoost).</li>
+          <li>Generate educational post-game feedback through automated coaching.</li>
         </ul>
       </section>
 
       <!-- Section 5 -->
       <section class="card legal-card" id="decision-automatique">
-        <h2>5. Traitement automatisé et Machine Learning (RGPD Art. 22)</h2>
+        <h2>5. Automated Processing and Machine Learning (GDPR Art. 22)</h2>
         <p>
-          RiftSense applique des algorithmes d'apprentissage automatique (Explainable Boosting Machine &amp; valeurs de Shapley SHAP) pour estimer le rang compétitif d'un joueur et expliquer statistiquement les forces et axes d'amélioration.
+          RiftSense uses machine-learning algorithms (Explainable Boosting Machine and SHAP values) to estimate a player's competitive rank and statistically explain strengths and improvement areas.
         </p>
         <p>
-          Ce traitement a une portée <strong>exclusivement informative, statistique et pédagogique</strong>. Il ne produit aucune décision entièrement automatisée produisant des effets juridiques ou affectant les utilisateurs de manière significative au sens de l'Article 22 du RGPD. Les détails complets du protocole d'entraînement et d'évaluation sont accessibles publiquement dans la section <a href="/readme" @click.prevent="router.push('/readme')">À propos &amp; Méthode</a>.
+          This processing is <strong>purely informational, statistical, and educational</strong>. It does not make fully automated decisions with legal or similarly significant effects under GDPR Article 22. Full details of the training and evaluation protocol are publicly available under <a href="/readme" @click.prevent="router.push('/readme')">About &amp; Method</a>.
         </p>
       </section>
 
       <!-- Section 6 -->
       <section class="card legal-card" id="sous-traitants">
-        <h2>6. Hébergement et sous-traitants</h2>
-        <p>L'infrastructure technique de RiftSense s'appuie sur des prestataires reconnus pour leur niveau élevé de sécurité :</p>
+        <h2>6. Hosting and Processors</h2>
+        <p>RiftSense relies on established infrastructure providers:</p>
         <ul>
-          <li><strong>Cloudflare Inc. :</strong> Hébergement edge serverless (Cloudflare Workers), réseau de diffusion (CDN), mise en cache chiffrée (Cloudflare KV) et stockage d'objets (Cloudflare R2). Données hébergées en conformité avec les clauses contractuelles types de l'UE.</li>
-          <li><strong>Riot Games, Inc. :</strong> Fournisseur source des données publiques de match via l'API développeur.</li>
+          <li><strong>Cloudflare Inc.:</strong> Serverless edge hosting (Cloudflare Workers), CDN, encrypted caching (Cloudflare KV), and object storage (Cloudflare R2), under applicable EU standard contractual clauses.</li>
+          <li><strong>Riot Games, Inc.:</strong> Source provider for public match data through the developer API.</li>
         </ul>
       </section>
 
       <!-- Section 7 -->
       <section class="card legal-card" id="duree">
-        <h2>7. Durée de conservation</h2>
+        <h2>7. Data Retention</h2>
         <ul>
-          <li><strong>Données de parties :</strong> Conservées en cache pour une durée maximale correspondant à la saison compétitive en cours, ou invalidées périodiquement lors des déploiements de patchs majeurs de League of Legends.</li>
-          <li><strong>Données locales de navigation :</strong> Conservées dans votre navigateur jusqu'à effacement manuel de vos données de navigation ou suppression via l'interface du site.</li>
+          <li><strong>Game data:</strong> Cached for no longer than the current competitive season, or periodically invalidated during major League of Legends patches.</li>
+          <li><strong>Local browsing data:</strong> Kept in your browser until you clear browsing data or remove it through the site interface.</li>
         </ul>
       </section>
 
       <!-- Section 8 -->
       <section class="card legal-card" id="droits">
-        <h2>8. Vos droits (RGPD) &amp; droit à l'effacement</h2>
+        <h2>8. Your GDPR Rights &amp; Right to Erasure</h2>
         <p>
-          Conformément au Règlement Général sur la Protection des Données (RGPD), vous bénéficiez des droits suivants :
+          Under the General Data Protection Regulation (GDPR), you have the following rights:
         </p>
         <ul>
-          <li><strong>Droit d'accès et d'information :</strong> Obtenir confirmation que des données vous concernant sont traitées.</li>
-          <li><strong>Droit à l'effacement (« Droit à l'oubli ») :</strong> Si vous souhaitez que votre Riot ID et l'ensemble des données de parties associées soient définitivement retirés du cache de RiftSense, il vous suffit de nous adresser une demande par courriel à <a href="mailto:contact@jeanvg.fr">contact@jeanvg.fr</a> en mentionnant votre Riot ID (ex: <code>Pseudo#Tag</code>). Le profil sera radié sous 48 heures ouvrées.</li>
-          <li><strong>Effacement immédiat de vos données locales :</strong> Vous pouvez supprimer votre compte des récents à tout moment en cliquant sur la croix <code>×</code> dans le sélecteur de joueurs en haut de page, ou en vidant le cache de votre navigateur.</li>
+          <li><strong>Access and information:</strong> Request confirmation that data concerning you is being processed.</li>
+          <li><strong>Erasure (“right to be forgotten”):</strong> To permanently remove your Riot ID and associated game data from the RiftSense cache, email <a href="mailto:contact@jeanvg.fr">contact@jeanvg.fr</a> with your Riot ID (for example, <code>Name#Tag</code>). The profile will be removed within 48 business hours.</li>
+          <li><strong>Immediate removal of local data:</strong> Remove an account from recent profiles by clicking <code>×</code> in the player selector, or clear your browser storage.</li>
         </ul>
       </section>
 
       <!-- Section 9 -->
       <section class="card legal-card" id="reclamation">
-        <h2>9. Réclamation auprès d'une autorité de contrôle</h2>
+        <h2>9. Complaints to a Supervisory Authority</h2>
         <p>
-          Si vous estimez, après nous avoir contactés, que vos droits ne sont pas respectés, vous disposez du droit d'introduire une réclamation auprès de la <strong>CNIL</strong> (Commission Nationale de l'Informatique et des Libertés — <a href="https://www.cnil.fr" target="_blank" rel="noopener">cnil.fr</a>).
+          If, after contacting us, you believe your rights have not been respected, you may lodge a complaint with the <strong>CNIL</strong>, the French data protection authority (<a href="https://www.cnil.fr" target="_blank" rel="noopener">cnil.fr</a>), or your local supervisory authority.
         </p>
       </section>
     </div>
 
     <div class="legal-footer-nav">
-      <a href="/" class="btn btn-secondary" @click.prevent="goHome">← Retour à l'accueil</a>
-      <a href="/readme" class="btn btn-secondary" @click.prevent="router.push('/readme')">À propos &amp; Méthode</a>
-      <a href="/terms" class="btn btn-secondary" @click.prevent="router.push('/terms')">Conditions d'utilisation →</a>
+      <a href="/" class="btn btn-secondary" @click.prevent="goHome">← Back to home</a>
+      <a href="/readme" class="btn btn-secondary" @click.prevent="router.push('/readme')">About &amp; Method</a>
+      <a href="/terms" class="btn btn-secondary" @click.prevent="router.push('/terms')">Terms of Use →</a>
     </div>
   </div>
 </template>

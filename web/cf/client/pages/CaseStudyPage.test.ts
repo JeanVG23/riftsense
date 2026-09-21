@@ -14,8 +14,8 @@ describe("CaseStudyPage", () => {
 
   it("affiche le titre principal et le badge d'étude de cas", () => {
     const wrapper = mount(CaseStudyPage);
-    expect(wrapper.text()).toContain("ÉTUDE DE CAS TECHNIQUE");
-    expect(wrapper.text()).toContain("RiftSense : Système prédictif et coaching esport");
+    expect(wrapper.text()).toContain("TECHNICAL CASE STUDY");
+    expect(wrapper.text()).toContain("RiftSense: an end-to-end predictive esports coaching system");
   });
 
   it("affiche la bande de métriques clés chiffrées", () => {
@@ -28,11 +28,11 @@ describe("CaseStudyPage", () => {
 
   it("décrit les 5 sections d'ingénierie et de data science", () => {
     const wrapper = mount(CaseStudyPage);
-    expect(wrapper.text()).toContain("01 · CONTEXTE MÉTIER");
+    expect(wrapper.text()).toContain("01 · PRODUCT CONTEXT");
     expect(wrapper.text()).toContain("02 · DATA ENGINEERING");
     expect(wrapper.text()).toContain("03 · MACHINE LEARNING");
-    expect(wrapper.text()).toContain("04 · GÉNÉRATION LLM SANS HALLUCINATION");
-    expect(wrapper.text()).toContain("05 · STACK & OUTILS");
+    expect(wrapper.text()).toContain("04 · GROUNDED LLM GENERATION");
+    expect(wrapper.text()).toContain("05 · STACK & TOOLS");
   });
 
   it("navigue vers le profil de démonstration Spadzze au clic sur le bouton d'action", async () => {
@@ -57,6 +57,6 @@ describe("CaseStudyPage", () => {
     const wrapper = mount(CaseStudyPage);
     const ghLink = wrapper.find('a[href="https://github.com/JeanVG23/riftsense"]');
     expect(ghLink.exists()).toBe(true);
-    expect(ghLink.text()).toContain("Code source sur GitHub");
+    expect(ghLink.text()).toContain("Source code on GitHub");
   });
 });

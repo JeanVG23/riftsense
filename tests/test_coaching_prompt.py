@@ -15,7 +15,7 @@ def _payload():
 def test_system_encodes_asymmetry_and_depth_rules():
     s = PR.SYSTEM.lower()
     assert "asym" in s                       # règle d'asymétrie présente
-    assert "profondeur" in s                 # nuance profondeur présente
+    assert "map depth" in s                  # nuance profondeur présente
     assert "descriptive_only" in PR.SYSTEM   # le LLM sait ne pas prescrire ces signaux
 
 
@@ -23,21 +23,21 @@ def test_system_gates_strengths_on_notable_favorable_signals():
     # Anti-filler : 1 à 3 forces, chacune adossée à un signal notable favorable —
     # jamais de remplissage pour atteindre 3.
     s = PR.SYSTEM
-    assert "1 à 3" in s
-    assert "remplissage" in s.lower()
+    assert "1 to 3" in s
+    assert "filler" in s.lower()
 
 
 def test_system_aggregate_uses_game_causes_without_trusting_their_numbers():
     s = PR.SYSTEM
     assert "game_review_causes" in s
-    assert "UNIQUEMENT" in s
-    assert "INTERDICTION" in s
+    assert "ONLY" in s
+    assert "NEVER" in s
 
 
 def test_render_returns_system_and_user_with_payload():
     system, user = PR.render(_payload())
     assert system == PR.SYSTEM
-    assert "15 dernières games" in user
+    assert "latest 15 games" in user
     assert "challenger" in user
     assert json.loads(user[user.index("{"):user.rindex("}") + 1])  # le payload JSON est inclus
 
@@ -61,8 +61,8 @@ def _game_payload():
 def test_system_game_encodes_anchor_asymmetry_and_recall_caveat():
     s = PR.SYSTEM_GAME
     assert "asym" in s.lower()          # règle d'asymétrie présente
-    assert "horodatage" in s.lower()    # chaque erreur ancrée sur un moment mm:ss
-    assert "plancher" in s.lower()      # gold_before des recalls = approximation basse
+    assert "timestamp" in s.lower()     # chaque erreur ancrée sur un moment mm:ss
+    assert "lower bound" in s.lower()   # gold_before des recalls = approximation basse
 
 
 def test_system_game_requires_cause_and_death_context():
@@ -71,10 +71,10 @@ def test_system_game_requires_cause_and_death_context():
     # journal (killer/gank/zone), pas seulement l'horodatage.
     s = PR.SYSTEM_GAME.lower()
     assert "cause" in s               # champ cause exigé
-    assert "pourquoi" in s            # le POURQUOI, pas seulement le moment
+    assert "why" in s                 # le POURQUOI, pas seulement le moment
     assert "killer" in s              # restituer killer_champ/killer_role du journal
     assert "gank" in s                # restituer is_ganked_by_jungle
-    assert "comportement" in s        # forces = comportement, pas l'issue
+    assert "behavior" in s            # forces = comportement, pas l'issue
 
 
 def test_render_game_includes_journal_and_match():
@@ -89,14 +89,14 @@ def test_system_game_frames_matchup_context():
     assert "context" in s and "champ select" in s.lower()
     assert "lane_pattern" in s and "gank_exposure" in s
     # connaissance générale des champions autorisée, mais ancrée sur le journal
-    assert "connaissance générale" in s
-    assert "n'invente jamais un événement" in s
+    assert "general champion knowledge" in s
+    assert "never invent an event" in s.lower()
 
 
 def test_system_game_judges_gold_relative_to_next_buy():
     s = PR.SYSTEM_GAME
-    assert "PROCHAIN ACHAT" in s
-    assert "légitime" in s
+    assert "ACTUAL NEXT PURCHASE" in s
+    assert "valid build choice" in s
     assert "next_purchase" in s
     assert "cheapest_item_cost" in s
 
@@ -104,17 +104,17 @@ def test_system_game_judges_gold_relative_to_next_buy():
 def test_system_game_uses_fatal_damage_to_explain_deaths():
     s = PR.SYSTEM_GAME
     assert "damage" in s
-    assert "avant l'engage" in s
-    assert "attaques de base" in s
-    assert "principales sources" in s
+    assert "before vs during the engage" in s
+    assert "basic attacks" in s
+    assert "main sources" in s
 
 
 def test_system_game_requires_consequence_chain():
     s = PR.SYSTEM_GAME
     assert "consequences" in s            # le LLM sait où chercher
-    assert "chaîne" in s.lower()          # restituer la chaîne causale
-    assert "pendant que tu étais mort" in s.lower()  # formulation prudente
-    assert "corrélation" in s.lower()     # fenêtre = corrélation, pas preuve
+    assert "causal chain" in s.lower()    # restituer la chaîne causale
+    assert "while you were dead" in s.lower()  # formulation prudente
+    assert "correlation" in s.lower()     # fenêtre = corrélation, pas preuve
 
 
 def test_specialists_receive_only_their_payload_axis():
@@ -131,8 +131,8 @@ def test_specialists_receive_only_their_payload_axis():
 
 
 def test_chief_can_only_select_existing_insights():
-    assert "identifiants" in PR.SYSTEM_CHIEF
-    assert "INTERDICTION" in PR.SYSTEM_CHIEF
+    assert "stable ID" in PR.SYSTEM_CHIEF
+    assert "STRICTLY FORBIDDEN" in PR.SYSTEM_CHIEF
     _, user = PR.render_chief([{"axis": "death_positioning", "mistakes": [
         {"id": "death_positioning:mistakes:0", "point": "p"},
     ]}])

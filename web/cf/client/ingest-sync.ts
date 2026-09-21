@@ -28,10 +28,10 @@ export interface IngestSyncOpts {
 /** Codes de la file d'ingestion, formulés court : ils s'affichent DANS le
  * bouton, pas dans un bandeau. */
 const REFRESH_ERRORS: Record<string, string> = {
-  riot_id_not_found: "Riot ID introuvable",
-  no_ranked_games: "Aucune partie classée",
-  riot_unavailable: "API Riot indisponible",
-  internal: "Erreur interne",
+  riot_id_not_found: "Riot ID not found",
+  no_ranked_games: "No ranked games found",
+  riot_unavailable: "Riot API unavailable",
+  internal: "Internal error",
 };
 const POLL_INTERVAL_MS = 3000;
 /** Au-delà, on rend la main : la collecte se poursuit côté serveur, c'est le
@@ -57,7 +57,7 @@ export function useIngestSync(slug: Ref<string>, opts: IngestSyncOpts = {}): Ing
   const cooling = computed(() => cooldownUntil.value > now.value);
   const cooldownLabel = computed(() => {
     const minutes = Math.ceil((cooldownUntil.value - now.value) / 60000);
-    return minutes > 1 ? `À jour · ${minutes} min` : "À jour · < 1 min";
+    return minutes > 1 ? `Up to date · ${minutes} min` : "Up to date · < 1 min";
   });
 
   /** Mémoriser la fenêtre ici ne la fait pas respecter : c'est le serveur qui
@@ -131,22 +131,22 @@ export function useIngestSync(slug: Ref<string>, opts: IngestSyncOpts = {}): Ing
       if (status?.state === "done") {
         setCooldown(cooldown);
         syncFeedback.value = status.n_games
-          ? `${status.n_games} parties synchronisées` : "Synchronisation terminée";
+          ? `${status.n_games} games synced` : "Sync complete";
         opts.onDone?.(status.n_games);
         return;
       }
       syncFeedback.value = status?.state === "running"
-        ? "Collecte en cours…"
-        : `En file d'attente (${status?.position ?? 1})`;
+        ? "Collecting games…"
+        : `Queued (${status?.position ?? 1})`;
     }
-    syncFeedback.value = "Collecte toujours en cours…";
+    syncFeedback.value = "Collection is still running…";
   }
 
   async function triggerSync(): Promise<void> {
     if (syncing.value || cooling.value) return;
     const token = ++syncSequence;
     syncing.value = true;
-    syncFeedback.value = "Interrogation de Riot…";
+    syncFeedback.value = "Contacting Riot…";
     try {
       // Par slug, jamais par Riot ID reconstitué : les comptes curés portent un
       // slug écrit à la main que `slugFor` ne reproduit pas, et une inscription
@@ -159,7 +159,7 @@ export function useIngestSync(slug: Ref<string>, opts: IngestSyncOpts = {}): Ing
       if (token !== syncSequence) return;
       if (response.status === 429) {
         setCooldown(body.retry_after ?? FALLBACK_COOLDOWN_S);
-        syncFeedback.value = "Données déjà à jour";
+        syncFeedback.value = "Data already up to date";
         return;
       }
       if (!response.ok) {
@@ -168,7 +168,7 @@ export function useIngestSync(slug: Ref<string>, opts: IngestSyncOpts = {}): Ing
       }
       await followJob(token, body.cooldown ?? FALLBACK_COOLDOWN_S);
     } catch {
-      syncFeedback.value = "Erreur de connexion";
+      syncFeedback.value = "Connection error";
     } finally {
       if (token === syncSequence) {
         syncing.value = false;

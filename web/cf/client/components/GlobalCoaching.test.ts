@@ -45,11 +45,11 @@ describe("GlobalCoaching", () => {
     });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("20 parties analysées");
+    expect(wrapper.text()).toContain("20 games analyzed");
     expect(wrapper.text()).toContain("55%");
     expect(wrapper.text()).toContain("Back tardif");
     expect(wrapper.text()).toContain("tempo perdu");
-    expect(wrapper.text()).toContain("Confiance");
+    expect(wrapper.text()).toContain("Confidence");
     expect(wrapper.text()).toContain("82%");
   });
 
