@@ -203,7 +203,14 @@ web/
                   onglet SHAP : même job, même cooldown, une instance dans AccountPage) ;
                   role-analysis.ts = contrat shap:{slug}:role (union discriminée available,
                   un message typé par motif, logit affiché en proximité à l'apex, jamais
-                  converti en probabilité ni rang)
+                  converti en probabilité ni rang) ; shap-view.ts = regroupe les drivers EBM
+                  par feature (`groupByBase`) et par thème (`groupByTheme`), thème porté par
+                  la clé `theme` de `shared/feature_catalog.json` (vocabulaire fermé miroir
+                  de `THEMES` dans tests/test_feature_catalog.py : economy/positioning/
+                  vision/fights/objectives/context, un thème inconnu ou vidé casse le test).
+                  L'onglet ML rend ces groupes en DOM natif (jauge, verdict, lignes de
+                  thème) : Chart.js est retiré du bundle (`web/cf/package.json`) et
+                  ShapProfile.ce.vue n'a plus de `<canvas>`.
   cf/public/      assets statiques copiés tels quels par Vite
 service/          Service d'ingestion Cloud Run (Flask + gunicorn, 1 worker/1 thread) :
                   app.py (routes + secret partagé), riot_ingest.py (métier : profil,

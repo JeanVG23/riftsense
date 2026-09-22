@@ -454,7 +454,7 @@ function goPrivacy(): void {
   border: 1px solid var(--primary-border);
   border-radius: 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12.5px;
+  font-size: var(--fs-small);
 }
 
 .readme-table {
@@ -465,7 +465,7 @@ function goPrivacy(): void {
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: var(--fs-body-sm);
 }
 
 .readme-table-scroll { overflow-x: auto; }
@@ -488,7 +488,7 @@ function goPrivacy(): void {
 .readme-table th {
   color: var(--text-faint);
   background: var(--surface-alt);
-  font-size: 11.5px;
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -544,7 +544,7 @@ function goPrivacy(): void {
 .legal-visual-sub {
   margin: 0;
   color: var(--text-dim);
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 1.55;
 }
 

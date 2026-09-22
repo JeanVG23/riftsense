@@ -1,12 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { formatDate } from "../account-profile";
 import { withAuthHeaders } from "../auth";
-import {
-  featurePresentation,
-  formatFeatureValue,
-  wrapTooltipText,
-} from "../feature-catalog";
+import { formatFeatureValue } from "../feature-catalog";
 import type { IngestSync } from "../ingest-sync";
 import {
   boundaryLabel,
@@ -16,29 +12,34 @@ import {
   reasonMessage,
   roleLabel,
   type RoleAnalysis,
-  type RoleDriver,
 } from "../role-analysis";
+import {
+  GAUGE_MAX_LOGIT,
+  directionHint,
+  formatContribution,
+  gaugeOffset,
+  groupByBase,
+  groupByTheme,
+  pickHighlights,
+  verdictLine,
+  type BaseGroup,
+} from "../shap-view";
 
 const props = defineProps<{ slug: string; sync: IngestSync; reloadToken: number }>();
-
-/** Palette alignée sur le thème Targon : or, encre et ivoire. */
-const palette = {
-  gold: "#b98f53",
-  loss: "#8c5a55",
-  border: "#e5e0d6",
-  dim: "#4a545b",
-  ink: "#141718",
-};
 
 const loading = ref(true);
 const analysis = ref<RoleAnalysis | null>(null);
 const unavailableReason = ref<string | null>(null);
 const sort = ref<"abs" | "val">("abs");
 const categoryFilter = ref<"all" | "actionable">("all");
-const canvas = ref<HTMLCanvasElement | null>(null);
-let chart: import("chart.js").Chart | null = null;
+/** Le tableau complet et le mode d'emploi sont repliés à l'ouverture. Ce qui
+ * reste peint est ce qui se lit d'un coup d'oeil : le score situé, sa phrase,
+ * les six domaines, les trois forces et les trois leviers. Le reste se
+ * demande, il ne s'impose plus. */
+const showDetail = ref(false);
+const showHelp = ref(false);
+const expanded = ref<Record<string, boolean>>({});
 let requestSequence = 0;
-let chartRuntime: Promise<typeof import("chart.js")> | null = null;
 
 /** Info-bulle du bouton d'actualisation, partagée par les deux branches du
  * template (états disponible et indisponible) : le markup reste dupliqué,
@@ -57,98 +58,89 @@ const refreshLabel = computed(() => props.sync.feedback
 
 /** Vrai quand le motif d'indisponibilité courant est l'un des trois motifs
  * structurels (`role_closed`, `model_missing`, `model_mismatch`) : décidés
- * par les artefacts déployés, donc identiques pour tout compte du site.
- * Calculé une fois ici, comme `refreshTitle`/`refreshLabel`, pour que le
- * bouton d'actualisation et le bloc démo ne dupliquent pas cette logique. */
+ * par les artefacts déployés, donc identiques pour tout compte du site. */
 const isGlobalUnavailable = computed(() =>
   unavailableReason.value !== null && isGlobalClosure(unavailableReason.value));
 
-/** Filtre de catégorie, puis tri |contribution| ou valeur, puis top 16.
- * Le descriptif s'affiche mais ne se formule jamais en levier : le filtre
- * « Leviers d'action uniquement » isole l'actionable, l'inverse n'existe pas.
- * En computed (pas une fonction) : évite de recalculer filtre + tri + slice
- * à chaque rendu, et sert aussi de garde d'affichage (liste vide → message
- * dédié plutôt qu'un canvas vide de 560px, cf. template). */
-const visibleDrivers = computed<RoleDriver[]>(() => {
-  const drivers = [...(analysis.value?.drivers || [])];
+const drivers = computed(() => analysis.value?.drivers ?? []);
+
+/** Les thèmes résument la décomposition COMPLÈTE du score : métriques
+ * descriptives incluses, et sans subir le filtre « leviers d'action ». C'est
+ * d'où vient le score, pas une liste de consignes. Les leviers, eux, ne
+ * lisent que l'actionnable (`pickHighlights`). */
+const themeRows = computed(() => groupByTheme(drivers.value));
+const allGroups = computed(() => groupByBase(drivers.value));
+const highlights = computed(() => pickHighlights(allGroups.value));
+
+const filteredGroups = computed<BaseGroup[]>(() => {
   const kept = categoryFilter.value === "actionable"
-    ? drivers.filter((driver) => driver.category === "actionable")
-    : drivers;
-  kept.sort(sort.value === "abs"
-    ? (left, right) => Math.abs(right.contribution) - Math.abs(left.contribution)
-    : (left, right) => right.contribution - left.contribution);
-  return kept.slice(0, 16);
+    ? allGroups.value.filter((group) => group.actionable)
+    : allGroups.value;
+  // `groupByBase` rend déjà l'ordre par poids absolu ; le tri par valeur
+  // signée travaille sur une copie pour ne pas réordonner la source.
+  return sort.value === "abs" ? kept : [...kept].sort((left, right) => right.net - left.net);
 });
 
-/** Human-readable English label. The aggregation is always explicit: hiding
- * `p10` or `std` would give two different model inputs the same meaning. */
-function driverLabel(driver: RoleDriver): string {
-  const label = featurePresentation(driver.feature, driver.base).displayLabel;
-  return driver.category === "actionable" ? label : `${label} (context)`;
+const maxThemeWeight = computed(() =>
+  Math.max(1e-9, ...themeRows.value.map((theme) => Math.abs(theme.net))));
+/** Une phrase, dérivée des seuls domaines : le premier coup d'oeil. */
+const verdict = computed(() => verdictLine(themeRows.value));
+
+const maxMetricWeight = computed(() =>
+  Math.max(1e-9, ...filteredGroups.value.map((group) => Math.abs(group.net))));
+
+const gaugeLeft = computed(() => {
+  const logit = analysis.value?.logit;
+  return `${gaugeOffset(typeof logit === "number" ? logit : 0).toFixed(2)}%`;
+});
+
+interface ReadLine {
+  aggregation: string;
+  value: string;
+  crossover: string | null;
+  hint: string;
 }
 
-function destroyChart(): void {
-  chart?.destroy();
-  chart = null;
+interface MetricView {
+  group: BaseGroup;
+  read: ReadLine | null;
 }
 
-async function renderChart(): Promise<void> {
-  destroyChart();
-  if (!canvas.value || !analysis.value) return;
-  chartRuntime ||= import("chart.js");
-  const { Chart, registerables } = await chartRuntime;
-  Chart.register(...registerables);
-  if (!canvas.value?.isConnected || !analysis.value) return;
-  const drivers = visibleDrivers.value;
-  chart = new Chart(canvas.value, {
-    type: "bar",
-    data: {
-      labels: drivers.map((driver) => driverLabel(driver)),
-      datasets: [{
-        data: drivers.map((driver) => driver.contribution),
-        backgroundColor: drivers.map((driver) => driver.contribution >= 0 ? palette.gold : palette.loss),
-        borderRadius: 3,
-        borderSkipped: false,
-      }],
-    },
-    options: {
-      indexAxis: "y",
-      responsive: true,
-      maintainAspectRatio: false,
-      // A horizontal bar can be very short around zero. Resolve the feature by
-      // row so its definition remains available anywhere along that row.
-      interaction: { mode: "index", axis: "y", intersect: false },
-      plugins: { legend: { display: false }, tooltip: { callbacks: {
-        label: (context) => {
-          const driver = drivers[context.dataIndex];
-          if (!driver) return `EBM ${Number(context.raw).toFixed(4)}`;
-          const presentation = featurePresentation(driver.feature, driver.base);
-          const lines = [`Contribution ${driver.contribution.toFixed(4)}`];
-          if (driver.value !== null) {
-            lines.push(`Value ${formatFeatureValue(driver.value, presentation.unit)}`);
-          }
-          lines.push(driver.category === "actionable" ? "Actionable factor" : "Context only");
-          if (driver.crossover_value !== null) {
-            lines.push(`Crossover ≈ ${formatFeatureValue(driver.crossover_value, presentation.unit)}`);
-          }
-          return lines;
-        },
-        afterLabel: (context) => {
-          const driver = drivers[context.dataIndex];
-          if (!driver) return [];
-          const presentation = featurePresentation(driver.feature, driver.base);
-          return [
-            ...wrapTooltipText("Definition:", presentation.description),
-            `Technical feature: ${presentation.technicalName}`,
-          ];
-        },
-      } } },
-      scales: {
-        x: { grid: { color: palette.border }, ticks: { color: palette.dim, font: { size: 11 } } },
-        y: { grid: { display: false }, ticks: { color: palette.ink, font: { size: 11 } } },
-      },
-    },
-  });
+/** La lecture d'une métrique tient dans l'agrégation qui explique son net
+ * (`BaseGroup.lead`) : sa valeur, le point de bascule de la shape function et
+ * le sens qui rapproche de l'apex. Les trois sont publiés ; ils vivaient dans
+ * une info-bulle. */
+function readOf(group: BaseGroup): ReadLine | null {
+  const part = group.lead;
+  if (!part || part.value === null) return null;
+  const label = part.aggregationLabel ?? "over the window";
+  return {
+    aggregation: label.charAt(0).toUpperCase() + label.slice(1),
+    value: formatFeatureValue(part.value, part.unit),
+    crossover: part.crossover === null
+      ? null
+      : `tipping point ${formatFeatureValue(part.crossover, part.unit)}`,
+    hint: directionHint(part.sense),
+  };
+}
+
+function toView(group: BaseGroup): MetricView {
+  return { group, read: readOf(group) };
+}
+
+const visibleRows = computed(() => filteredGroups.value.map(toView));
+const strengthViews = computed(() => highlights.value.strengths.map(toView));
+const leverViews = computed(() => highlights.value.levers.map(toView));
+
+/** Barre divergente : le zéro est au milieu de la piste, donc la plus forte
+ * contribution occupe une demi-piste. */
+function barStyle(value: number, max: number): Record<string, string> {
+  const width = `${Math.min(50, (Math.abs(value) / max) * 50).toFixed(1)}%`;
+  return value >= 0 ? { left: "50%", width } : { right: "50%", width };
+}
+
+function toggleMetric(base: string): void {
+  expanded.value = { ...expanded.value, [base]: !expanded.value[base] };
 }
 
 async function loadAnalysis(): Promise<void> {
@@ -156,7 +148,9 @@ async function loadAnalysis(): Promise<void> {
   loading.value = true;
   analysis.value = null;
   unavailableReason.value = null;
-  destroyChart();
+  expanded.value = {};
+  showDetail.value = false;
+  showHelp.value = false;
   try {
     const response = await fetch(`/api/c/${encodeURIComponent(props.slug)}/shap-role`, {
       headers: withAuthHeaders(),
@@ -171,27 +165,16 @@ async function loadAnalysis(): Promise<void> {
     // première collecte (ce serait faux pour un simple échec de chargement).
     if (sequence === requestSequence) unavailableReason.value = "fetch_failed";
   } finally {
-    if (sequence === requestSequence) {
-      loading.value = false;
-      await nextTick();
-      await renderChart();
-    }
+    if (sequence === requestSequence) loading.value = false;
   }
 }
 
-async function toggleSort(): Promise<void> {
+function toggleSort(): void {
   sort.value = sort.value === "abs" ? "val" : "abs";
-  await renderChart();
 }
 
-async function toggleCategory(): Promise<void> {
+function toggleCategory(): void {
   categoryFilter.value = categoryFilter.value === "all" ? "actionable" : "all";
-  // Ce filtre peut faire passer visibleDrivers à/depuis zéro élément : le
-  // canvas vit derrière un v-if sur ce compte (cf. template), donc attendre
-  // le patch DOM avant renderChart() garantit que `canvas` pointe sur
-  // l'élément réel (recréé le cas échéant), jamais sur un noeud détaché.
-  await nextTick();
-  await renderChart();
 }
 
 function goToAccount(targetSlug: string): void {
@@ -201,7 +184,6 @@ function goToAccount(targetSlug: string): void {
 watch(() => props.slug, loadAnalysis);
 watch(() => props.reloadToken, loadAnalysis);
 onMounted(loadAnalysis);
-onBeforeUnmount(destroyChart);
 </script>
 
 <template>
@@ -276,6 +258,15 @@ onBeforeUnmount(destroyChart);
         </div>
         <div class="spacer"></div>
         <button
+          class="btn btn-sort-shap shap-help-toggle"
+          type="button"
+          :aria-expanded="showHelp === true"
+          title="What the axis, the colours and the aggregations mean"
+          @click="showHelp = !showHelp"
+        >
+          How to read this
+        </button>
+        <button
           class="btn btn-sort-shap btn-refresh-shap"
           :class="{ 'is-syncing': sync.syncing, 'is-cooling': sync.cooling }"
           :disabled="sync.syncing || sync.cooling"
@@ -288,15 +279,6 @@ onBeforeUnmount(destroyChart);
           </svg>
           {{ refreshLabel }}
         </button>
-        <button class="btn btn-sort-shap" type="button" @click="toggleCategory">
-          {{ categoryFilter === "all" ? "All" : "Actionable factors only" }}
-        </button>
-        <button class="btn btn-sort-shap" type="button" @click="toggleSort">
-          <svg class="shap-sort-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
-            <path d="M3 3a1 1 0 000 2h11a1 1 0 100-2H3zM3 7a1 1 0 000 2h7a1 1 0 100-2H3zM3 11a1 1 0 100 2h4a1 1 0 100-2H3zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z"/>
-          </svg>
-          {{ sort === "abs" ? "Sort by impact" : "Sort by value" }}
-        </button>
       </div>
 
       <div class="shap-context-band">
@@ -304,39 +286,200 @@ onBeforeUnmount(destroyChart);
         <span v-if="analysis.generated_at">generated {{ formatDate(analysis.generated_at) }}</span>
       </div>
 
+      <div v-if="showHelp" class="shap-help-panel">
+        <p class="shap-gauge-note">
+          Log-odds scale, shown from -{{ GAUGE_MAX_LOGIT }} to +{{ GAUGE_MAX_LOGIT }}; zero is the boundary the
+          model learned. A relative position, not a predicted rank or a probability.
+        </p>
+        <p class="section-hint">
+          Every published factor, summed by area. This is the breakdown of your score, not a to-do list.
+        </p>
+        <p class="section-hint">
+          The model publishes each metric five times (average, typical game, both extremes, swing
+          between games) and a row sums them. Open a row for its definition and its five values.
+        </p>
+        <div class="shap-legend-strip">
+          <div class="shap-legend-item">
+            <span class="legend-box legend-box--gold" aria-hidden="true"></span>
+            <span><strong>To the right</strong>: moves you closer to the apex</span>
+          </div>
+          <div class="shap-legend-item">
+            <span class="legend-box legend-box--loss" aria-hidden="true"></span>
+            <span><strong>To the left</strong>: moves you away from it</span>
+          </div>
+          <div class="shap-legend-item">
+            <span class="metric-tag">context</span>
+            <span>describes your game window and is never presented as something to fix</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Le score reste un logit, jamais converti en probabilité ni en rang.
+           Le seul repère porté par l'axe est le zéro, qui est la frontière
+           apprise par le modèle : un point que le modèle connaît vraiment. -->
       <div class="shap-score-block">
-        <span class="shap-score-label">Apex proximity</span>
-        <strong class="shap-score-value">{{ analysis.logit !== null && analysis.logit !== undefined ? formatLogit(analysis.logit) : "?" }}</strong>
-        <span v-if="analysis.model?.boundary" class="shap-score-boundary">{{ boundaryLabel(analysis.model.boundary) }} boundary</span>
+        <div class="shap-score-head">
+          <span class="shap-score-label">Apex proximity</span>
+          <strong class="shap-score-value">{{ analysis.logit !== null && analysis.logit !== undefined ? formatLogit(analysis.logit) : "?" }}</strong>
+          <span v-if="analysis.model?.boundary" class="shap-score-boundary">{{ boundaryLabel(analysis.model.boundary) }} boundary</span>
+        </div>
+        <div class="shap-gauge">
+          <span class="gauge-end">Diamond</span>
+          <div class="gauge-track">
+            <span class="gauge-zero" aria-hidden="true"></span>
+            <span class="shap-gauge-cursor" :style="{ left: gaugeLeft }" aria-hidden="true"></span>
+          </div>
+          <span class="gauge-end gauge-end--high">GM+</span>
+        </div>
+        <p v-if="verdict" class="shap-verdict">{{ verdict }}</p>
         <span v-if="analysis.model?.auc_heldout_median !== undefined" class="shap-score-meta">
           {{ roleLabel(analysis.role) }} EBM · median AUC {{ analysis.model.auc_heldout_median }} across {{ analysis.model.n_seeds ?? "?" }} runs
         </span>
       </div>
 
-      <div class="shap-legend-strip">
-        <div class="shap-legend-item">
-          <span class="legend-box legend-box--gold" aria-hidden="true"></span>
-          <span><strong>Positive contribution</strong>: factors that move you closer to the apex</span>
+      <section v-if="themeRows.length" class="shap-section">
+        <h3 class="section-title">Where your score comes from</h3>
+        <div v-for="theme in themeRows" :key="theme.theme" class="shap-theme-row">
+          <span class="theme-label">{{ theme.label }}</span>
+          <div class="bar-track">
+            <span
+              class="bar"
+              :class="theme.net >= 0 ? 'bar--pos' : 'bar--neg'"
+              :style="barStyle(theme.net, maxThemeWeight)"
+            ></span>
+          </div>
+          <span class="theme-net" :class="theme.net >= 0 ? 'is-pos' : 'is-neg'">{{ formatContribution(theme.net) }}</span>
         </div>
-        <div class="shap-legend-item">
-          <span class="legend-box legend-box--loss" aria-hidden="true"></span>
-          <span><strong>Negative contribution</strong>: factors that move you away from the apex</span>
-        </div>
-        <div class="shap-legend-item">
-          <span><strong>“(context)”</strong> in a label: describes your game window and is never presented as something to improve</span>
-        </div>
-      </div>
+      </section>
 
-      <p class="muted shap-explainer-text">
-        Exact Explainable Boosting Machine (EBM) breakdown: each bar measures that metric's marginal contribution (log-odds) to your apex proximity. Factors marked “(context)” describe your game window and are not improvement targets; the others are actionable.
-      </p>
+      <section v-if="strengthViews.length || leverViews.length" class="shap-highlights">
+        <div class="highlight-column">
+          <h3 class="section-title">What the model credits you for</h3>
+          <article
+            v-for="view in strengthViews"
+            :key="view.group.base"
+            class="shap-highlight shap-highlight--strength"
+          >
+            <div class="highlight-head">
+              <span class="highlight-label">{{ view.group.label }}</span>
+              <span class="highlight-net is-pos">{{ formatContribution(view.group.net) }}</span>
+            </div>
+            <p v-if="view.read" class="highlight-read">
+              <strong>{{ view.read.aggregation }}</strong>: {{ view.read.value
+              }}<span v-if="view.read.crossover">, {{ view.read.crossover }}</span>. {{ view.read.hint }}.
+            </p>
+          </article>
+        </div>
+        <div class="highlight-column">
+          <h3 class="section-title">What costs you the most</h3>
+          <article
+            v-for="view in leverViews"
+            :key="view.group.base"
+            class="shap-highlight shap-highlight--lever"
+          >
+            <div class="highlight-head">
+              <span class="highlight-label">{{ view.group.label }}</span>
+              <span class="highlight-net is-neg">{{ formatContribution(view.group.net) }}</span>
+            </div>
+            <p v-if="view.read" class="highlight-read">
+              <strong>{{ view.read.aggregation }}</strong>: {{ view.read.value
+              }}<span v-if="view.read.crossover">, {{ view.read.crossover }}</span>. {{ view.read.hint }}.
+            </p>
+          </article>
+        </div>
+      </section>
 
-      <div v-if="visibleDrivers.length" class="shap-wrap"><canvas ref="canvas"></canvas></div>
-      <p v-else class="shap-empty">
-        {{ analysis.drivers.length === 0
-          ? "No factors were published for this game window."
-          : "No actionable factors among the published data. Switch back to “All” to view context factors." }}
-      </p>
+      <section class="shap-section">
+        <button
+          class="shap-detail-toggle"
+          type="button"
+          :aria-expanded="showDetail === true"
+          @click="showDetail = !showDetail"
+        >
+          <span class="metric-chevron" :class="{ 'is-open': showDetail }" aria-hidden="true">›</span>
+          <span class="section-title">Every published metric ({{ allGroups.length }})</span>
+        </button>
+
+        <div v-if="showDetail" class="shap-detail-body">
+          <div class="section-head">
+            <div class="spacer"></div>
+            <button class="btn btn-sort-shap" type="button" @click="toggleCategory">
+              {{ categoryFilter === "all" ? "All" : "Actionable factors only" }}
+            </button>
+            <button class="btn btn-sort-shap" type="button" @click="toggleSort">
+              <svg class="shap-sort-icon" viewBox="0 0 20 20" width="14" height="14" fill="currentColor" aria-hidden="true">
+                <path d="M3 3a1 1 0 000 2h11a1 1 0 100-2H3zM3 7a1 1 0 000 2h7a1 1 0 100-2H3zM3 11a1 1 0 100 2h4a1 1 0 100-2H3zM15 8a1 1 0 10-2 0v5.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L15 13.586V8z"/>
+              </svg>
+              {{ sort === "abs" ? "Sort by impact" : "Sort by value" }}
+            </button>
+          </div>
+
+          <div v-if="visibleRows.length" class="shap-metric-list">
+            <div v-for="view in visibleRows" :key="view.group.base" class="shap-metric-row">
+              <button
+                class="metric-head"
+                type="button"
+                :aria-expanded="expanded[view.group.base] === true"
+                @click="toggleMetric(view.group.base)"
+              >
+                <span class="metric-title">
+                  <span class="metric-label">{{ view.group.label }}</span>
+                  <span v-if="!view.group.actionable" class="metric-tag">context</span>
+                </span>
+                <div class="bar-track">
+                  <span
+                    class="bar"
+                    :class="view.group.net >= 0 ? 'bar--pos' : 'bar--neg'"
+                    :style="barStyle(view.group.net, maxMetricWeight)"
+                  ></span>
+                </div>
+                <span class="metric-net" :class="view.group.net >= 0 ? 'is-pos' : 'is-neg'">
+                  {{ formatContribution(view.group.net) }}
+                </span>
+                <span class="metric-chevron" :class="{ 'is-open': expanded[view.group.base] }" aria-hidden="true">›</span>
+              </button>
+
+              <!-- Chaque fragment est un élément : le conteneur flex pose
+                   l'espacement, sans dépendre des noeuds de texte que Vue
+                   condense entre deux balises. -->
+              <p v-if="view.read && expanded[view.group.base]" class="metric-read">
+                <span><strong>{{ view.read.aggregation }}</strong>: {{ view.read.value }}</span>
+                <span v-if="view.read.crossover" class="metric-cross">· {{ view.read.crossover }}</span>
+                <span class="metric-sense">· {{ view.read.hint }}</span>
+              </p>
+
+              <div v-if="expanded[view.group.base]" class="metric-parts">
+                <p class="metric-definition">{{ view.group.description }}</p>
+                <div class="metric-parts-header">
+                  <span>aggregation</span>
+                  <span>your value</span>
+                  <span>tipping point</span>
+                  <span class="part-contribution">contribution</span>
+                  <span>feature</span>
+                </div>
+                <div v-for="part in view.group.parts" :key="part.feature" class="metric-part">
+                  <span class="part-agg">{{ part.aggregationLabel ?? "over the window" }}</span>
+                  <span class="part-value">
+                    {{ part.value === null ? "no value" : formatFeatureValue(part.value, part.unit) }}
+                  </span>
+                  <span class="part-crossover">
+                    {{ part.crossover === null ? "none" : formatFeatureValue(part.crossover, part.unit) }}
+                  </span>
+                  <span class="part-contribution" :class="part.contribution >= 0 ? 'is-pos' : 'is-neg'">
+                    {{ formatContribution(part.contribution) }}
+                  </span>
+                  <code class="part-technical">{{ part.feature }}</code>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p v-else class="shap-empty">
+            {{ drivers.length === 0
+              ? "No factors were published for this game window."
+              : "No actionable factors among the published data. Switch back to “All” to view context factors." }}
+          </p>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -348,9 +491,10 @@ onBeforeUnmount(destroyChart);
 
 .shap-empty-card {
   padding: 32px 28px;
-  background: var(--panel-card);
-  border: 1px solid var(--border-soft);
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
   text-align: center;
   max-width: 680px;
   margin: 20px auto;
@@ -363,7 +507,7 @@ onBeforeUnmount(destroyChart);
 }
 
 .shap-unavail-sub {
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   line-height: 1.5;
   max-width: 500px;
   margin: 0 auto 24px;
@@ -387,7 +531,7 @@ onBeforeUnmount(destroyChart);
 }
 
 .demo-guidance-title {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .03em;
@@ -432,13 +576,13 @@ onBeforeUnmount(destroyChart);
 }
 
 .demo-shap-name {
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 750;
   color: var(--text);
 }
 
 .demo-shap-desc {
-  font-size: 11px;
+  font-size: var(--fs-label);
   color: var(--text-faint);
 }
 
@@ -449,9 +593,10 @@ onBeforeUnmount(destroyChart);
 
 .shap-active-card {
   padding: 24px;
-  background: var(--panel-card);
-  border: 1px solid var(--border-soft);
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
 }
 
 .shap-header-row {
@@ -462,10 +607,16 @@ onBeforeUnmount(destroyChart);
   flex-wrap: wrap;
 }
 
+.shap-header-row h2 {
+  color: var(--text);
+  font-size: var(--fs-title);
+  letter-spacing: -.03em;
+}
+
 .eyebrow-shap {
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 800;
-  letter-spacing: .06em;
+  letter-spacing: .08em;
   color: var(--primary);
   text-transform: uppercase;
   margin-bottom: 2px;
@@ -475,7 +626,7 @@ onBeforeUnmount(destroyChart);
   display: inline-flex;
   align-items: center;
   padding: 6px 12px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 650;
 }
 
@@ -505,25 +656,34 @@ onBeforeUnmount(destroyChart);
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--text-dim);
   background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: 8px;
 }
 
+/* ---- Couche 1 : le score situé ---- */
+
 .shap-score-block {
+  margin: 0 0 22px;
+  padding: 18px 20px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+}
+
+.shap-score-head {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: 4px 16px;
-  margin: 0 0 14px;
 }
 
 .shap-score-label {
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: .05em;
   text-transform: uppercase;
@@ -531,26 +691,262 @@ onBeforeUnmount(destroyChart);
 }
 
 .shap-score-value {
-  font-size: 24px;
+  font-size: 30px;
   font-weight: 800;
   color: var(--ink);
+  line-height: 1.1;
 }
 
 .shap-score-boundary {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--text-dim);
 }
 
-.shap-score-meta {
-  flex-basis: 100%;
-  font-size: 11px;
+.shap-gauge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 8px;
+}
+
+.gauge-end {
+  flex-shrink: 0;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
   color: var(--text-faint);
 }
+
+.gauge-track {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--loss-soft) 0 50%, var(--gold-soft) 50% 100%);
+  border: 1px solid var(--border);
+}
+
+.gauge-zero {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-1px);
+  background: var(--border-strong);
+}
+
+.shap-gauge-cursor {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  background: var(--ink);
+  border: 2px solid var(--paper);
+  box-shadow: var(--card-shadow);
+}
+
+.shap-gauge-note {
+  margin: 0;
+  font-size: var(--fs-label);
+  color: var(--text-faint);
+}
+
+/* La phrase du premier coup d'oeil : une seule, sous la jauge, en taille de
+   lecture et non en taille de note de bas de page. */
+.shap-verdict {
+  margin: 10px 0 0;
+  font-size: var(--fs-body-sm);
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.shap-help-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.shap-help-panel .section-hint,
+.shap-help-panel .shap-legend-strip { margin: 0; }
+
+.shap-detail-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.shap-detail-toggle:hover { border-color: var(--border-strong, var(--border)); }
+
+.shap-detail-toggle .section-title { margin: 0; }
+
+.shap-detail-body { margin-top: 12px; }
+
+.shap-score-meta {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--fs-label);
+  color: var(--text-faint);
+}
+
+/* ---- Couches 2 et 4 : sections, barres divergentes ---- */
+
+.shap-section {
+  margin: 0 0 22px;
+}
+
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.section-head .spacer { flex: 1; }
+
+.section-title {
+  margin: 0 0 4px;
+  font-size: var(--fs-body);
+  font-weight: 750;
+  color: var(--text);
+}
+
+.section-hint {
+  margin: 0 0 12px;
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--text-dim);
+  max-width: 720px;
+}
+
+.bar-track {
+  position: relative;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.bar-track::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--border-strong);
+}
+
+.bar {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 3px;
+}
+
+.bar--pos { background: var(--gold); }
+.bar--neg { background: var(--danger); }
+
+.is-pos { color: var(--gold-deep, var(--gold)); }
+.is-neg { color: var(--danger); }
+
+.shap-theme-row {
+  display: grid;
+  grid-template-columns: 170px 1fr 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.theme-label {
+  font-size: var(--fs-body-sm);
+  font-weight: 650;
+  color: var(--text);
+}
+
+.theme-net,
+.metric-net {
+  font-size: var(--fs-small);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---- Couche 3 : forces et leviers ---- */
+
+.shap-highlights {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 0 0 22px;
+}
+
+.highlight-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shap-highlight {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: var(--panel);
+  border-left-width: 3px;
+}
+
+.shap-highlight--strength { border-left-color: var(--gold); }
+.shap-highlight--lever { border-left-color: var(--danger); }
+
+.highlight-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.highlight-label {
+  flex: 1;
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.highlight-net {
+  font-size: var(--fs-small);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.highlight-read {
+  margin: 6px 0 0;
+  font-size: var(--fs-small);
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+/* ---- Couche 4 : le détail par métrique ---- */
 
 .shap-legend-strip {
   display: flex;
   gap: 18px;
-  margin: 8px 0 14px;
+  margin: 0 0 12px;
   padding: 10px 14px;
   background: var(--surface-alt);
   border-radius: 8px;
@@ -562,7 +958,7 @@ onBeforeUnmount(destroyChart);
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--text-dim);
 }
 
@@ -575,24 +971,141 @@ onBeforeUnmount(destroyChart);
 .legend-box--gold { background: var(--gold); }
 .legend-box--loss { background: var(--danger); }
 
-.shap-explainer-text {
-  font-size: 13px;
-  line-height: 1.55;
-  margin: 0 0 16px;
-  max-width: 860px;
+.shap-metric-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.shap-wrap {
-  height: 560px;
-  position: relative;
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  padding: 16px;
+.shap-metric-row {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+.shap-metric-row:hover {
+  background: var(--surface-alt);
+  border-color: var(--border);
+}
+
+.metric-head {
+  display: grid;
+  grid-template-columns: 1fr 180px 64px 16px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.metric-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.metric-label {
+  font-size: var(--fs-body-sm);
+  font-weight: 650;
+  color: var(--text);
+}
+
+.metric-tag {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.metric-chevron {
+  color: var(--text-faint);
+  transition: var(--transition-transform-fast, transform .15s ease);
+}
+
+.metric-chevron.is-open { transform: rotate(90deg); }
+
+.metric-read {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  margin: 4px 0 0;
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.metric-cross { color: var(--text); }
+
+.metric-parts {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.metric-definition {
+  margin: 0 0 8px;
+  font-size: var(--fs-small);
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.metric-part,
+.metric-parts-header {
+  display: grid;
+  grid-template-columns: 150px 1fr 1fr 92px minmax(0, 200px);
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: var(--fs-label);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.part-agg {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.metric-parts-header {
+  padding-bottom: 5px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.part-contribution {
+  font-weight: 750;
+  text-align: right;
+}
+
+.part-technical {
+  font-size: var(--fs-micro);
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shap-empty {
-  padding: 48px 20px;
+  padding: 40px 20px;
   line-height: 1.7;
   text-align: center;
   color: var(--text-dim);
@@ -602,9 +1115,22 @@ onBeforeUnmount(destroyChart);
 }
 
 @media (max-width: 860px) {
-  .shap-wrap {
-    height: 440px;
-    padding: 10px;
-  }
+  .shap-active-card { padding: 16px; }
+
+  .shap-highlights { grid-template-columns: 1fr; }
+
+  /* Libellé et valeur sur la même ligne, barre en dessous : sans placement
+     explicite, la valeur tombe sur une troisième ligne à elle seule. */
+  .shap-theme-row { grid-template-columns: 1fr auto; }
+  .shap-theme-row .theme-label { grid-area: 1 / 1; }
+  .shap-theme-row .theme-net { grid-area: 1 / 2; }
+  .shap-theme-row .bar-track { grid-area: 2 / 1 / 3 / -1; }
+
+  .metric-head { grid-template-columns: 1fr 64px 16px; }
+  .metric-head .bar-track { grid-column: 1 / -1; grid-row: 2; }
+
+    .metric-part,
+  .metric-parts-header { grid-template-columns: 1fr 1fr; }
+  .part-technical { display: none; }
 }
 </style>

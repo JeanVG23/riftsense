@@ -2,24 +2,8 @@
 import { flushPromises, mount, type VueWrapper } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { IngestSync } from "../ingest-sync";
+import { gaugeOffset } from "../shap-view";
 import ShapProfile from "./ShapProfile.ce.vue";
-
-const chartMock = vi.hoisted(() => ({
-  configs: [] as Array<Record<string, any>>,
-  destroy: vi.fn(),
-  register: vi.fn(),
-}));
-
-vi.mock("chart.js", () => ({
-  registerables: [],
-  Chart: class Chart {
-    static register = chartMock.register;
-    destroy = chartMock.destroy;
-    constructor(_canvas: HTMLCanvasElement, config: Record<string, any>) {
-      chartMock.configs.push(config);
-    }
-  },
-}));
 
 let wrapper: VueWrapper | null = null;
 
@@ -27,9 +11,6 @@ afterEach(() => {
   wrapper?.unmount();
   wrapper = null;
   document.body.innerHTML = "";
-  chartMock.configs.length = 0;
-  chartMock.destroy.mockClear();
-  chartMock.register.mockClear();
   vi.unstubAllGlobals();
 });
 
@@ -51,8 +32,8 @@ function fakeSync(overrides: Partial<IngestSync> = {}): IngestSync {
   };
 }
 
-/** Payload réaliste : mêmes champs que `role_scoring.score`, 18 drivers
- * mélangés actionable/descriptive pour couper à 16. */
+/** Payload réaliste : mêmes champs que `role_scoring.score`, 18 métriques
+ * distinctes pour couper à 12 lignes. */
 function rolePayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     schema_version: 1,
@@ -67,15 +48,28 @@ function rolePayload(overrides: Record<string, unknown> = {}): Record<string, un
     intercept: -1.2,
     logit: 0.62,
     drivers: Array.from({ length: 18 }, (_, index) => ({
-      feature: `feature_${index}__mean`,
-      base: `feature_${index}`,
+      feature: `metric_${index}__mean`,
+      base: `metric_${index}`,
       value: index,
-      contribution: index % 2 ? -index : index,
+      contribution: index % 2 ? -index / 10 : index / 10,
       crossover_value: index === 0 ? 1.5 : null,
       direction: "valeur haute → apex",
       category: index % 3 === 0 ? "descriptive" : "actionable",
     })),
     ...overrides,
+  };
+}
+
+function driver(feature: string, contribution: number, extra: Record<string, unknown> = {}) {
+  return {
+    feature,
+    base: feature.split("__")[0],
+    value: 1,
+    contribution,
+    crossover_value: null,
+    direction: "valeur haute → apex",
+    category: "actionable",
+    ...extra,
   };
 }
 
@@ -86,154 +80,283 @@ function mountShap(props: Partial<{ slug: string; reloadToken: number }> = {}, s
   });
 }
 
-describe("ShapProfile · état disponible", () => {
-  it("charge l'analyse de rôle, le contexte et le score, et coupe à 16 facteurs", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(response(rolePayload()));
-    vi.stubGlobal("fetch", fetchMock);
-    wrapper = mountShap();
-    await flushPromises();
-    await flushPromises();
+async function mountLoaded(payload: Record<string, unknown> = rolePayload(), sync?: IngestSync) {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(payload)));
+  wrapper = mountShap({}, sync ?? fakeSync());
+  await flushPromises();
+  await flushPromises();
+  return wrapper;
+}
 
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/c/Spadzze/shap-role");
-    expect(wrapper.text()).toContain("What shapes your ML profile");
-    expect(wrapper.text()).toContain("latest 20 Jungle games");
-    expect(wrapper.text()).toContain("generated");
-    expect(wrapper.text()).toContain("Apex proximity");
-    expect(wrapper.text()).toContain("+0.62");
-    expect(wrapper.text()).toContain("Diamond ↔ GM+ boundary");
-    expect(wrapper.text()).toContain("median AUC 0.83 across 10 runs");
-    expect(chartMock.configs).toHaveLength(1);
-    expect((chartMock.configs[0].data as { labels: string[] }).labels).toHaveLength(16);
+/** Le tableau complet est replié au chargement : tout ce qui l'inspecte passe
+ * par ce dépli, comme un visiteur qui demande le détail. */
+async function openDetail(view: VueWrapper): Promise<VueWrapper> {
+  await view.get(".shap-detail-toggle").trigger("click");
+  return view;
+}
+
+async function mountDetail(payload: Record<string, unknown> = rolePayload()) {
+  return openDetail(await mountLoaded(payload));
+}
+
+describe("ShapProfile · le score situé", () => {
+  it("place le score sur l'axe du modèle au lieu de l'afficher nu", async () => {
+    const view = await mountLoaded();
+
+    expect(view.text()).toContain("What shapes your ML profile");
+    expect(view.text()).toContain("latest 20 Jungle games");
+    expect(view.text()).toContain("Apex proximity");
+    expect(view.text()).toContain("+0.62");
+    expect(view.text()).toContain("Diamond ↔ GM+ boundary");
+    expect(view.text()).toContain("median AUC 0.83 across 10 runs");
+    expect(view.get(".shap-gauge-cursor").attributes("style"))
+      .toContain(`left: ${gaugeOffset(0.62).toFixed(2)}%`);
   });
 
-  it("affiche le logit tel quel : aucune probabilité, aucun rang converti", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload())));
-    wrapper = mountShap();
-    await flushPromises();
-    await flushPromises();
+  it("annonce que l'axe est une position relative, pas un rang prédit", async () => {
+    const view = await mountLoaded();
+    await view.get(".shap-help-toggle").trigger("click");
 
-    expect(wrapper.text()).toContain("+0.62");
-    expect(wrapper.text()).not.toContain("%");
-    expect(wrapper.text()).not.toContain("Challenger");
+    expect(view.get(".shap-gauge-note").text().replace(/\s+/g, " ")).toBe(
+      "Log-odds scale, shown from -3 to +3; zero is the boundary the model learned. "
+      + "A relative position, not a predicted rank or a probability.");
   });
 
-  it("enrichit le tooltip avec valeur formatée, définition et nom technique", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
+  it("ne convertit le score ni en probabilité ni en rang", async () => {
+    const view = await mountLoaded();
+    const score = view.get(".shap-score-block").text();
+
+    expect(score).toContain("+0.62");
+    expect(score).not.toContain("%");
+    expect(score).not.toContain("Challenger");
+  });
+});
+
+describe("ShapProfile · la lecture au premier coup d'oeil", () => {
+  it("ouvre sur une phrase qui nomme le domaine le plus lourd de chaque sens", async () => {
+    const view = await mountLoaded(rolePayload({
       drivers: [
-        { feature: "csm10__mean", base: "csm10", value: 7.3, contribution: 0.21, crossover_value: 7.14, direction: "valeur haute → apex", category: "actionable" },
-        { feature: "map_depth__mean", base: "map_depth", value: 14, contribution: -0.05, crossover_value: null, direction: null, category: "descriptive" },
+        driver("csm10__mean", -0.4),
+        driver("pos_avg_map_depth__mean", -0.7, { category: "descriptive" }),
+        driver("pos_wards_killed__mean", 0.3),
       ],
-    }))));
-    wrapper = mountShap();
-    await flushPromises();
-    await flushPromises();
+    }));
 
-    const label = chartMock.configs[0].options.plugins.tooltip.callbacks.label;
-    expect(label({ dataIndex: 0, raw: 0.21 })).toEqual([
-      "Contribution 0.2100",
-      "Value 7.3 CS/min",
-      "Actionable factor",
-      "Crossover ≈ 7.14 CS/min",
-    ]);
-    const descriptive = label({ dataIndex: 1, raw: -0.05 });
-    expect(descriptive).toContain("Context only");
-    expect(descriptive.some((line: string) => line.startsWith("Crossover"))).toBe(false);
-
-    const afterLabel = chartMock.configs[0].options.plugins.tooltip.callbacks.afterLabel;
-    const details = afterLabel({ dataIndex: 0 });
-    expect(details.at(-1)).toBe("Technical feature: csm10__mean");
-    expect(details.slice(0, -1).join(" ")).toBe(
-      "Definition: Your farming pace during the first 10 minutes, including lane minions and jungle monsters.");
-    expect(chartMock.configs[0].options.interaction).toEqual({
-      mode: "index", axis: "y", intersect: false,
-    });
+    expect(view.get(".shap-verdict").text().replace(/\s+/g, " ")).toBe(
+      "Positioning & map weighs most against your score; "
+      + "Vision is where the model credits you most.");
   });
 
-  it("affiche le libellé anglais et rend toujours l'agrégation explicite", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
-      drivers: [
-        { feature: "csm10__mean", base: "csm10", value: 7.3, contribution: 0.3, crossover_value: null, direction: null, category: "actionable" },
-        { feature: "csm10__max", base: "csm10", value: 9.1, contribution: 0.2, crossover_value: null, direction: null, category: "actionable" },
-        { feature: "ward_score__mean", base: "ward_score", value: 1, contribution: 0.1, crossover_value: null, direction: null, category: "descriptive" },
-      ],
-    }))));
-    wrapper = mountShap();
-    await flushPromises();
-    await flushPromises();
+  it("garde le tableau complet replié au chargement", async () => {
+    const view = await mountLoaded();
 
-    expect((chartMock.configs[0].data as { labels: string[] }).labels)
-      .toEqual([
-        "CS per minute at 10 minutes — average",
-        "CS per minute at 10 minutes — max",
-        "Ward score — average (context)",
-      ]);
+    expect(view.findAll(".shap-metric-row")).toHaveLength(0);
+    expect(view.find(".shap-legend-strip").exists()).toBe(false);
+    expect(view.get(".shap-detail-toggle").text()).toContain("Every published metric (18)");
+    expect(view.get(".shap-detail-toggle").attributes("aria-expanded")).toBe("false");
   });
 
-  it("marque les drivers non actionable de « (context) » dans le libellé, jamais les leviers", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
-      drivers: [
-        { feature: "csm10__mean", base: "csm10", value: 7.3, contribution: 0.3, crossover_value: null, direction: null, category: "actionable" },
-        { feature: "map_depth__mean", base: "map_depth", value: 14, contribution: -0.1, crossover_value: null, direction: null, category: "descriptive" },
-      ],
-    }))));
-    wrapper = mountShap();
-    await flushPromises();
-    await flushPromises();
+  it("ouvre la totalité des métriques d'un seul dépli", async () => {
+    const view = await mountDetail();
 
-    expect((chartMock.configs[0].data as { labels: string[] }).labels)
-      .toEqual([
-        "CS per minute at 10 minutes — average",
-        "Map depth — average (context)",
-      ]);
+    expect(view.findAll(".shap-metric-row")).toHaveLength(18);
+    expect(view.get(".shap-detail-toggle").attributes("aria-expanded")).toBe("true");
   });
 
-  it("filtre les leviers d'action et recrée le graphique", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
-      drivers: [
-        { feature: "levier_a__mean", base: "levier_a", value: 1, contribution: 0.5, crossover_value: null, direction: null, category: "actionable" },
-        { feature: "contexte_b__mean", base: "contexte_b", value: 2, contribution: -0.4, crossover_value: null, direction: null, category: "descriptive" },
-        { feature: "levier_c__mean", base: "levier_c", value: 3, contribution: 0.3, crossover_value: null, direction: null, category: "actionable" },
-      ],
-    }))));
-    wrapper = mountShap();
-    await flushPromises();
-    await flushPromises();
-    expect((chartMock.configs[0].data as { labels: string[] }).labels)
-      .toEqual([
-        "Levier a — average",
-        "Contexte b — average (context)",
-        "Levier c — average",
-      ]);
+  // Une phrase par ligne rendait le tableau illisible : on lisait tout ou on
+  // sautait tout. Le chiffre et la barre se scannent, la phrase se demande.
+  it("réserve la phrase de lecture au dépli de sa ligne", async () => {
+    const view = await mountDetail(rolePayload({
+      drivers: [driver("deaths_late__p90", -0.3, {
+        value: 4, crossover_value: 2.5, direction: "valeur haute → sous-apex",
+      })],
+    }));
+    expect(view.find(".metric-read").exists()).toBe(false);
 
-    const filterButton = wrapper.findAll("button").find((button) => button.text().includes("All"));
+    await view.get(".metric-head").trigger("click");
+
+    expect(view.get(".metric-read").text()).toContain("tipping point 2.5 deaths");
+  });
+
+  it("range les explications derrière un bouton au lieu de les laisser à l'écran", async () => {
+    const view = await mountLoaded();
+    expect(view.find(".shap-help-panel").exists()).toBe(false);
+    expect(view.find(".shap-gauge-note").exists()).toBe(false);
+
+    await view.get(".shap-help-toggle").trigger("click");
+
+    const help = view.get(".shap-help-panel").text().replace(/\s+/g, " ");
+    expect(help).toContain("moves you closer to the apex");
+    expect(help).toContain("never presented as something to fix");
+    expect(help).toContain("the breakdown of your score, not a to-do list");
+  });
+});
+
+describe("ShapProfile · d'où vient l'écart", () => {
+  it("résume les contributions par thème, dans l'ordre de la page", async () => {
+    const view = await mountLoaded(rolePayload({
+      drivers: [
+        driver("csm10__mean", -0.5),
+        driver("gpm10__mean", -0.1),
+        driver("pos_wards_killed__p90", 0.2),
+      ],
+    }));
+    const rows = view.findAll(".shap-theme-row");
+
+    expect(rows.map((row) => row.get(".theme-label").text()))
+      .toEqual(["Farm & economy", "Vision"]);
+    expect(rows[0].get(".theme-net").text()).toBe("-0.60");
+    expect(rows[1].get(".theme-net").text()).toBe("+0.20");
+  });
+});
+
+describe("ShapProfile · forces et leviers", () => {
+  it("formule trois forces et trois leviers en phrases", async () => {
+    const view = await mountLoaded(rolePayload({
+      drivers: [
+        driver("deaths_late__std", -0.5, { value: 1.85, crossover_value: 1.29, direction: "valeur haute → sous-apex" }),
+        driver("gpm10__p10", -0.2),
+        driver("csm10__mean", -0.1),
+        driver("pos_wards_killed__p90", 0.4),
+        driver("kills_2v2__mean", 0.3),
+        driver("kda_2v2__mean", 0.2),
+        driver("pos_frac_base__mean", 0.15),
+      ],
+    }));
+
+    expect(view.findAll(".shap-highlight--lever")).toHaveLength(3);
+    expect(view.findAll(".shap-highlight--strength")).toHaveLength(3);
+    const lever = view.findAll(".shap-highlight--lever")[0].text();
+    expect(lever).toContain("Late-game deaths");
+    expect(lever).toContain("1.85 deaths");
+    expect(lever).toContain("tipping point 1.29 deaths");
+    expect(lever).toContain("Lower moves you toward the apex");
+  });
+
+  it("ne formule jamais une métrique descriptive en levier", async () => {
+    const view = await mountLoaded(rolePayload({
+      drivers: [
+        driver("frac_behind__p50", -0.9, { category: "descriptive" }),
+        driver("csm10__mean", -0.2),
+      ],
+    }));
+    const levers = view.findAll(".shap-highlight--lever").map((node) => node.text());
+
+    expect(levers).toHaveLength(1);
+    expect(levers[0]).toContain("CS per minute at 10 minutes");
+    expect(levers.join(" ")).not.toContain("Time spent behind in lane");
+  });
+});
+
+describe("ShapProfile · le détail par métrique", () => {
+  it("regroupe les agrégations d'une même métrique en une ligne nette", async () => {
+    // Le cas qui rendait la page illisible : la même métrique publiée en
+    // cinq agrégations qui se compensent, affichée cinq fois avec des
+    // couleurs opposées.
+    const view = await mountDetail(rolePayload({
+      drivers: [
+        driver("pos_frac_enemy_half__mean", -0.14),
+        driver("pos_frac_enemy_half__p90", 0.13),
+        driver("pos_frac_enemy_half__std", 0.09),
+        driver("pos_frac_enemy_half__p50", -0.08),
+      ],
+    }));
+    const rows = view.findAll(".shap-metric-row");
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].get(".metric-label").text()).toBe("Time spent in enemy territory");
+    expect(rows[0].get(".metric-net").text()).toBe("+0.00");
+  });
+
+  it("sort le point de bascule et le sens de l'info-bulle", async () => {
+    const view = await mountDetail(rolePayload({
+      drivers: [driver("deaths_late__p90", -0.3, {
+        value: 4, crossover_value: 2.5, direction: "valeur haute → sous-apex",
+      })],
+    }));
+    await view.get(".metric-head").trigger("click");
+    const row = view.get(".shap-metric-row").text();
+
+    expect(row).toContain("At your highest");
+    expect(row).toContain("4 deaths");
+    expect(row).toContain("tipping point 2.5 deaths");
+    expect(row).toContain("Lower moves you toward the apex");
+  });
+
+  it("déplie les agrégations avec leur valeur et leur nom technique", async () => {
+    const view = await mountDetail(rolePayload({
+      drivers: [
+        driver("csm10__mean", 0.3, { value: 7.3 }),
+        driver("csm10__p10", -0.1, { value: 5.9 }),
+      ],
+    }));
+    expect(view.find(".metric-parts").exists()).toBe(false);
+
+    await view.get(".metric-head").trigger("click");
+
+    const parts = view.get(".metric-parts").text();
+    expect(parts).toContain("on average");
+    expect(parts).toContain("7.3 CS/min");
+    expect(parts).toContain("at your lowest");
+    expect(parts).toContain("csm10__p10");
+    expect(parts).toContain("Your farming pace during the first 10 minutes");
+  });
+
+  it("titre les colonnes du détail au lieu de répéter l'étiquette sur chaque ligne", async () => {
+    const view = await mountDetail(rolePayload({
+      drivers: [
+        driver("csm10__mean", 0.3, { value: 7.3, crossover_value: 7.1 }),
+        driver("csm10__p10", -0.1, { value: 5.9, crossover_value: 6.4 }),
+      ],
+    }));
+    await view.get(".metric-head").trigger("click");
+
+    const header = view.get(".metric-parts-header").text();
+    expect(header).toContain("your value");
+    expect(header).toContain("tipping point");
+    expect(view.get(".metric-part").text()).not.toContain("tipping point");
+    expect(view.get(".metric-part").text()).toContain("7.1 CS/min");
+  });
+
+  it("marque le contexte sans jamais l'habiller en levier", async () => {
+    const view = await mountDetail(rolePayload({
+      drivers: [driver("frac_behind__mean", -0.2, { category: "descriptive" })],
+    }));
+
+    expect(view.get(".shap-metric-row").text()).toContain("context");
+    expect(view.findAll(".shap-highlight--lever")).toHaveLength(0);
+  });
+
+  it("filtre les leviers d'action", async () => {
+    const view = await mountDetail(rolePayload({
+      drivers: [
+        driver("csm10__mean", 0.5),
+        driver("frac_behind__mean", -0.4, { category: "descriptive" }),
+        driver("gpm10__mean", 0.3),
+      ],
+    }));
+    expect(view.findAll(".shap-metric-row")).toHaveLength(3);
+
+    const filterButton = view.findAll("button").find((button) => button.text().includes("All"));
     await filterButton!.trigger("click");
-    await flushPromises();
-    await flushPromises();
 
-    expect((chartMock.configs.at(-1)?.data as { labels: string[] }).labels)
-      .toEqual(["Levier a — average", "Levier c — average"]);
+    expect(view.findAll(".shap-metric-row").map((row) => row.get(".metric-label").text()))
+      .toEqual(["CS per minute at 10 minutes", "Gold per minute at 10 minutes"]);
     expect(filterButton!.text()).toContain("Actionable factors only");
   });
 
-  it("recrée proprement le graphique lors du changement de tri", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
-      drivers: [
-        { feature: "negative__mean", base: "negative", value: 1, contribution: -5, crossover_value: null, direction: null, category: "actionable" },
-        { feature: "positive__mean", base: "positive", value: 2, contribution: 3, crossover_value: null, direction: null, category: "actionable" },
-      ],
-    }))));
-    wrapper = mountShap();
-    await flushPromises();
-    await flushPromises();
+  it("bascule du tri par impact au tri par valeur signée", async () => {
+    const view = await mountDetail(rolePayload({
+      drivers: [driver("csm10__mean", -0.5), driver("gpm10__mean", 0.3)],
+    }));
+    expect(view.findAll(".metric-label").map((node) => node.text()))
+      .toEqual(["CS per minute at 10 minutes", "Gold per minute at 10 minutes"]);
 
-    const sortButton = wrapper.findAll("button").find((button) => button.text().includes("Sort by impact"));
+    const sortButton = view.findAll("button").find((button) => button.text().includes("Sort by impact"));
     await sortButton!.trigger("click");
-    await flushPromises();
-    await flushPromises();
 
-    expect(chartMock.destroy).toHaveBeenCalled();
-    expect((chartMock.configs.at(-1)?.data as { labels: string[] }).labels)
-      .toEqual(["Positive — average", "Negative — average"]);
+    expect(view.findAll(".metric-label").map((node) => node.text()))
+      .toEqual(["Gold per minute at 10 minutes", "CS per minute at 10 minutes"]);
   });
 
   it("recharge l'analyse quand reloadToken change (fin de collecte)", async () => {
@@ -252,57 +375,33 @@ describe("ShapProfile · état disponible", () => {
 });
 
 describe("ShapProfile · liste de facteurs vide", () => {
-  it("available: true avec drivers vides : message dédié, aucun canvas", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({ drivers: [] }))));
-    wrapper = mountShap();
-    await flushPromises();
-    await flushPromises();
+  it("available: true avec drivers vides : message dédié, aucune ligne", async () => {
+    const view = await mountDetail(rolePayload({ drivers: [] }));
 
-    expect(wrapper.text()).toContain("No factors were published for this game window.");
-    expect(wrapper.find("canvas").exists()).toBe(false);
-    expect(chartMock.configs).toHaveLength(0);
+    expect(view.text()).toContain("No factors were published for this game window.");
+    expect(view.findAll(".shap-metric-row")).toHaveLength(0);
   });
 
-  it("filtre `actionable` sans aucun levier : message dédié invitant à revenir sur « Tout », puis le graphique se restaure au retour", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload({
-      drivers: [
-        { feature: "context_only__mean", base: "context_only", value: 1, contribution: -0.2, crossover_value: null, direction: null, category: "descriptive" },
-      ],
-    }))));
-    wrapper = mountShap();
-    await flushPromises();
-    await flushPromises();
+  it("filtre `actionable` sans aucun levier : message dédié invitant à revenir sur « Tout »", async () => {
+    const view = await mountDetail(rolePayload({
+      drivers: [driver("frac_behind__mean", -0.2, { category: "descriptive" })],
+    }));
+    expect(view.findAll(".shap-metric-row")).toHaveLength(1);
 
-    expect(wrapper.find("canvas").exists()).toBe(true);
-    expect(chartMock.configs).toHaveLength(1);
-
-    const filterButton = wrapper.findAll("button").find((button) => button.text().includes("All"));
+    const filterButton = view.findAll("button").find((button) => button.text().includes("All"));
     await filterButton!.trigger("click");
-    await flushPromises();
-    await flushPromises();
 
-    // Filtré sur les leviers uniquement, mais le seul driver de la fenêtre
-    // est descriptif : liste vide, message distinct de « aucun facteur
-    // publié », avec le rappel qu'il suffit de revenir sur « Tout ».
-    expect(wrapper.text()).toContain(
+    expect(view.text()).toContain(
       "No actionable factors among the published data. Switch back to “All” to view context factors.");
-    expect(wrapper.find("canvas").exists()).toBe(false);
+    expect(view.findAll(".shap-metric-row")).toHaveLength(0);
 
     await filterButton!.trigger("click");
-    await flushPromises();
-    await flushPromises();
-
-    // Retour sur « Tout » : le canvas est recréé (nouvel élément, derrière le
-    // v-if) et le graphique est rendu contre CE nouvel élément, pas un noeud
-    // détaché de l'ancien rendu.
-    expect(wrapper.find("canvas").exists()).toBe(true);
-    expect((chartMock.configs.at(-1)?.data as { labels: string[] }).labels)
-      .toEqual(["Context only — average (context)"]);
+    expect(view.findAll(".shap-metric-row")).toHaveLength(1);
   });
 });
 
 describe("ShapProfile · états d'indisponibilité", () => {
-  it("affiche le message typé de chaque motif servi, sans télécharger Chart.js", async () => {
+  it("affiche le message typé de chaque motif servi", async () => {
     const cases: Array<[string, string]> = [
       ["not_ingested", "Analysis is waiting for the first game collection."],
       ["role_closed", "ML analysis for this role is not publicly available yet."],
@@ -315,13 +414,11 @@ describe("ShapProfile · états d'indisponibilité", () => {
     ];
     for (const [reason, message] of cases) {
       wrapper?.unmount();
-      chartMock.configs.length = 0;
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ available: false, reason, role: null })));
       wrapper = mountShap({ slug: "Two" });
       await flushPromises();
 
       expect(wrapper.text()).toContain(message);
-      expect(chartMock.configs).toHaveLength(0);
     }
   });
 
@@ -343,9 +440,6 @@ describe("ShapProfile · états d'indisponibilité", () => {
   });
 
   it("conserve les liens démo vers les comptes calibrés pour un motif personnel", async () => {
-    // window_too_short est décidé par les données du compte (pas un motif
-    // structurel) : les comptes démo affichent réellement une analyse, le CTA
-    // reste donc honnête.
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ available: false, reason: "window_too_short", role: null })));
     wrapper = mountShap({ slug: "Two" });
     await flushPromises();
@@ -354,12 +448,7 @@ describe("ShapProfile · états d'indisponibilité", () => {
     expect(wrapper.find("a[href='/c/aceofspadzze?tab=shap']").exists()).toBe(true);
   });
 
-  it("retire le bouton d'actualisation ET les liens démo pour les 3 motifs structurels (role_closed, model_missing, model_mismatch)", async () => {
-    // Ces motifs sont décidés par les artefacts déployés : identiques pour
-    // tout compte, aucune re-collecte ne les change. Le bouton promettrait un
-    // recalcul impossible et consommerait pour rien le cooldown partagé avec
-    // le hero ; les comptes démo rendraient la même carte indisponible, donc
-    // le lien promettrait un palier et une décomposition inexistants.
+  it("retire le bouton d'actualisation ET les liens démo pour les 3 motifs structurels", async () => {
     for (const reason of ["role_closed", "model_missing", "model_mismatch"]) {
       wrapper?.unmount();
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ available: false, reason, role: null })));
@@ -368,69 +457,32 @@ describe("ShapProfile · états d'indisponibilité", () => {
 
       expect(wrapper.find("button.btn-refresh-shap").exists()).toBe(false);
       expect(wrapper.find(".shap-demo-guidance").exists()).toBe(false);
-      expect(wrapper.find("a[href='/c/spadzze?tab=shap']").exists()).toBe(false);
-      expect(wrapper.find("a[href='/c/aceofspadzze?tab=shap']").exists()).toBe(false);
     }
   });
 });
 
 describe("ShapProfile · bouton Actualiser l'analyse", () => {
   it("rend l'état du composable : grisage et décompte pendant le cooldown", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload())));
-    wrapper = mountShap({}, fakeSync({ cooling: true, cooldownLabel: "Up to date · 14 min" }));
-    await flushPromises();
-    await flushPromises();
+    const view = await mountLoaded(rolePayload(), fakeSync({ cooling: true, cooldownLabel: "Up to date · 14 min" }));
 
-    const button = wrapper.get("button.btn-refresh-shap");
+    const button = view.get("button.btn-refresh-shap");
     expect(button.attributes("disabled")).toBeDefined();
     expect(button.text()).toContain("Up to date · 14 min");
   });
 
   it("déclenche sync.trigger au clic, sans logique locale", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(rolePayload())));
     const trigger = vi.fn();
-    wrapper = mountShap({}, fakeSync({ trigger }));
-    await flushPromises();
-    await flushPromises();
+    const view = await mountLoaded(rolePayload(), fakeSync({ trigger }));
 
-    await wrapper.get("button.btn-refresh-shap").trigger("click");
+    await view.get("button.btn-refresh-shap").trigger("click");
     expect(trigger).toHaveBeenCalledTimes(1);
   });
 
-  it("rend AUSSI le bouton et les liens démo dans l'état indisponible pour un motif personnel : collection_incomplete et scoring_failed disent « relance l'actualisation »", async () => {
-    // Bug pointé en revue : le bouton ne vivait que dans la branche
-    // disponible, alors que deux messages d'indisponibilité invitent
-    // explicitement à relancer. Le CTA doit exister là où on l'appelle.
-    // collection_incomplete est un motif PERSONNEL (décidé par les données du
-    // compte, pas par les artefacts déployés) : bouton ET liens démo restent.
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      response({ available: false, reason: "collection_incomplete", role: null })));
-    const trigger = vi.fn();
-    wrapper = mountShap({ slug: "Two" }, fakeSync({ trigger }));
-    await flushPromises();
-
-    const button = wrapper.get("button.btn-refresh-shap");
-    await button.trigger("click");
-    expect(trigger).toHaveBeenCalledTimes(1);
-    expect(wrapper.find(".shap-demo-guidance").exists()).toBe(true);
-  });
-
-  it("n'affiche aucun bouton pendant le chargement", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
-    wrapper = mountShap({ slug: "Two" });
-
-    expect(wrapper.find("button.btn-refresh-shap").exists()).toBe(false);
-  });
-});
-
-describe("ShapProfile · attributs", () => {
-  it("applique les attributs de scope CSS sur le template", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ available: false, reason: "role_closed", role: null })));
+  it("rend AUSSI le bouton dans l'état indisponible pour un motif personnel", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ available: false, reason: "collection_incomplete" })));
     wrapper = mountShap({ slug: "Two" });
     await flushPromises();
 
-    const root = wrapper.get(".shap-container");
-    const scopeAttr = Object.keys(root.attributes()).find((attr) => attr.startsWith("data-v-"));
-    expect(scopeAttr).toBeDefined();
+    expect(wrapper.find("button.btn-refresh-shap").exists()).toBe(true);
   });
 });

@@ -318,7 +318,7 @@ onBeforeUnmount(stopPolling);
   width: 100%;
   padding-left: 36px;
   height: 42px;
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-weight: 550;
   background: var(--surface);
   border-color: var(--gold);
@@ -337,7 +337,7 @@ onBeforeUnmount(stopPolling);
 .register-select-server {
   width: 100%;
   height: 42px;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 600;
   background: var(--surface);
   border-color: var(--gold);
@@ -352,7 +352,7 @@ onBeforeUnmount(stopPolling);
   align-items: center;
   gap: 8px;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-weight: 700;
   white-space: nowrap;
   flex-shrink: 0;
@@ -391,7 +391,7 @@ onBeforeUnmount(stopPolling);
 
 .register-err-msg {
   margin-top: 8px;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
 }
 
 /* Ingestion Stepper View (/register/:slug) */
@@ -420,7 +420,7 @@ onBeforeUnmount(stopPolling);
 }
 
 .status-subtitle {
-  font-size: 14.5px;
+  font-size: var(--fs-body);
   color: var(--text-dim);
   margin: 0 auto 28px;
   max-width: 540px;
@@ -468,7 +468,7 @@ onBeforeUnmount(stopPolling);
   place-items: center;
   background: var(--surface);
   border: 2px solid var(--border-soft);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 800;
   color: var(--text-faint);
   transition: all 220ms ease;
@@ -496,7 +496,7 @@ onBeforeUnmount(stopPolling);
 }
 
 .step-label {
-  font-size: 11.5px;
+  font-size: var(--fs-label);
   font-weight: 700;
   color: var(--text-faint);
   letter-spacing: .02em;
@@ -557,7 +557,7 @@ onBeforeUnmount(stopPolling);
 }
 
 .status-error-message {
-  font-size: 13.5px;
+  font-size: var(--fs-body-sm);
   color: var(--danger);
   margin: 0;
   line-height: 1.5;
@@ -571,7 +571,7 @@ onBeforeUnmount(stopPolling);
 }
 
 .tip-title {
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 750;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -582,7 +582,7 @@ onBeforeUnmount(stopPolling);
 .tip-list {
   margin: 0;
   padding-left: 18px;
-  font-size: 12.5px;
+  font-size: var(--fs-small);
   color: var(--text-dim);
   line-height: 1.65;
 }
@@ -594,7 +594,7 @@ onBeforeUnmount(stopPolling);
   border-radius: 4px;
   color: var(--primary);
   font-family: ui-monospace, monospace;
-  font-size: 11.5px;
+  font-size: var(--fs-label);
 }
 
 .status-actions-row {
@@ -611,12 +611,12 @@ onBeforeUnmount(stopPolling);
   gap: 8px;
   padding: 10px 20px;
   border-radius: 9px;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 700;
   text-decoration: none;
 }
 .status-action-btn .btn-arrow-left {
-  font-size: 14px;
+  font-size: var(--fs-body);
   transition: var(--transition-transform-fast);
 }
 .status-action-btn:hover .btn-arrow-left {
@@ -629,7 +629,7 @@ onBeforeUnmount(stopPolling);
   gap: 8px;
   padding: 10px 18px;
   border-radius: 9px;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 600;
   color: var(--text-dim);
   background: var(--surface-alt);
@@ -646,7 +646,7 @@ onBeforeUnmount(stopPolling);
 }
 .status-secondary-btn .btn-arrow-right {
   color: var(--primary);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   transition: var(--transition-transform-fast);
 }
 .status-secondary-btn:hover .btn-arrow-right {
@@ -697,14 +697,14 @@ onBeforeUnmount(stopPolling);
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 1.5;
   color: var(--text);
   margin: 0;
 }
 
 .status-note {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--text-faint);
   line-height: 1.45;
   margin-top: 4px;

@@ -100,7 +100,7 @@ const emit = defineEmits<{
   border: 1px solid var(--primary-border);
   border-radius: 999px;
   color: var(--primary);
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 750;
   letter-spacing: .06em;
 }
@@ -114,7 +114,7 @@ const emit = defineEmits<{
 }
 
 .demo-desc {
-  font-size: 13.5px;
+  font-size: var(--fs-body-sm);
   line-height: 1.5;
   color: var(--text-dim);
   margin: 0;
@@ -137,7 +137,7 @@ const emit = defineEmits<{
   background: var(--panel);
   border: 1px solid var(--border-soft);
   color: var(--text-dim);
-  font-size: 12.5px;
+  font-size: var(--fs-small);
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition-base);
@@ -164,7 +164,7 @@ const emit = defineEmits<{
   height: 18px;
   border-radius: 50%;
   background: var(--surface-alt);
-  font-size: 10.5px;
+  font-size: var(--fs-micro);
   font-weight: 750;
 }
 

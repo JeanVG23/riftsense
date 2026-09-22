@@ -568,7 +568,7 @@ function goToDemo(): void {
   max-width: 740px;
   margin: 18px 0 24px;
   color: var(--text-dim);
-  font-size: 18.5px;
+  font-size: var(--fs-title);
   line-height: 1.62;
 }
 
@@ -707,9 +707,9 @@ function goToDemo(): void {
   align-items: center;
   gap: 8px;
   color: var(--gold-deep);
-  font-size: 12px;
-  font-weight: 750;
-  letter-spacing: .11em;
+  font-size: var(--fs-small);
+  font-weight: 800;
+  letter-spacing: .08em;
   text-transform: uppercase;
 }
 .home-section-eyebrow svg { color: var(--gold); }
@@ -723,7 +723,7 @@ function goToDemo(): void {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 700;
   text-align: center;
   flex-shrink: 0;
@@ -813,7 +813,7 @@ function goToDemo(): void {
   background: var(--surface);
   border: 1px solid var(--border-strong);
   color: var(--text-dim);
-  font-size: 9.5px;
+  font-size: var(--fs-micro);
   font-weight: 750;
   line-height: 1;
   padding: 2px 6px;
@@ -837,7 +837,7 @@ function goToDemo(): void {
   gap: 8px;
 }
 .ac-slug {
-  font-size: 17.5px;
+  font-size: var(--fs-title);
   font-weight: 750;
   color: var(--ink);
   overflow: hidden;
@@ -853,7 +853,7 @@ function goToDemo(): void {
   min-height: 20px;
 }
 .ac-riot {
-  font-size: 13.5px;
+  font-size: var(--fs-body-sm);
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -880,7 +880,7 @@ function goToDemo(): void {
   padding-top: 12px;
   border-top: 1px solid var(--border-soft);
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
 }
 .btn-remove-stored-account {
   position: absolute;
@@ -907,7 +907,7 @@ function goToDemo(): void {
   color: var(--gold-deep);
   background: var(--primary-soft);
   border: 1px solid var(--primary-border);
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 4px;
@@ -924,7 +924,7 @@ function goToDemo(): void {
   gap: 5px;
   padding: 1.5px 7px;
   border-radius: 5px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
   line-height: 1.35;
   white-space: nowrap;
@@ -965,12 +965,12 @@ function goToDemo(): void {
 .step-card-num {
   margin-bottom: 14px;
   color: var(--gold);
-  font-size: 12.5px;
+  font-size: var(--fs-small);
   font-weight: 800;
   letter-spacing: .12em;
 }
-.step-card-title { margin-bottom: 8px; font-size: 17.5px; font-weight: 750; color: var(--ink); letter-spacing: -0.01em; }
-.step-card-desc { margin: 0; color: var(--text-dim); font-size: 14.5px; line-height: 1.6; }
+.step-card-title { margin-bottom: 8px; font-size: var(--fs-title); font-weight: 750; color: var(--ink); letter-spacing: -0.01em; }
+.step-card-desc { margin: 0; color: var(--text-dim); font-size: var(--fs-body); line-height: 1.6; }
 .step-card-footer { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
 .step-tag {
   padding: 3.5px 9px;
@@ -978,7 +978,7 @@ function goToDemo(): void {
   background: var(--surface-alt);
   border: 1px solid var(--border);
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 650;
   text-transform: uppercase;
   letter-spacing: .04em;

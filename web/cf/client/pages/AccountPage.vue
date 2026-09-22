@@ -332,7 +332,7 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   background: color-mix(in srgb, var(--loss) 8%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--loss) 30%, var(--border));
   border-radius: 9px;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .coaching-inline-progress {
@@ -345,7 +345,7 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
   border-radius: 9px;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .account-page-container {
@@ -469,7 +469,7 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
 }
 
 .sync-help summary {
@@ -486,6 +486,6 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
 
 .sync-help code {
   color: var(--gold-deep);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 </style>

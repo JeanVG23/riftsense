@@ -21,7 +21,7 @@
   border-radius: 6px;
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;

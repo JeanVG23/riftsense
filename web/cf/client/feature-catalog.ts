@@ -1,9 +1,34 @@
 import catalogJson from "../../../shared/feature_catalog.json";
 
+/** Sections of the ML profile page. Mirrored by `THEMES` in
+ * `tests/test_feature_catalog.py`, which holds the closed vocabulary: the
+ * JSON import types `theme` as a plain string, so the data side is what
+ * proves no feature lands in a section that does not exist. */
+export type FeatureTheme =
+  | "economy" | "positioning" | "vision" | "fights" | "objectives" | "context";
+
+export const THEME_ORDER: readonly FeatureTheme[] = [
+  "economy", "positioning", "vision", "fights", "objectives", "context",
+];
+
+const THEME_LABELS: Record<FeatureTheme, string> = {
+  economy: "Farm & economy",
+  positioning: "Positioning & map",
+  vision: "Vision",
+  fights: "Fights & survival",
+  objectives: "Objectives",
+  context: "Game context",
+};
+
+export function themeLabel(theme: FeatureTheme): string {
+  return THEME_LABELS[theme];
+}
+
 export interface FeatureDefinition {
   label: string;
   description: string;
   unit: string;
+  theme: FeatureTheme;
 }
 
 export interface FeaturePresentation extends FeatureDefinition {
@@ -13,14 +38,18 @@ export interface FeaturePresentation extends FeatureDefinition {
   displayLabel: string;
 }
 
-const FEATURE_CATALOG = catalogJson as Record<string, FeatureDefinition>;
+const FEATURE_CATALOG = catalogJson as unknown as Record<string, FeatureDefinition>;
 
+/** What the aggregation MEANS, not what it is called. A percentile is worded
+ * as an end of the observed range and never as a good or a bad game: p10 is
+ * the best games for deaths and the worst ones for farming, so any wording
+ * that judged the game would be false for half the catalog. */
 const AGGREGATION_LABELS: Record<string, string> = {
-  mean: "average",
-  std: "variation",
-  p10: "10th percentile",
-  p50: "median",
-  p90: "90th percentile",
+  mean: "on average",
+  std: "swing between games",
+  p10: "at your lowest",
+  p50: "in a typical game",
+  p90: "at your highest",
 };
 
 function humanizeIdentifier(value: string): string {
@@ -48,10 +77,13 @@ export function featurePresentation(feature: string, base?: string): FeaturePres
     label,
     description: definition?.description ?? "No plain-English definition is available yet.",
     unit: definition?.unit ?? "value",
+    // A feature published before the catalog knows it is still real data, so
+    // it is shown; "context" is the section that is never worded as a lever.
+    theme: definition?.theme ?? "context",
     technicalName: feature,
     aggregation,
     aggregationLabel,
-    displayLabel: aggregationLabel ? `${label} — ${aggregationLabel}` : label,
+    displayLabel: aggregationLabel ? `${label}, ${aggregationLabel}` : label,
   };
 }
 
@@ -63,24 +95,6 @@ export function formatFeatureValue(value: number, unit: string): string {
     maximumFractionDigits: decimals,
   });
   return unit === "%" ? `${formatted}%` : `${formatted} ${unit}`;
-}
-
-/** Chart.js renders each returned string on its own tooltip line but does not
- * wrap long text. Keep definitions readable on narrow screens. */
-export function wrapTooltipText(prefix: string, text: string, maxLength = 68): string[] {
-  const lines: string[] = [];
-  let current = prefix;
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    const candidate = `${current} ${word}`;
-    if (current !== prefix && candidate.length > maxLength) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = candidate;
-    }
-  }
-  if (current !== prefix) lines.push(current);
-  return lines.length ? lines : [prefix];
 }
 
 export function featureCatalogKeys(): string[] {

@@ -450,7 +450,7 @@ onMounted(loadGames);
 .section-heading p {
   margin: 3px 0 0;
   color: var(--text-faint);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
 }
 
 .game-history {
@@ -461,8 +461,8 @@ onMounted(loadGames);
 .game-card {
   position: relative;
   z-index: 2;
-  background-color: var(--surface);
-  border: 1px solid var(--border-soft);
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-left: 4px solid var(--border);
   border-radius: 10px;
   transition: background 150ms ease, transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
@@ -472,11 +472,15 @@ onMounted(loadGames);
 
 .game-card.w {
   border-left-color: var(--win);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--win) 10%, var(--surface)) 0%, var(--surface) 35%);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--win) 10%, transparent) 0%, transparent 35%),
+    var(--card-marble-bg);
 }
 .game-card.l {
   border-left-color: var(--loss);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--loss) 9%, var(--surface)) 0%, var(--surface) 35%);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--loss) 9%, transparent) 0%, transparent 35%),
+    var(--card-marble-bg);
 }
 .game-card:hover {
   border-color: var(--border-active);
@@ -508,7 +512,7 @@ onMounted(loadGames);
   justify-content: flex-end;
   gap: 6px;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 600;
   transition: color 150ms ease;
 }
@@ -517,7 +521,7 @@ onMounted(loadGames);
 }
 .gr-expand-chevron {
   display: inline-block;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   transition: transform 200ms ease;
 }
 .gr-expand-chevron.open {
@@ -533,7 +537,7 @@ onMounted(loadGames);
   background: var(--info-soft);
   border: 1px solid var(--info-border);
   color: var(--info);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: .02em;
 }
@@ -543,7 +547,7 @@ onMounted(loadGames);
   gap: 4px;
   padding: 1px 7px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: .02em;
 }
@@ -572,7 +576,7 @@ onMounted(loadGames);
   gap: 4px;
   padding: 2px 8px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
   cursor: help;
 }
@@ -604,7 +608,7 @@ onMounted(loadGames);
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 .gd-meta-tag {
   display: inline-flex;
@@ -614,13 +618,13 @@ onMounted(loadGames);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-label);
 }
 .gd-coach-status {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 600;
 }
 .gd-coach-status.ready {
@@ -652,7 +656,7 @@ onMounted(loadGames);
   border: 1px solid var(--gold);
   border-radius: 8px;
   color: var(--gold-deep);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 700;
   cursor: pointer;
   transition: all 180ms ease;
@@ -698,7 +702,7 @@ onMounted(loadGames);
 }
 .gd-card-header h4 {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 700;
   color: var(--text);
   letter-spacing: .02em;
@@ -724,14 +728,14 @@ onMounted(loadGames);
   gap: 8px;
 }
 .gd-matchup-side strong {
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   display: block;
 }
 .gd-matchup-side .faint {
-  font-size: 11px;
+  font-size: var(--fs-label);
 }
 .gd-matchup-vs {
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 800;
   color: var(--gold);
   letter-spacing: .05em;
@@ -757,7 +761,7 @@ onMounted(loadGames);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: var(--fs-small);
   padding: 4px 0;
   border-bottom: 1px dashed var(--surface-alt);
 }
@@ -779,7 +783,7 @@ onMounted(loadGames);
   align-items: center;
   padding: 2px 7px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   background: var(--panel-2);
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -821,10 +825,10 @@ onMounted(loadGames);
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 .gd-side-label {
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -846,7 +850,7 @@ onMounted(loadGames);
 .badge-side {
   display: inline-flex;
   align-items: center;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 800;
   padding: 2px 7px;
   border-radius: 4px;
@@ -865,7 +869,7 @@ onMounted(loadGames);
   color: var(--gold-deep);
 }
 .gd-side-summary {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--gold-deep);
   background: var(--surface-alt);
   padding: 6px 10px;
@@ -894,7 +898,7 @@ onMounted(loadGames);
   border-top: 3px solid var(--danger);
 }
 .gd-team-title {
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .05em;
@@ -910,7 +914,7 @@ onMounted(loadGames);
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   padding: 4px 8px;
   border-radius: 6px;
   background: var(--surface-alt);
@@ -921,7 +925,7 @@ onMounted(loadGames);
   border: 1px solid var(--primary-border);
 }
 .gd-role-badge {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -944,7 +948,7 @@ onMounted(loadGames);
   min-width: 0;
 }
 .gd-self-badge {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 800;
   padding: 1px 4px;
   background: var(--gold);
@@ -958,7 +962,7 @@ onMounted(loadGames);
 .gd-empty-objectives {
   padding: 20px 12px;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 .gd-objectives-timeline,
 .gd-combat-timeline {
@@ -974,7 +978,7 @@ onMounted(loadGames);
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   padding: 5px 8px;
   background: var(--panel-2);
   border: 1px solid var(--border-soft);
@@ -999,7 +1003,7 @@ onMounted(loadGames);
   font-family: var(--font-mono, monospace);
 }
 .gd-obj-icon {
-  font-size: 14px;
+  font-size: var(--fs-body);
   line-height: 1;
   display: inline-flex;
   align-items: center;
@@ -1015,7 +1019,7 @@ onMounted(loadGames);
   text-overflow: ellipsis;
 }
 .gd-obj-team-badge {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 800;
   padding: 1px 6px;
   border-radius: 3px;
@@ -1053,7 +1057,7 @@ onMounted(loadGames);
   gap: 4px;
 }
 .combat-filter-btn {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 4px;
@@ -1098,12 +1102,12 @@ onMounted(loadGames);
   gap: 6px;
 }
 .flawless-icon {
-  font-size: 28px;
+  font-size: var(--fs-display);
   margin-bottom: 4px;
 }
 .gd-flawless strong {
   color: var(--gold-deep);
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 
 .gd-combat-entry.entry-kill {
@@ -1117,7 +1121,7 @@ onMounted(loadGames);
 }
 
 .gd-combat-type-badge {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 800;
   padding: 1px 5px;
   border-radius: 3px;
@@ -1162,13 +1166,13 @@ onMounted(loadGames);
   text-overflow: ellipsis;
 }
 .gd-combat-sub {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   line-height: 1;
 }
 
 .gd-combat-zone {
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -1183,7 +1187,7 @@ onMounted(loadGames);
   justify-content: flex-end;
 }
 .gd-tag {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   padding: 1px 5px;
   border-radius: 3px;
@@ -1223,7 +1227,7 @@ onMounted(loadGames);
   border: 1px solid var(--border);
 }
 .champ-fallback {
-  font-size: 11px;
+  font-size: var(--fs-label);
   color: var(--text-dim);
   width: 44px;
   text-align: center;
@@ -1241,7 +1245,7 @@ onMounted(loadGames);
   align-items: center;
   gap: 7px;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--fs-label);
 }
 
 .outcome-pill {
@@ -1251,7 +1255,7 @@ onMounted(loadGames);
   min-width: 68px;
   padding: 2px 7px;
   border-radius: 6px;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 800;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -1279,7 +1283,7 @@ onMounted(loadGames);
   background: var(--panel-2);
   border: 1px solid var(--border-soft);
   border-radius: 6px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 650;
   color: var(--text-dim);
 }
@@ -1301,7 +1305,7 @@ onMounted(loadGames);
 }
 .gr-vs {
   color: var(--text-faint);
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 800;
   letter-spacing: .06em;
 }
@@ -1313,24 +1317,24 @@ onMounted(loadGames);
   object-fit: cover;
 }
 .gr-opp-name {
-  font-size: 11px;
+  font-size: var(--fs-label);
   color: var(--text-dim);
 }
 
 .gr-queue-badge {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 600;
 }
 .gr-sub-sep {
   color: var(--text-faint);
   opacity: 0.5;
   user-select: none;
-  font-size: 10px;
+  font-size: var(--fs-micro);
 }
 .gr-date {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 550;
   cursor: default;
 }
@@ -1340,7 +1344,7 @@ onMounted(loadGames);
   border-color: var(--info-border);
 }
 .gr-diff {
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
 }
 .diff-pos { color: var(--win); }
@@ -1352,10 +1356,10 @@ onMounted(loadGames);
   gap: 1px;
   text-align: right;
 }
-.gr-kda { color: var(--text-dim); font-size: 13px; font-weight: 600; }
+.gr-kda { color: var(--text-dim); font-size: var(--fs-body-sm); font-weight: 600; }
 .gr-label {
   color: var(--text-faint);
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: .05em;
   text-transform: uppercase;
@@ -1365,7 +1369,7 @@ onMounted(loadGames);
 
 .gd-composition-empty {
   padding: 8px 0;
-  font-size: 11px;
+  font-size: var(--fs-label);
 }
 
 .gd-pagination {
@@ -1384,7 +1388,7 @@ onMounted(loadGames);
   .gr-patch { grid-column: 3; align-items: flex-end; justify-content: center; }
   .gr-expand-action { grid-column: 4; }
   .gr-expand-label { display: none; }
-  .gr-label { font-size: 8px; }
+  .gr-label { font-size: var(--fs-micro); }
   .game-details-panel { padding: 12px; }
   .gd-grid { grid-template-columns: 1fr; }
   .gd-teams-grid { grid-template-columns: 1fr; }

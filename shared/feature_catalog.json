@@ -2,261 +2,313 @@
   "assists_2v2": {
     "label": "2v2 assists",
     "description": "Assists earned in bot-lane 2v2 fights.",
-    "unit": "assists"
+    "unit": "assists",
+    "theme": "fights"
   },
   "avg_dragon_prox": {
     "label": "Distance to dragon before the objective",
     "description": "Average map distance from the dragon shortly before a dragon objective is taken.",
-    "unit": "map units"
+    "unit": "map units",
+    "theme": "objectives"
   },
   "csd10": {
     "label": "CS difference at 10 minutes",
     "description": "Your creep-score lead or deficit versus the opposing laner at 10 minutes.",
-    "unit": "CS"
+    "unit": "CS",
+    "theme": "economy"
   },
   "csd14": {
     "label": "CS difference at 14 minutes",
     "description": "Your creep-score lead or deficit versus the opposing laner at 14 minutes.",
-    "unit": "CS"
+    "unit": "CS",
+    "theme": "economy"
   },
   "csm10": {
     "label": "CS per minute at 10 minutes",
     "description": "Your farming pace during the first 10 minutes, including lane minions and jungle monsters.",
-    "unit": "CS/min"
+    "unit": "CS/min",
+    "theme": "economy"
   },
   "csm14": {
     "label": "CS per minute at 14 minutes",
     "description": "Your farming pace during the first 14 minutes, including lane minions and jungle monsters.",
-    "unit": "CS/min"
+    "unit": "CS/min",
+    "theme": "economy"
   },
   "deaths_early": {
     "label": "Early-game deaths",
     "description": "Deaths before 14 minutes.",
-    "unit": "deaths"
+    "unit": "deaths",
+    "theme": "fights"
   },
   "deaths_early_2v2": {
     "label": "Early 2v2 deaths",
     "description": "Deaths before 14 minutes in bot-lane 2v2 fights.",
-    "unit": "deaths"
+    "unit": "deaths",
+    "theme": "fights"
   },
   "deaths_early_jungle": {
     "label": "Early deaths involving the enemy jungler",
     "description": "Deaths before 14 minutes where the enemy jungler participated in the kill.",
-    "unit": "deaths"
+    "unit": "deaths",
+    "theme": "fights"
   },
   "deaths_late": {
     "label": "Late-game deaths",
     "description": "Deaths during the late-game phase.",
-    "unit": "deaths"
+    "unit": "deaths",
+    "theme": "fights"
   },
   "deaths_mid": {
     "label": "Mid-game deaths",
     "description": "Deaths during the mid-game phase.",
-    "unit": "deaths"
+    "unit": "deaths",
+    "theme": "fights"
   },
   "deaths_solo": {
     "label": "Solo deaths",
     "description": "Deaths classified as isolated one-versus-one situations.",
-    "unit": "deaths"
+    "unit": "deaths",
+    "theme": "fights"
   },
   "deaths_teamfight": {
     "label": "Non-solo deaths",
     "description": "Deaths that were not classified as isolated one-versus-one situations.",
-    "unit": "deaths"
+    "unit": "deaths",
+    "theme": "fights"
   },
   "frac_ahead": {
     "label": "Time spent ahead in lane",
     "description": "Share of observed lane snapshots where you had a gold lead over your lane opponent.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "context"
   },
   "frac_behind": {
     "label": "Time spent behind in lane",
     "description": "Share of observed lane snapshots where you had a gold deficit against your lane opponent.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "context"
   },
   "frames_in_base_early": {
     "label": "Early-game base presence",
     "description": "Number of timeline snapshots spent inside your base before 14 minutes.",
-    "unit": "snapshots"
+    "unit": "snapshots",
+    "theme": "positioning"
   },
   "gd10": {
     "label": "Gold difference at 10 minutes",
     "description": "Your gold lead or deficit versus the opposing laner at 10 minutes.",
-    "unit": "gold"
+    "unit": "gold",
+    "theme": "economy"
   },
   "gd14": {
     "label": "Gold difference at 14 minutes",
     "description": "Your gold lead or deficit versus the opposing laner at 14 minutes.",
-    "unit": "gold"
+    "unit": "gold",
+    "theme": "economy"
   },
   "gpm10": {
     "label": "Gold per minute at 10 minutes",
     "description": "Your average gold income per minute during the first 10 minutes.",
-    "unit": "gold/min"
+    "unit": "gold/min",
+    "theme": "economy"
   },
   "gpm14": {
     "label": "Gold per minute at 14 minutes",
     "description": "Your average gold income per minute during the first 14 minutes.",
-    "unit": "gold/min"
+    "unit": "gold/min",
+    "theme": "economy"
   },
   "jungle_csd10": {
     "label": "Jungle CS difference at 10 minutes",
     "description": "Your jungle-monster CS lead or deficit versus the enemy jungler at 10 minutes.",
-    "unit": "CS"
+    "unit": "CS",
+    "theme": "economy"
   },
   "jungle_csd14": {
     "label": "Jungle CS difference at 14 minutes",
     "description": "Your jungle-monster CS lead or deficit versus the enemy jungler at 14 minutes.",
-    "unit": "CS"
+    "unit": "CS",
+    "theme": "economy"
   },
   "jungle_csm10": {
     "label": "Jungle CS per minute at 10 minutes",
     "description": "Your jungle-monster farming pace during the first 10 minutes.",
-    "unit": "CS/min"
+    "unit": "CS/min",
+    "theme": "economy"
   },
   "jungle_csm14": {
     "label": "Jungle CS per minute at 14 minutes",
     "description": "Your jungle-monster farming pace during the first 14 minutes.",
-    "unit": "CS/min"
+    "unit": "CS/min",
+    "theme": "economy"
   },
   "jungle_kill_participation_early": {
     "label": "Early jungle kill participation",
     "description": "Share of allied champion kills before 14 minutes in which the jungler participated.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "fights"
   },
   "jungle_takedowns_early": {
     "label": "Early jungle takedowns",
     "description": "Kills and assists earned by the jungler before 14 minutes.",
-    "unit": "takedowns"
+    "unit": "takedowns",
+    "theme": "fights"
   },
   "jungle_team_epic_monster_diff_early": {
     "label": "Early epic-monster difference",
     "description": "Allied epic monsters secured minus enemy epic monsters secured before 14 minutes.",
-    "unit": "objectives"
+    "unit": "objectives",
+    "theme": "objectives"
   },
   "jungle_team_epic_monsters_early": {
     "label": "Early team epic monsters",
     "description": "Epic monsters secured by your team before 14 minutes; this is a team outcome, not an individual attribution.",
-    "unit": "objectives"
+    "unit": "objectives",
+    "theme": "objectives"
   },
   "kda_1v1": {
     "label": "Solo kill/death ratio",
     "description": "Solo kills divided by solo deaths, with a minimum denominator of one.",
-    "unit": "ratio"
+    "unit": "ratio",
+    "theme": "fights"
   },
   "kda_2v2": {
     "label": "2v2 takedown/death ratio",
     "description": "Bot-lane 2v2 kills and assists divided by 2v2 deaths, with a minimum denominator of one.",
-    "unit": "ratio"
+    "unit": "ratio",
+    "theme": "fights"
   },
   "kills_2v2": {
     "label": "2v2 kills",
     "description": "Kills earned in bot-lane 2v2 fights.",
-    "unit": "kills"
+    "unit": "kills",
+    "theme": "fights"
   },
   "kills_solo": {
     "label": "Solo kills",
     "description": "Kills classified as isolated one-versus-one situations.",
-    "unit": "kills"
+    "unit": "kills",
+    "theme": "fights"
   },
   "n_deaths": {
     "label": "Total deaths",
     "description": "Total number of deaths in a match.",
-    "unit": "deaths"
+    "unit": "deaths",
+    "theme": "fights"
   },
   "plates_diff_early": {
     "label": "Lane turret-plate difference",
     "description": "Turret plates taken by your team minus plates conceded on your lane before 14 minutes.",
-    "unit": "plates"
+    "unit": "plates",
+    "theme": "economy"
   },
   "pos_avg_dist_to_ally": {
     "label": "Distance to the nearest ally",
     "description": "Average map distance to your closest teammate across timeline snapshots.",
-    "unit": "map units"
+    "unit": "map units",
+    "theme": "positioning"
   },
   "pos_avg_map_depth": {
     "label": "Average depth in enemy territory",
     "description": "Average distance travelled beyond the neutral map line into enemy territory. This is context, not a recommendation to push farther.",
-    "unit": "map units"
+    "unit": "map units",
+    "theme": "positioning"
   },
   "pos_control_wards_placed": {
     "label": "Control wards placed",
     "description": "Number of control wards placed during a match.",
-    "unit": "wards"
+    "unit": "wards",
+    "theme": "vision"
   },
   "pos_frac_base": {
     "label": "Time spent in base",
     "description": "Share of observed timeline snapshots spent inside your base.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "positioning"
   },
   "pos_frac_enemy_half": {
     "label": "Time spent in enemy territory",
     "description": "Share of observed timeline snapshots spent beyond the neutral map line in enemy territory.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "positioning"
   },
   "pos_frac_overextended": {
     "label": "Time spent far into enemy territory",
     "description": "Share of observed timeline snapshots spent more than 2,000 map units inside enemy territory.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "positioning"
   },
   "pos_frac_own_lane_early": {
     "label": "Early time in assigned lane",
     "description": "Share of early-game timeline snapshots spent in the map zone assigned to your role.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "positioning"
   },
   "pos_frac_river_early": {
     "label": "Early time in river or jungle",
     "description": "Share of early-game timeline snapshots spent in the river or jungle zone.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "positioning"
   },
   "pos_frac_roam_mid": {
     "label": "Mid-game time roaming to other lanes",
     "description": "Share of mid-game timeline snapshots spent in a lane other than the one assigned to your role.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "positioning"
   },
   "pos_gold_dead_time": {
     "label": "Estimated time spent dead",
     "description": "Estimated total respawn time generated by your deaths, based on champion level.",
-    "unit": "seconds"
+    "unit": "seconds",
+    "theme": "fights"
   },
   "pos_max_map_depth": {
     "label": "Maximum depth in enemy territory",
     "description": "Farthest observed distance beyond the neutral map line into enemy territory. This is context, not a recommendation to push farther.",
-    "unit": "map units"
+    "unit": "map units",
+    "theme": "positioning"
   },
   "pos_wards_killed": {
     "label": "Enemy wards cleared",
     "description": "Number of enemy wards destroyed during a match.",
-    "unit": "wards"
+    "unit": "wards",
+    "theme": "vision"
   },
   "pos_wards_placed": {
     "label": "Wards placed",
     "description": "Number of wards placed during a match.",
-    "unit": "wards"
+    "unit": "wards",
+    "theme": "vision"
   },
   "pos_wards_placed_early": {
     "label": "Wards placed before 14 minutes",
     "description": "Number of wards placed during the first 14 minutes.",
-    "unit": "wards"
+    "unit": "wards",
+    "theme": "vision"
   },
   "support_deaths_early": {
     "label": "Support deaths before 14 minutes",
     "description": "Deaths by your allied support before 14 minutes while you played bot carry.",
-    "unit": "deaths"
+    "unit": "deaths",
+    "theme": "fights"
   },
   "win_rate": {
     "label": "Win rate in the analysed window",
     "description": "Share of wins among the role-specific matches used for this analysis. It is context, not an actionable recommendation.",
-    "unit": "%"
+    "unit": "%",
+    "theme": "context"
   },
   "xpd10": {
     "label": "Experience difference at 10 minutes",
     "description": "Your experience lead or deficit versus the opposing laner at 10 minutes.",
-    "unit": "XP"
+    "unit": "XP",
+    "theme": "economy"
   },
   "xppm10": {
     "label": "Experience per minute at 10 minutes",
     "description": "Your average experience gained per minute during the first 10 minutes.",
-    "unit": "XP/min"
+    "unit": "XP/min",
+    "theme": "economy"
   }
 }

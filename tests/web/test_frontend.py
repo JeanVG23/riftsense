@@ -33,7 +33,7 @@ def test_assets_and_dependencies_are_current():
         asset = WEB / name
         assert asset.exists() and asset.stat().st_size > 100, name
     package = _read("package.json")
-    assert '"vue"' in package and '"vue-router"' in package and '"chart.js"' in package
+    assert '"vue"' in package and '"vue-router"' in package
     assert '"alpinejs"' not in package
 
 
@@ -90,7 +90,10 @@ def test_coaching_context_and_generation_are_wired():
     assert 'fetch("/api/coach"' in page and 'fetch("/api/coach/game"' in page
     assert "getReader()" in page and 'event === "review"' in page
     assert "props.coachingContext?.matches?.[matchId]" in history
-    assert "n_game_reviews_available" in global_coaching and "n_game_reviews_used" in global_coaching
+    # Le meta-strip (transparence statistique) a été retiré du bilan global
+    # en 8c1eb17 ; le garder absent évite qu'il refasse fuiter des chiffres
+    # bruts que le hero de synthèse ne montre plus.
+    assert "n_game_reviews_available" not in global_coaching and "n_game_reviews_used" not in global_coaching
 
 
 def test_aggregate_and_game_reviews_stay_separate():
@@ -109,7 +112,9 @@ def test_deep_link_to_game_review_is_preserved():
 
 def test_game_reviews_own_filters_pagination_and_details():
     component = _read("client/components/GameReviews.vue")
-    assert 'class="review-primer"' in component and "Riot API" in component
+    # Le pavé pédagogique ("review-primer") a été retiré en 8c1eb17 ; le
+    # garder absent évite qu'il revienne encombrer la liste des games.
+    assert 'class="review-primer"' not in component
     assert 'class="game-review-layout"' in component
     assert "filterResult" in component and "filterChampion" in component
     assert "async function loadMore" in component and "/reviews?kind=game&page=" in component
@@ -130,19 +135,28 @@ def test_game_feedback_sends_full_map_and_notes():
     assert "responses: next" in component and "responses = { [key]" not in component
 
 
-def test_global_feedback_and_evaluation_refresh_are_wired():
-    page = _read("client/pages/AccountPage.vue")
+def test_global_feedback_saving_is_wired():
     controls = _read("client/components/CoachingControls.ce.vue")
     global_coaching = _read("client/components/GlobalCoaching.ce.vue")
-    assert 'class="eval-strip"' in controls and "mistake_useful_rate" in controls and "/eval" in controls
     assert 'fetch("/api/feedback"' in global_coaching
-    assert '@feedback-saved="evalRevision += 1"' in page
+    # La mesure de qualité (eval-strip) et son rafraîchissement (evalRevision,
+    # @feedback-saved) ont été retirés en 8c1eb17 ; CoachingControls.test.ts:19
+    # vérifie déjà l'absence de .eval-strip côté Vitest.
+    assert 'class="eval-strip"' not in controls and "mistake_useful_rate" not in controls
 
 
-def test_shap_is_lazy_and_charted():
+def test_shap_renders_the_breakdown_without_a_canvas():
+    # L'onglet ML n'a plus de canvas : les barres sont du DOM natif, donc
+    # lisibles, sélectionnables et correctes en mobile. Un retour de Chart.js
+    # ici réintroduirait un canevas à taille fixe et une dépendance que le
+    # bundle n'a plus.
     component = _read("client/components/ShapProfile.ce.vue")
-    assert "/shap" in component and 'import("chart.js")' in component
-    assert "new Chart(" in component and "shap-empty" in component
+    assert "/shap" in component and "shap-empty" in component
+    assert "chart.js" not in component and "<canvas" not in component
+    # Les quatre couches de lecture, et les deux replis qui les allègent.
+    for marker in ("shap-gauge", "shap-verdict", "shap-theme-row", "shap-highlight",
+                   "shap-help-toggle", "shap-detail-toggle"):
+        assert marker in component, marker
 
 
 def test_readme_is_a_vue_page_and_keeps_methodology():

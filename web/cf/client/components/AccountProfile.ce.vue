@@ -277,7 +277,7 @@ onMounted(() => { void loadProfile(); });
   background: var(--surface);
   border: 1px solid var(--border-strong);
   color: var(--text-dim);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 750;
   line-height: 1;
   padding: 2px 7px;
@@ -337,7 +337,7 @@ onMounted(() => { void loadProfile(); });
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 650;
   color: var(--gold-deep);
   background: var(--surface);
@@ -445,7 +445,7 @@ onMounted(() => { void loadProfile(); });
 
 .stat-label {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: .05em;
   text-transform: uppercase;
@@ -459,7 +459,7 @@ onMounted(() => { void loadProfile(); });
 }
 
 .stat-cta-pill {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   padding: 1px 5px;
   background: var(--primary-soft);
   color: var(--gold-deep);
@@ -473,7 +473,7 @@ onMounted(() => { void loadProfile(); });
   margin-top: 3px;
   overflow: hidden;
   color: var(--ink);
-  font-size: 16px;
+  font-size: var(--fs-lead);
   font-weight: 700;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -482,7 +482,7 @@ onMounted(() => { void loadProfile(); });
 
 .stat-note {
   margin-top: 3px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   letter-spacing: 0;
   text-transform: none;
   color: var(--text-faint);
@@ -491,7 +491,7 @@ onMounted(() => { void loadProfile(); });
 .rank-winrate {
   margin-top: 3px;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 650;
   letter-spacing: 0;
   text-transform: none;

@@ -151,7 +151,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
       <div class="insight-grid shared-insights">
       <div class="card insight-col">
         <div class="col-head"><span class="col-icon">🛡️</span><h3>Strengths</h3></div>
-        <div v-for="(item, index) in review.review.strengths || []" :key="`strength-${index}`" class="insight-card">
+        <div v-for="(item, index) in review.review.strengths || []" :key="`strength-${index}`" class="insight-card card-accent-strength">
           <h4 class="insight-title">{{ insightTitle(item.point) }}</h4>
           <p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p>
           <p v-if="item.cause" class="cause-line">Why: {{ item.cause }}</p>
@@ -163,7 +163,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
       </div>
       <div class="card insight-col">
         <div class="col-head"><span class="col-icon">⚠️</span><h3>Recurring mistakes</h3></div>
-        <div v-for="(item, index) in review.review.mistakes || []" :key="`mistake-${index}`" class="insight-card">
+        <div v-for="(item, index) in review.review.mistakes || []" :key="`mistake-${index}`" class="insight-card card-accent-mistake">
           <h4 class="insight-title">{{ insightTitle(item.point) }}</h4>
           <p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p>
           <p v-if="item.cause" class="cause-line">Why: {{ item.cause }}</p>
@@ -175,7 +175,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
       </div>
       <div class="card insight-col">
         <div class="col-head"><span class="col-icon">🔄</span><h3>Habits</h3></div>
-        <div v-for="(habit, index) in review.review.habits || []" :key="`habit-${index}`" class="insight-card">
+        <div v-for="(habit, index) in review.review.habits || []" :key="`habit-${index}`" class="insight-card card-accent-habit">
           <h4 class="insight-title">{{ insightTitle(habit) }}</h4>
           <p v-if="insightBody(habit)" class="insight-body">{{ insightBody(habit) }}</p>
           <div class="insight-card-footer insight-card-footer--end">
@@ -185,7 +185,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
       </div>
       <div class="card insight-col">
         <div class="col-head"><span class="col-icon">🎯</span><h3>Focus &amp; Confidence</h3></div>
-        <div class="insight-card">
+        <div class="insight-card card-accent-focus">
           <span class="choice-label">Recommended game plan</span>
           <p class="insight-body">{{ review.review.next_focus }}</p>
           <div class="confidence-meter">
@@ -230,9 +230,9 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 
 .global-focus-eyebrow {
   display: inline-block;
-  font-size: 10px;
+  font-size: var(--fs-label);
   font-weight: 800;
-  letter-spacing: .12em;
+  letter-spacing: .08em;
   color: var(--primary);
   margin-bottom: 6px;
 }
@@ -240,7 +240,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 .global-focus-hero h3 {
   margin: 0 0 6px;
   color: var(--text);
-  font-size: 16px;
+  font-size: var(--fs-lead);
   font-weight: 700;
   line-height: 1.45;
   letter-spacing: -.02em;
@@ -249,7 +249,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 .global-focus-hint {
   margin: 0;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .insight-grid {
@@ -266,7 +266,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 
 .insight-col h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 750;
   letter-spacing: .05em;
   text-transform: uppercase;
@@ -278,7 +278,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 .insight-col:nth-child(4) h3 { color: var(--primary); }
 
 .insight-card {
-  padding: 12px 0;
+  padding: 12px 0 12px 10px;
   border-top: 1px solid var(--border-soft);
 }
 
@@ -290,7 +290,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 .cause-line {
   margin: 0 0 7px;
   color: var(--text-dim);
-  font-size: 11.5px;
+  font-size: var(--fs-label);
   line-height: 1.45;
 }
 
@@ -303,14 +303,15 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 .reviews-history {
   margin-top: 18px;
   padding: 6px 16px;
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-radius: 10px;
+  box-shadow: var(--card-shadow);
 }
 
 .reviews-history summary {
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   padding: 8px 0;
   color: var(--text-dim);
   font-weight: 600;
@@ -320,7 +321,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--fs-small);
   padding: 8px 0;
   border-top: 1px solid var(--border-soft);
   transition: background 140ms ease;
@@ -342,12 +343,12 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 .feedback-error {
   margin: 12px 0 0;
   color: var(--loss);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .coach-empty-icon {
   margin-bottom: 8px;
-  font-size: 32px;
+  font-size: var(--fs-display);
 }
 
 .coach-empty-copy {
@@ -355,11 +356,11 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
   color: var(--text-dim);
 }
 
-.confidence-label { font-size: 11px; }
+.confidence-label { font-size: var(--fs-label); }
 
 .confidence-value {
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
 }
 
 @media (max-width: 640px) {

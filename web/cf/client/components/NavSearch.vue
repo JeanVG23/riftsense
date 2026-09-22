@@ -170,7 +170,7 @@ onBeforeUnmount(() => {
   outline: none;
   box-shadow: none;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--fs-small);
   font-weight: 550;
   padding: 0 0 0 22px;
   height: 30px;
@@ -180,7 +180,7 @@ onBeforeUnmount(() => {
 
 .nav-search-input::placeholder {
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 450;
 }
 
@@ -205,7 +205,7 @@ onBeforeUnmount(() => {
   outline: none;
   box-shadow: none;
   color: var(--text);
-  font-size: 11.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   padding: 0 2px;
   height: 30px;
@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
   color: var(--primary);
   background: var(--primary-soft);
@@ -268,7 +268,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--loss-border);
   border-radius: 8px;
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 550;
   box-shadow: var(--shadow-overlay);
   backdrop-filter: blur(12px);
@@ -290,7 +290,7 @@ onBeforeUnmount(() => {
   background: transparent;
   border: none;
   color: var(--danger);
-  font-size: 16px;
+  font-size: var(--fs-lead);
   line-height: 1;
   cursor: pointer;
   padding: 0 4px;
@@ -320,7 +320,7 @@ onBeforeUnmount(() => {
     padding: 2px 4px 2px 8px;
     gap: 5px;
   }
-  .nav-search-input { font-size: 11.5px; }
-  .nav-search-select { max-width: 60px; font-size: 11px; }
+  .nav-search-input { font-size: var(--fs-label); }
+  .nav-search-select { max-width: 60px; font-size: var(--fs-label); }
 }
 </style>

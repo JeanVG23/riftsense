@@ -182,7 +182,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: var(--fs-title);
   flex-shrink: 0;
 }
 
@@ -196,7 +196,7 @@ onBeforeUnmount(() => {
 
 .auth-modal-sub {
   margin: 3px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   color: var(--text-dim);
   line-height: 1.4;
 }
@@ -231,7 +231,7 @@ onBeforeUnmount(() => {
 }
 
 .auth-label {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -249,7 +249,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-family: inherit;
   transition: all 0.2s ease;
   outline: none;
@@ -271,14 +271,14 @@ onBeforeUnmount(() => {
   border: 1px solid var(--loss-border);
   border-radius: var(--radius-sm);
   color: var(--danger);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 500;
   animation: bannerShake 0.3s ease-in-out;
 }
 
 .auth-error-icon {
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 
 .auth-modal-actions {
@@ -291,7 +291,7 @@ onBeforeUnmount(() => {
 
 .auth-cancel-btn {
   padding: 10px 16px;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 600;
 }
 
@@ -300,7 +300,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 650;
 }
 

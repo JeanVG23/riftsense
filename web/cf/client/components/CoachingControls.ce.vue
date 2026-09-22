@@ -101,8 +101,8 @@ const emit = defineEmits<{
   text-align: left;
   background:
     linear-gradient(120deg, var(--primary-soft), transparent 45%),
-    var(--panel-gradient);
-  border: 1px solid var(--border-soft);
+    var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-radius: 16px;
   box-shadow: var(--card-shadow);
   cursor: pointer;
@@ -138,7 +138,7 @@ const emit = defineEmits<{
   background: var(--primary-soft);
   border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
   border-radius: 10px;
-  font-size: 19px;
+  font-size: var(--fs-title);
   line-height: 1;
 }
 
@@ -160,7 +160,7 @@ const emit = defineEmits<{
 
 .coach-tab-copy strong {
   color: var(--text);
-  font-size: 19px;
+  font-size: var(--fs-title);
   font-weight: 750;
   line-height: 1.26;
   letter-spacing: -.025em;
@@ -169,7 +169,7 @@ const emit = defineEmits<{
 .coach-tab-copy small {
   margin-top: 5px;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 400;
   line-height: 1.45;
 }
@@ -190,7 +190,7 @@ const emit = defineEmits<{
   background: var(--primary-soft);
   border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 800;
 }
 
@@ -205,8 +205,8 @@ const emit = defineEmits<{
   margin-bottom: 22px;
   background:
     linear-gradient(120deg, var(--primary-soft), transparent 45%),
-    var(--panel-gradient);
-  border: 1px solid var(--border-soft);
+    var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-radius: 16px;
   box-shadow: var(--card-shadow);
 }
@@ -218,13 +218,16 @@ const emit = defineEmits<{
 .coach-builder .coaching-kicker {
   display: block;
   margin-bottom: 5px;
-  font-size: 10px;
-  letter-spacing: .12em;
+  color: var(--primary);
+  font-size: var(--fs-label);
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .coach-builder .coaching-intro h2 {
   color: var(--text);
-  font-size: 19px;
+  font-size: var(--fs-title);
   letter-spacing: -.025em;
 }
 
@@ -232,7 +235,7 @@ const emit = defineEmits<{
   max-width: 630px;
   margin: 5px 0 0;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
 }
 
 .coach-options {
@@ -255,7 +258,7 @@ const emit = defineEmits<{
   display: block;
   margin: 0 0 6px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 750;
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -274,7 +277,7 @@ const emit = defineEmits<{
 .main-role-card small {
   margin-top: 3px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--fs-micro);
 }
 
 .coach-reference {
@@ -292,7 +295,7 @@ const emit = defineEmits<{
 .coach-reference span {
   display: block;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -302,7 +305,7 @@ const emit = defineEmits<{
   display: block;
   margin-top: 2px;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--fs-small);
   line-height: 1.2;
 }
 
@@ -315,7 +318,7 @@ const emit = defineEmits<{
 
 .coach-generate span {
   margin-left: 5px;
-  font-size: 16px;
+  font-size: var(--fs-lead);
 }
 
 @media (max-width: 640px) {

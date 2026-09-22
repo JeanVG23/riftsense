@@ -261,8 +261,8 @@ watch([filterResult, filterChampion], applyFilter);
         <section v-if="selected.review.axes?.length" class="game-axis-list" aria-label="Specialist analyses"><details v-for="axis in selected.review.axes" :key="axis.axis" class="game-axis"><summary><span>{{ axis.label }}</span><small>{{ axis.strengths.length }} strength(s) · {{ axis.mistakes.length }} mistake(s)</small></summary><div class="game-axis-body"><article v-for="(item, index) in [...axis.strengths, ...axis.mistakes]" :key="`${axis.axis}-${index}`"><div class="insight-head"><span v-if="item.category" class="insight-cat">{{ categoryLabel(item.category) }}</span><strong>{{ insightHeading(item) }}</strong></div><p v-if="insightDetail(item)">{{ insightDetail(item) }}</p><p>{{ item.cause }}</p><span>{{ item.evidence }}</span></article></div></details></section>
         <section class="game-focus-card"><span class="game-focus-label">Focus for your next game</span><p class="game-focus-text">{{ selected.review.next_focus }}</p><FeedbackButtons kind="focus" :index="0" :state="feedbackState('focus', 0)" :busy="feedbackBusy['focus,0']" :open-key="openFeedback" prompt @vote="submitFeedback" @tag="(kind, index, tag) => submitFeedback(kind, index, false, tag)" /></section>
         <div class="game-insight-grid shared-insights">
-          <section class="game-insight-section strengths"><div class="col-head"><span class="col-icon">🛡️</span><h3>What worked well</h3></div><p v-if="!selected.review.strengths?.length" class="game-empty-copy">No sufficiently clear strength was identified for this game.</p><article v-for="(item, index) in selected.review.strengths || []" :key="`strength-${index}`" class="game-insight-item"><div class="insight-head"><span v-if="item.category" class="insight-cat">{{ categoryLabel(item.category) }}</span><h4 class="insight-title">{{ insightHeading(item) }}</h4></div><p v-if="insightDetail(item)" class="insight-body">{{ insightDetail(item) }}</p><details v-if="item.cause" class="cause-details"><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-strength">{{ item.evidence }}</span><FeedbackButtons kind="strength" :index="index" :state="feedbackState('strength', index)" :busy="feedbackBusy[feedbackKey('strength', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /></div></article></section>
-          <section class="game-insight-section mistakes"><div class="col-head"><span class="col-icon">⚠️</span><h3>Mistakes to remember</h3></div><article v-for="(item, index) in selected.review.mistakes || []" :key="`mistake-${index}`" class="game-insight-item"><div class="insight-head"><span v-if="item.category" class="insight-cat">{{ categoryLabel(item.category) }}</span><h4 class="insight-title">{{ insightHeading(item) }}</h4></div><p v-if="insightDetail(item)" class="insight-body">{{ insightDetail(item) }}</p><details v-if="item.cause" class="cause-details" open><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-mistake">{{ item.evidence }}</span><div><FeedbackButtons kind="mistake" :index="index" :state="feedbackState('mistake', index)" :busy="feedbackBusy[feedbackKey('mistake', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /><button v-if="feedbackState('mistake', index)" type="button" class="fb-btn-compact" title="Add a note" @click="toggleNote('mistake', index)">✎</button><div v-if="openNotes[feedbackKey('mistake', index)]" class="fb-note-editor"><textarea v-model="noteDraft[feedbackKey('mistake', index)]" class="fb-note-input" rows="3" maxlength="500" placeholder="Explain what helps or what is missing…"></textarea><button type="button" class="btn btn-small" :disabled="feedbackBusy[feedbackKey('mistake', index)]" @click="saveNote('mistake', index)">Save note</button></div></div></div></article></section>
+          <section class="game-insight-section strengths"><div class="col-head"><span class="col-icon">🛡️</span><h3>What worked well</h3></div><p v-if="!selected.review.strengths?.length" class="game-empty-copy">No sufficiently clear strength was identified for this game.</p><article v-for="(item, index) in selected.review.strengths || []" :key="`strength-${index}`" class="game-insight-item card-accent-strength"><div class="insight-head"><span v-if="item.category" class="insight-cat">{{ categoryLabel(item.category) }}</span><h4 class="insight-title">{{ insightHeading(item) }}</h4></div><p v-if="insightDetail(item)" class="insight-body">{{ insightDetail(item) }}</p><details v-if="item.cause" class="cause-details"><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-strength">{{ item.evidence }}</span><FeedbackButtons kind="strength" :index="index" :state="feedbackState('strength', index)" :busy="feedbackBusy[feedbackKey('strength', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /></div></article></section>
+          <section class="game-insight-section mistakes"><div class="col-head"><span class="col-icon">⚠️</span><h3>Mistakes to remember</h3></div><article v-for="(item, index) in selected.review.mistakes || []" :key="`mistake-${index}`" class="game-insight-item card-accent-mistake"><div class="insight-head"><span v-if="item.category" class="insight-cat">{{ categoryLabel(item.category) }}</span><h4 class="insight-title">{{ insightHeading(item) }}</h4></div><p v-if="insightDetail(item)" class="insight-body">{{ insightDetail(item) }}</p><details v-if="item.cause" class="cause-details"><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-mistake">{{ item.evidence }}</span><div><FeedbackButtons kind="mistake" :index="index" :state="feedbackState('mistake', index)" :busy="feedbackBusy[feedbackKey('mistake', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /><button v-if="feedbackState('mistake', index)" type="button" class="fb-btn-compact" title="Add a note" @click="toggleNote('mistake', index)">✎</button><div v-if="openNotes[feedbackKey('mistake', index)]" class="fb-note-editor"><textarea v-model="noteDraft[feedbackKey('mistake', index)]" class="fb-note-input" rows="3" maxlength="500" placeholder="Explain what helps or what is missing…"></textarea><button type="button" class="btn btn-small" :disabled="feedbackBusy[feedbackKey('mistake', index)]" @click="saveNote('mistake', index)">Save note</button></div></div></div></article></section>
         </div>
         <section class="game-chat" aria-labelledby="game-chat-title"><div class="game-chat-heading"><div><span class="game-focus-label">INTERACTIVE COACH</span><h3 id="game-chat-title">Challenge, explain, or dig deeper.</h3></div><small>The coach refuses to use hidden enemy information.</small></div><div v-if="chatMessages.length" class="game-chat-log"><p v-for="(message, index) in chatMessages" :key="index" :class="message.role">{{ message.content }}</p></div><form class="game-chat-form" @submit.prevent="sendChat"><label class="sr-only" for="game-chat-input">Question for the coach</label><textarea id="game-chat-input" v-model="chatDraft" rows="2" maxlength="2000" :placeholder="authenticated ? 'Example: was this choice really a mistake?' : '🔒 Sign in to chat with the AI coach…'"></textarea><button type="submit" :disabled="chatBusy || (authenticated && !chatDraft.trim())">{{ chatBusy ? "The coach is thinking…" : (authenticated ? "Send" : "🔒 Sign in") }}</button></form><p v-if="chatError" class="feedback-error">{{ chatError }}</p></section>
       </article>
@@ -276,8 +276,8 @@ watch([filterResult, filterChampion], applyFilter);
   padding: 24px;
   background:
     linear-gradient(120deg, var(--win-soft), transparent 36%),
-    var(--panel-gradient);
-  border: 1px solid var(--border-soft);
+    var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-radius: 16px;
   box-shadow: var(--card-shadow);
 }
@@ -292,15 +292,15 @@ watch([filterResult, filterChampion], applyFilter);
 
 .game-reviews-heading h2 {
   color: var(--text);
-  font-size: 20px;
+  font-size: var(--fs-title);
   letter-spacing: -.03em;
 }
 
-.game-reviews-heading p {
+.game-reviews-heading p:not(.eyebrow) {
   max-width: 680px;
   margin: 5px 0 0;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
 }
 
 .game-review-layout {
@@ -332,14 +332,14 @@ watch([filterResult, filterChampion], applyFilter);
 }
 
 .filter-segmented button {
-  font-size: 11px;
+  font-size: var(--fs-label);
   padding: 4px 6px;
 }
 
 .champ-filter-select {
   width: 100%;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-family: inherit;
   color: var(--text);
   background: var(--panel-2);
@@ -408,7 +408,7 @@ watch([filterResult, filterChampion], applyFilter);
 }
 
 .game-mini-badge {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 800;
   padding: 1px 5px;
   border-radius: 4px;
@@ -433,14 +433,14 @@ watch([filterResult, filterChampion], applyFilter);
   overflow: hidden;
   margin-top: 2px;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--fs-label);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .empty-state-compact {
   padding: 20px 10px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--text-faint);
   text-align: center;
 }
@@ -452,7 +452,7 @@ watch([filterResult, filterChampion], applyFilter);
   border: 1px dashed var(--border);
   border-radius: 8px;
   cursor: pointer;
-  font: 600 12px/1.3 inherit;
+  font: 600 var(--fs-small)/1.3 inherit;
 }
 
 .game-load-more:hover {
@@ -488,7 +488,7 @@ watch([filterResult, filterChampion], applyFilter);
 .game-option-copy strong {
   overflow: hidden;
   color: inherit;
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -502,17 +502,19 @@ watch([filterResult, filterChampion], applyFilter);
 .game-review-detail {
   min-width: 0;
   padding: 22px;
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-radius: 12px;
+  box-shadow: var(--card-shadow);
 }
 
 .game-detail-state {
   min-height: 220px;
   margin: 0;
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-radius: 12px;
+  box-shadow: var(--card-shadow);
 }
 
 .game-detail-header {
@@ -538,12 +540,12 @@ watch([filterResult, filterChampion], applyFilter);
 
 .game-detail-title .eyebrow {
   margin-bottom: 2px;
-  font-size: 9px;
+  font-size: var(--fs-micro);
 }
 
 .game-detail-title h3 {
   color: var(--text);
-  font-size: 19px;
+  font-size: var(--fs-title);
   letter-spacing: -.025em;
 }
 
@@ -553,7 +555,7 @@ watch([filterResult, filterChampion], applyFilter);
   overflow: hidden;
   color: var(--text-faint);
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -565,7 +567,7 @@ watch([filterResult, filterChampion], applyFilter);
   background: var(--loss-soft);
   border: 1px solid var(--loss-border);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 750;
 }
 
@@ -598,7 +600,7 @@ watch([filterResult, filterChampion], applyFilter);
 
 .game-detail-stats small {
   color: var(--text-faint);
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: .07em;
   text-transform: uppercase;
@@ -607,7 +609,7 @@ watch([filterResult, filterChampion], applyFilter);
 .game-detail-stats strong {
   margin-top: 2px;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 700;
 }
 
@@ -621,8 +623,8 @@ watch([filterResult, filterChampion], applyFilter);
 
 .game-focus-label {
   color: var(--primary);
-  font-size: 10px;
-  font-weight: 750;
+  font-size: var(--fs-micro);
+  font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -630,7 +632,7 @@ watch([filterResult, filterChampion], applyFilter);
 .game-focus-text {
   margin: 5px 0 0;
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--fs-body);
   font-weight: 650;
   line-height: 1.55;
 }
@@ -646,8 +648,8 @@ watch([filterResult, filterChampion], applyFilter);
 
 .game-chief-summary span {
   color: var(--win);
-  font-size: 10px;
-  font-weight: 750;
+  font-size: var(--fs-micro);
+  font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -681,13 +683,13 @@ watch([filterResult, filterChampion], applyFilter);
   padding: 12px 0;
   color: var(--text);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 700;
 }
 
 .game-axis > summary small {
   color: var(--text-faint);
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 500;
 }
 
@@ -703,20 +705,20 @@ watch([filterResult, filterChampion], applyFilter);
 .game-axis-body strong {
   display: block;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--fs-small);
   line-height: 1.45;
 }
 
 .game-axis-body p {
   margin: 5px 0;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-label);
   line-height: 1.45;
 }
 
 .game-axis-body span {
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   line-height: 1.4;
 }
 
@@ -736,13 +738,17 @@ watch([filterResult, filterChampion], applyFilter);
 .game-insight-section h3 {
   margin-bottom: 11px;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--fs-label);
   text-transform: uppercase;
   letter-spacing: .05em;
 }
 
 .game-insight-section.strengths h3 { color: var(--win); }
 .game-insight-section.mistakes h3 { color: var(--loss); }
+
+.game-insight-item {
+  padding-left: 10px;
+}
 
 .game-insight-item + .game-insight-item {
   margin-top: 14px;
@@ -753,7 +759,7 @@ watch([filterResult, filterChampion], applyFilter);
 .game-insight-item p {
   margin: 0 0 9px;
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--fs-body-sm);
   font-weight: 600;
   line-height: 1.5;
 }
@@ -761,14 +767,14 @@ watch([filterResult, filterChampion], applyFilter);
 .game-insight-item details {
   margin: 0 0 9px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--fs-small);
   line-height: 1.5;
 }
 
 .game-insight-item summary {
   color: var(--text-faint);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
 }
 
@@ -780,7 +786,7 @@ watch([filterResult, filterChampion], applyFilter);
 .game-empty-copy {
   margin: 0;
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: var(--fs-small);
   line-height: 1.55;
 }
 
@@ -803,7 +809,7 @@ watch([filterResult, filterChampion], applyFilter);
   background: var(--primary-soft);
   border: 1px solid var(--primary-border);
   border-radius: 999px;
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 750;
   letter-spacing: .05em;
   line-height: 1.35;
@@ -859,13 +865,13 @@ watch([filterResult, filterChampion], applyFilter);
 .game-chat-heading h3 {
   margin: 4px 0 0;
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--fs-body);
 }
 
 .game-chat-heading small {
   max-width: 220px;
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   text-align: right;
 }
 
@@ -881,7 +887,7 @@ watch([filterResult, filterChampion], applyFilter);
   margin: 0;
   padding: 9px 12px;
   border-radius: 9px;
-  font-size: 12px;
+  font-size: var(--fs-small);
   line-height: 1.5;
 }
 
@@ -913,7 +919,7 @@ watch([filterResult, filterChampion], applyFilter);
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  font: 12px/1.45 inherit;
+  font: var(--fs-small)/1.45 inherit;
 }
 
 .game-chat-form button {
@@ -924,7 +930,7 @@ watch([filterResult, filterChampion], applyFilter);
   border: 0;
   border-radius: 8px;
   cursor: pointer;
-  font: 700 11px/1 inherit;
+  font: 700 var(--fs-label)/1 inherit;
 }
 
 .game-chat-form button:disabled {
@@ -935,7 +941,7 @@ watch([filterResult, filterChampion], applyFilter);
 .feedback-error {
   margin: 12px 0 0;
   color: var(--loss);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 @media (max-width: 640px) {

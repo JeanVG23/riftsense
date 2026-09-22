@@ -85,14 +85,14 @@ const tagLabels: Record<string, string> = {
 }
 
 .fb-compact-prompt {
-  font-size: 11px;
+  font-size: var(--fs-label);
   color: var(--text-faint);
   margin-right: 2px;
 }
 
 .fb-btn-compact {
   padding: 3px 8px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--text-dim);
   background: var(--panel-2);
@@ -146,7 +146,7 @@ const tagLabels: Record<string, string> = {
 }
 
 .tag-menu-title {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 750;
   text-transform: uppercase;
   letter-spacing: .06em;
@@ -162,7 +162,7 @@ const tagLabels: Record<string, string> = {
   padding: 6px 9px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-family: inherit;
   transition: var(--transition-fast);
 }

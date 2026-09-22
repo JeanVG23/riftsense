@@ -91,7 +91,7 @@ auth-control {
   background: var(--targon-veil-overlay);
   border: 1px solid var(--targon-veil-border);
   border-radius: 8px;
-  font-size: 11.5px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--targon-veil-text);
   cursor: pointer;
@@ -118,7 +118,7 @@ auth-control {
   background: rgba(16, 185, 129, 0.22);
   border: 1px solid rgba(16, 185, 129, 0.45);
   border-radius: 8px;
-  font-size: 11.5px;
+  font-size: var(--fs-label);
   font-weight: 650;
   color: #6ee7b7;
 }
@@ -130,7 +130,7 @@ auth-control {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   color: #e6d3cf;
   cursor: pointer;
   transition: all 0.18s ease;
