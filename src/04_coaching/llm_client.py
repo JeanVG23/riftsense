@@ -114,7 +114,14 @@ def generate(model: str, system: str, user: str, schema: dict,
             return Generation(json.loads(content),
                               _usage(model, payload, latency_ms, attempt + 1))
         except (ValueError, KeyError, TypeError) as e:
-            raise LLMError(f"réponse Ollama inexploitable : {e}")
+            # Ollama Cloud peut exceptionnellement répondre 200 avec un
+            # `message.content` vide/tronqué. C'est un incident transitoire au
+            # même titre qu'un 5xx, pas une erreur durable de la requête.
+            last = LLMError(f"réponse Ollama inexploitable : {e}")
+            if attempt < _MAX_ATTEMPTS - 1:
+                time.sleep(2 * (attempt + 1))
+                continue
+            break
     raise LLMError(f"échec après {_MAX_ATTEMPTS} tentatives : {last}")
 
 

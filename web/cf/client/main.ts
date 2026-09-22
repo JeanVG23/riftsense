@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { router } from "./router";
 import "./style.css";
+import "./styles/legal.css";
 
 function syncCanonical(): void {
   const href = location.origin + location.pathname;

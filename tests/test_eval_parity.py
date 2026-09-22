@@ -38,13 +38,13 @@ def test_both_report_the_same_shape():
     ts = EVAL_TS.read_text()
     for field in ("n_game_reviews", "objective", "target_met", "global_rate",
                   "by_kind", "top_tags", "n_reviews_annotated", "n_items",
-                  "by_prompt_version"):
+                  "by_prompt_version", "by_category"):
         assert f"{field}" in ts, field
     report = fb.eval_report("nobody", root=ROOT / "tests" / "nonexistent")
     assert set(report) >= {"n_game_reviews", "objective", "target_met",
                            "global_rate", "by_kind", "top_tags",
                            "n_reviews_annotated", "n_items",
-                           "by_prompt_version"}
+                           "by_prompt_version", "by_category"}
 
 
 _COHORT_KEYS = {"n_game_reviews_annotated", "mistake_useful_rate",
@@ -78,3 +78,30 @@ def test_by_prompt_version_nested_keys_match(tmp_path):
     cohorts = report["by_prompt_version"]
     assert "abc123" in cohorts
     assert set(cohorts["abc123"]) == _COHORT_KEYS
+
+
+_CATEGORY_KEYS = {"n", "useful", "rate"}
+
+
+def test_by_category_nested_keys_match(tmp_path):
+    ts = EVAL_TS.read_text()
+    assert "by_category" in ts
+    for key in _CATEGORY_KEYS:
+        assert re.search(rf"\b{key}\b", ts), key
+
+    root = tmp_path / "07_coaching"
+    (root / "p").mkdir(parents=True)
+    review = {"ts": "t1", "kind": "game", "match_id": "EUW1_1",
+              "run": {"prompt_version": "abc123"},
+              "review": {"strengths": [], "mistakes": [
+                  {"point": "p", "cause": "c", "evidence": "8:31",
+                   "title": "t", "category": "TRACKING_JUNGLE"}],
+                  "next_focus": "f", "confidence": 0.6}}
+    (root / "p" / "reviews.jsonl").write_text(json.dumps(review) + "\n")
+    feedback = {"ts": "t1", "player": "p", "model": "kimi-k2.6",
+                "rated_at": "2026-09-08T12:00:00",
+                "items": [{"kind": "mistake", "index": 0, "useful": True,
+                           "tag": None, "note": None}]}
+    (root / "p" / "feedback.jsonl").write_text(json.dumps(feedback) + "\n")
+    report = fb.eval_report("p", root=root)
+    assert set(report["by_category"]["TRACKING_JUNGLE"]) == _CATEGORY_KEYS

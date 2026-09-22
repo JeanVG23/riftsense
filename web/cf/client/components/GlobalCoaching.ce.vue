@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { formatDate } from "../account-profile";
-import { insightBody, insightTitle, outcomeLabel } from "../coaching";
+import { insightBody, insightTitle } from "../coaching";
 import { withAuthHeaders } from "../auth";
 import FeedbackButtons from "./FeedbackButtons.vue";
 
@@ -72,9 +72,9 @@ const props = withDefaults(defineProps<{
   review: null,
   reviews: () => [],
   loading: false,
-  scope: "adc",
-  scopeName: "ADC",
-  outcome: "loss",
+  scope: "",
+  scopeName: "",
+  outcome: "overall",
   authenticated: false,
   busy: false,
   coachingContext: null,
@@ -167,11 +167,11 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 <template>
   <div v-if="loading" class="state">Loading analyses…</div>
   <div v-else-if="!review" class="state empty-state coach-empty-card">
-    <div class="coach-empty-icon" style="font-size:32px;margin-bottom:8px">🎯</div>
-    <strong>No overall coaching saved for {{ outcomeLabel(outcome) }} ({{ scopeName }})</strong>
-    <p style="margin:6px 0 14px;color:var(--text-dim)">Generate a full comparative analysis to identify your strengths, mistakes, and habits against Challenger players.</p>
-    <button class="btn btn-primary" :disabled="busy" @click="emit('generate')">
-      {{ busy ? "Generating…" : (authenticated ? `Generate ${outcomeLabel(outcome)} analysis →` : "🔒 Sign in to generate →") }}
+    <div class="coach-empty-icon">🎯</div>
+    <strong>{{ scope ? "No global coaching saved yet" : "Main role not detected yet" }}</strong>
+    <p class="coach-empty-copy">{{ scope ? `Generate one synthesis for your main role (${scopeName}), combining wins and losses.` : "Refresh the account first so coaching and ML & SHAP use the same main role." }}</p>
+    <button class="btn btn-primary" :disabled="busy || !scope" @click="emit('generate')">
+      {{ busy ? "Generating…" : (authenticated ? "Generate global coaching →" : "🔒 Sign in to generate →") }}
     </button>
   </div>
 
@@ -180,8 +180,8 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
       <span class="num">{{ meta.n_games_me || 0 }} games analyzed</span>
       <span class="faint">compared with {{ meta.n_games_ref || 0 }} Challenger reference games</span>
       <span class="num">Win rate: {{ Math.round((meta.winrate_me || 0) * 100) }}%</span>
-      <span class="badge" :class="outcome === 'win' ? 'badge-win' : (outcome === 'loss' ? 'badge-loss' : 'badge-neutral')">{{ outcomeLabel(outcome) }}</span>
-      <span class="badge badge-scope">{{ scopeName }}</span>
+      <span class="badge badge-neutral">Global coaching</span>
+      <span class="badge badge-scope">Main role · {{ scopeName }}</span>
       <span v-if="meta.low_sample" class="badge badge-loss">limited sample</span>
       <span class="faint">{{ review.model }}</span>
       <span class="faint">{{ formatDate(review.ts) }}</span>
@@ -192,7 +192,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
         <span class="sample-stat-icon">📊</span>
         <div class="sample-stat-text">
           <div class="sample-stat-header">
-            <strong>Statistical basis: {{ meta.n_games_me || 0 }} real {{ scopeName }} games</strong>
+            <strong>Statistical basis: {{ meta.n_games_me || 0 }} real games on your main role ({{ scopeName }})</strong>
             <span class="faint">· Actual win rate: {{ Math.round((meta.winrate_me || 0) * 100) }}%</span>
           </div>
           <div class="sample-stat-sub faint">
@@ -204,7 +204,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
               ✦ <strong>{{ meta.n_game_reviews_used }}</strong> per-game analyses included
               ({{ meta.n_game_reviews_used_wins ?? meta.n_game_reviews_wins ?? 0 }}W · {{ meta.n_game_reviews_used_losses ?? meta.n_game_reviews_losses ?? 0 }}L)
             </span>
-            <span v-else>✦ No per-game analysis required: overall coaching uses your real game data directly.</span>
+            <span v-else>✦ No per-game analysis required: global coaching uses your real game data directly.</span>
           </div>
         </div>
       </div>
@@ -226,7 +226,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
       <FeedbackButtons kind="focus" :index="0" :state="feedback['focus,0']" :busy="feedbackBusy['focus,0']" :open-key="openFeedback" prompt @vote="submitFeedback" @tag="(kind, index, tag) => submitFeedback(kind, index, false, tag)" />
     </div>
 
-    <div class="insight-grid">
+      <div class="insight-grid shared-insights">
       <div class="card insight-col">
         <div class="col-head"><span class="col-icon">🛡️</span><h3>Strengths</h3></div>
         <div v-for="(item, index) in review.review.strengths || []" :key="`strength-${index}`" class="insight-card">
@@ -256,7 +256,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
         <div v-for="(habit, index) in review.review.habits || []" :key="`habit-${index}`" class="insight-card">
           <h4 class="insight-title">{{ insightTitle(habit) }}</h4>
           <p v-if="insightBody(habit)" class="insight-body">{{ insightBody(habit) }}</p>
-          <div class="insight-card-footer" style="justify-content:flex-end">
+          <div class="insight-card-footer insight-card-footer--end">
             <FeedbackButtons kind="habit" :index="index" :state="feedback[key('habit', index)]" :busy="feedbackBusy[key('habit', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" />
           </div>
         </div>
@@ -266,9 +266,9 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
         <div class="insight-card">
           <span class="choice-label">Recommended game plan</span>
           <p class="insight-body">{{ review.review.next_focus }}</p>
-          <div class="confidence-meter" style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border-soft)">
-            <span class="faint" style="font-size:11px">Confidence: </span>
-            <strong style="color:var(--text);font-size:13px">{{ Math.round((review.review.confidence || 0) * 100) }}%</strong>
+          <div class="confidence-meter">
+            <span class="faint confidence-label">Confidence: </span>
+            <strong class="confidence-value">{{ Math.round((review.review.confidence || 0) * 100) }}%</strong>
           </div>
         </div>
       </div>
@@ -277,7 +277,7 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
     <details v-if="reviews.length > 1" class="reviews-history">
       <summary class="muted">Previous analyses ({{ reviews.length - 1 }})</summary>
       <button v-for="item in reviews.slice(1)" :key="item.ts" type="button" class="hist-row faint" @click="emit('review-select', item)">
-        {{ formatDate(item.ts) }} · {{ item.model }} · {{ item.scope }} ({{ item.outcome_focus || "global" }})
+        {{ formatDate(item.ts) }} · {{ item.model }} · global coaching
         <span class="badge badge-scope">View →</span>
       </button>
     </details>
@@ -415,17 +415,6 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
   flex-direction: column;
 }
 
-.col-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.col-icon {
-  font-size: 15px;
-}
-
 .insight-col h3 {
   margin: 0;
   font-size: 12px;
@@ -449,50 +438,12 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
   padding-top: 0;
 }
 
-.insight-title {
-  margin: 0 0 5px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-
-.insight-body {
-  margin: 0 0 7px;
-  color: var(--text-dim);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
 .cause-line {
   margin: 0 0 7px;
   color: var(--text-dim);
   font-size: 11.5px;
   line-height: 1.45;
 }
-
-.insight-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.evidence-chip {
-  display: inline-block;
-  font-size: 11px;
-  color: var(--text-dim);
-  background: var(--panel-2);
-  border-left: 3px solid var(--border);
-  padding: 4px 8px;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  max-width: 100%;
-  line-height: 1.4;
-}
-
-.evidence-chip.kind-strength { border-left-color: var(--win); }
-.evidence-chip.kind-mistake { border-left-color: var(--loss); }
 
 .confidence-meter {
   margin-top: 14px;
@@ -543,6 +494,23 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
   margin: 12px 0 0;
   color: var(--loss);
   font-size: 12px;
+}
+
+.coach-empty-icon {
+  margin-bottom: 8px;
+  font-size: 32px;
+}
+
+.coach-empty-copy {
+  margin: 6px 0 14px;
+  color: var(--text-dim);
+}
+
+.confidence-label { font-size: 11px; }
+
+.confidence-value {
+  color: var(--text);
+  font-size: 13px;
 }
 
 @media (max-width: 640px) {

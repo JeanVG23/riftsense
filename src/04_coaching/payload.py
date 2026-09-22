@@ -49,6 +49,8 @@ assert set(POS_META) == positioning.COACHING_SAFE, \
     "POS_META doit refléter exactement positioning.COACHING_SAFE"
 
 LOW_SAMPLE_THRESHOLD = 30
+GAME_BUNDLE_SCHEMA_VERSION = 1
+GAME_PAYLOAD_BUNDLE_MAX_BYTES = 20 * 1024 * 1024
 
 # Match-V5 expose les IDs, pas les libellés. Tables stables et volontairement
 # locales : enrichir un payload ne doit jamais provoquer un appel Data Dragon.
@@ -510,7 +512,7 @@ _ROLE_TO_SCOPE = {role: scope for scope, role in rl.ROLE_SCOPES.items() if role}
 
 
 def _game_benchmark_scope(record: dict, target: str, gold_dir: Path,
-                          cache: dict) -> tuple[str, dict]:
+                          cache: dict, load_ref=None) -> tuple[str, dict]:
     """Rôle si disponible, sinon global ; retourne l'agrégat lu.
 
     `cache` est le mémo des agrégats déjà lus pour CE bundle (`target` y est
@@ -521,7 +523,8 @@ def _game_benchmark_scope(record: dict, target: str, gold_dir: Path,
     for scope in dict.fromkeys((role_scope, "all")):
         if scope not in cache:
             try:
-                cache[scope] = _load(gold_dir, rl.KIND_REF, target, scope)
+                cache[scope] = (load_ref(scope) if load_ref is not None else
+                                _load(gold_dir, rl.KIND_REF, target, scope))
             except FileNotFoundError:
                 cache[scope] = None
         ref = cache[scope]
@@ -539,8 +542,15 @@ _REASONS = {RawMissing: "raw_missing",
 def build_game_bundle(player: str, records: list[dict] | None = None,
                       target: str = "challenger", max_games: int = 50,
                       gold_dir=None, silver_dir=None, load_raw=None,
-                      item_catalog=None, now=None) -> dict:
-    """Payloads unitaires nettoyés prêts à servir depuis KV, sans appel réseau."""
+                      item_catalog=None, now=None, load_ref=None,
+                      existing: dict | None = None) -> dict:
+    """Payloads unitaires nettoyés prêts à servir depuis KV.
+
+    ``existing`` rend la reconstruction incrémentale : les entrées compatibles
+    encore dans la fenêtre sont conservées, tandis que les absences et les
+    indisponibilités sont retentées via ``load_raw`` / ``load_ref``. Le service
+    d'ingestion peut ainsi réparer un bundle sans relire 50 timelines dans R2.
+    """
     if max_games < 1:
         raise ValueError("max_games doit être >= 1")
     gold = Path(gold_dir) if gold_dir is not None else rl.gold_dir()
@@ -557,13 +567,25 @@ def build_game_bundle(player: str, records: list[dict] | None = None,
     catalog = cprof.load_items() if item_catalog is None else item_catalog
     raw_loader = load_raw if load_raw is not None else rl._read_raw
     items, unavailable, ref_cache = {}, [], {}
+    reusable = {}
+    if (isinstance(existing, dict)
+            and existing.get("target") == target
+            and existing.get("schema_version", GAME_BUNDLE_SCHEMA_VERSION)
+                == GAME_BUNDLE_SCHEMA_VERSION
+            and isinstance(existing.get("items"), dict)):
+        reusable = existing["items"]
     for record in selected:
         match_id = record.get("match_id")
         if not match_id:
             continue
+        cached = reusable.get(match_id)
+        if (isinstance(cached, dict) and isinstance(cached.get("payload"), dict)
+                and cached.get("payload_hash") and cached.get("benchmark_scope")):
+            items[match_id] = cached
+            continue
         try:
             benchmark_scope, ref = _game_benchmark_scope(
-                record, target, gold, ref_cache,
+                record, target, gold, ref_cache, load_ref=load_ref,
             )
             game_payload = build_game(
                 player, match_id=match_id, scope=benchmark_scope, target=target,
@@ -581,5 +603,16 @@ def build_game_bundle(player: str, records: list[dict] | None = None,
             "payload": game_payload,
         }
     timestamp = now() if now is not None else datetime.now(timezone.utc).isoformat()
-    return {"generated_at": timestamp, "target": target, "max_games": max_games,
+    return {"schema_version": GAME_BUNDLE_SCHEMA_VERSION,
+            "generated_at": timestamp, "target": target, "max_games": max_games,
             "items": items, "unavailable": unavailable}
+
+
+def encode_game_bundle(bundle: dict,
+                       max_bytes: int = GAME_PAYLOAD_BUNDLE_MAX_BYTES) -> str:
+    """Sérialise un bundle et applique la même limite pour tous les producteurs."""
+    encoded = json.dumps(bundle, ensure_ascii=False, separators=(",", ":"))
+    size = len(encoded.encode("utf-8"))
+    if size > max_bytes:
+        raise RuntimeError(f"bundle coaching > {max_bytes} octets ({size} octets)")
+    return encoded

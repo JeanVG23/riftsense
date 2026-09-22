@@ -106,11 +106,14 @@ def run(player: str, models: list[str] | None = None, n: int = 3,
         payload, model, timeout=counterfactual.GEN_TIMEOUT_S))
     results = [_model_run(model, records, names, generate) for model in models]
     ranked = sorted(results, key=_rank_key, reverse=True)
+    variants = sum(1 + sum(counterfactual.is_applicable(record, name)
+                           for name in names)
+                   for record in records)
     return {
         "player": player,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "protocol": {"n_source_games": len(records), "perturbations": names,
-                     "calls_planned": len(records) * (1 + len(names)) * len(models)},
+                     "calls_planned": variants * len(models)},
         "recommended_model": ranked[0]["model"] if ranked and records else None,
         "models": results,
     }
@@ -151,10 +154,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     models = args.models or list(DEFAULT_MODELS)
     records = counterfactual.baselines(args.player, args.n)
-    calls = len(records) * (1 + len(counterfactual.PERTURBATIONS)) * len(models)
+    variants = sum(1 + sum(counterfactual.is_applicable(record, name)
+                           for name in counterfactual.PERTURBATIONS)
+                   for record in records)
+    calls = variants * len(models)
     if args.dry_run:
-        print(f"{calls} appels LLM prévus : {len(records)} games × "
-              f"{1 + len(counterfactual.PERTURBATIONS)} variantes × {len(models)} modèles")
+        print(f"{calls} appels LLM prévus : {len(records)} games, "
+              f"{variants} variantes applicables × {len(models)} modèles")
         return 0
     report = run(args.player, models, args.n)
     path = persist(args.player, report)

@@ -44,6 +44,9 @@ async function seed(): Promise<MemoryKV> {
   await kv.put(KEYS.account("spadzze"), JSON.stringify({
     slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
   }));
+  await kv.put(KEYS.role_shap("spadzze"), JSON.stringify({
+    schema_version: 1, available: true, role: "BOTTOM", scope: "adc",
+  }));
   await kv.put(KEYS.gold("spadzze", "adc"), JSON.stringify(AGGREGATE(18)));
   await kv.put(KEYS.ref("challenger", "adc"), JSON.stringify(AGGREGATE(400)));
   return kv;
@@ -152,6 +155,9 @@ describe("apiCoach", () => {
     kv.store.set(KEYS.account("spadzze"), JSON.stringify({
       slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
     }));
+    kv.store.set(KEYS.role_shap("spadzze"), JSON.stringify({
+      schema_version: 1, available: true, role: "BOTTOM", scope: "adc",
+    }));
     return {
       DATA: kv,
       ASSETS: { fetch: async () => new Response("spa") },
@@ -162,7 +168,7 @@ describe("apiCoach", () => {
   const request = (slug: string, scope?: string) => new Request("http://x/api/coach", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ slug, scope }),
+    body: JSON.stringify({ slug, scope, outcome: "loss" }),
   });
 
   it("404 pour un compte inconnu", async () => {
@@ -177,9 +183,21 @@ describe("apiCoach", () => {
     expect(await response.json()).toEqual({ detail: "OLLAMA_API_KEY is not configured" });
   });
 
-  it("422 pour un ancien scope champion", async () => {
+  it("ignore tout scope client et force le rôle principal avec l'issue overall", async () => {
     const response = await apiCoach(request("spadzze", "zeri"), env("secret"));
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("player aggregate spadzze/adc");
+  });
+
+  it("422 si aucun rôle principal n'a encore été détecté", async () => {
+    const environment = env("secret");
+    await environment.DATA.put(KEYS.role_shap("spadzze"), JSON.stringify({
+      schema_version: 1, available: false, role: null, reason: "not_ingested",
+    }));
+    const response = await apiCoach(request("spadzze"), environment);
     expect(response.status).toBe(422);
-    expect(await response.json()).toEqual({ detail: "invalid benchmark scope" });
+    expect(await response.json()).toEqual({
+      detail: "main role is unavailable — refresh the account data",
+    });
   });
 });

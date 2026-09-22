@@ -9,7 +9,10 @@ import type { Env } from "./index";
  */
 export class CoachGate {
   private active = false;
-  private static readonly LOCK_TTL_MS = 30 * 60 * 1000;
+  // Une génération de coaching est bornée à 3 minutes côté client Ollama.
+  // Le verrou garde une minute de marge mais ne peut plus bloquer le joueur
+  // pendant 30 minutes si le navigateur ou l'isolate disparaît en plein flux.
+  private static readonly LOCK_TTL_MS = 4 * 60 * 1000;
 
   constructor(private state: DurableObjectState, private env: Env) {}
 
@@ -21,11 +24,15 @@ export class CoachGate {
     try {
       const now = Date.now();
       const activeUntil = await this.state.storage.get<number>("active_until");
-      if (activeUntil && activeUntil > now) {
+      // Les verrous écrits par l'ancienne version avaient une TTL de 30 min :
+      // une échéance au-delà de notre fenêtre actuelle est donc obsolète.
+      if (activeUntil && activeUntil > now
+        && activeUntil <= now + CoachGate.LOCK_TTL_MS) {
         this.active = false;
         return Response.json({ detail: "an analysis is already in progress" }, { status: 409 });
       }
       await this.state.storage.put("active_until", now + CoachGate.LOCK_TTL_MS);
+      await this.state.storage.setAlarm(now + CoachGate.LOCK_TTL_MS);
     } catch (error) {
       this.active = false;
       throw error;
@@ -39,11 +46,13 @@ export class CoachGate {
     } catch (error) {
       this.active = false;
       await this.state.storage.delete("active_until");
+      await this.state.storage.deleteAlarm();
       throw error;
     }
     if (!response.body) {
       this.active = false;
       await this.state.storage.delete("active_until");
+      await this.state.storage.deleteAlarm();
       return response;
     }
 
@@ -53,7 +62,10 @@ export class CoachGate {
       if (!released) {
         released = true;
         this.active = false;
-        await this.state.storage.delete("active_until");
+        await Promise.all([
+          this.state.storage.delete("active_until"),
+          this.state.storage.deleteAlarm(),
+        ]);
       }
     };
     const guarded = new ReadableStream({
@@ -80,5 +92,10 @@ export class CoachGate {
       statusText: response.statusText,
       headers: response.headers,
     });
+  }
+
+  async alarm(): Promise<void> {
+    this.active = false;
+    await this.state.storage.delete("active_until");
   }
 }

@@ -6,14 +6,12 @@
 :root {
   /* Surfaces */
   --paper: #f7f4ed;
-  --paper-deep: #efeadf;
   --surface: #fffdf8;
   --surface-alt: #f2eee5;
   --panel: var(--surface);
   --panel-2: var(--surface-alt);
   --panel-hover: #faf7f0;
   --panel-card: var(--surface);
-  --panel-glass: rgba(255, 253, 248, 0.90);
 
   --border: #d9d3c7;
   --border-soft: #e5e0d6;
@@ -35,14 +33,10 @@
   --primary-soft: rgba(184, 143, 83, 0.14);
   --primary-border: rgba(184, 143, 83, 0.34);
   --primary-gradient: linear-gradient(135deg, #d2b67f, #b98f53);
-  --primary-glow: none;
   --focus-ring: 0 0 0 3px rgba(184, 143, 83, .12);
 
   /* Bleu cosmique — zone d’ascension seulement */
   --cosmic: #0e1b2a;
-  --cosmic-deep: #16293c;
-  --cosmic-mid: #335a75;
-  --cosmic-light: #afc6d8;
 
   /* États */
   --success: #57745d;
@@ -56,19 +50,14 @@
   --info: #3e6d8c;
   --info-soft: rgba(62, 109, 140, 0.12);
   --info-border: rgba(62, 109, 140, 0.32);
-  --targon-gold: var(--gold);
 
   /* Rouge Targon / Sceau Solari & Rahorak — accent texturé */
   --targon-red: #782025;
-  --targon-red-deep: #421114;
-  --targon-red-light: #a83a40;
-  --targon-red-soft: rgba(120, 32, 37, 0.12);
-  --targon-red-border: rgba(120, 32, 37, 0.35);
-  --targon-red-gradient: linear-gradient(135deg, #782025, #421114);
-  --targon-red-glow: 0 4px 18px rgba(120, 32, 37, 0.28);
 
   /* Effet Voile & Draperie Rouge Solari (laine tressée & armure textile) */
-  --targon-veil-drape: url("/images/targon/solari-organic-drape.jpg");
+  /* Test visuel du panorama de footer — l'ancien drapé reste disponible ici :
+     /images/targon/solari-organic-drape.jpg */
+  --targon-veil-drape: url("/images/targon/panorama-footer.png");
   --targon-veil-button:
     repeating-linear-gradient(
       45deg,
@@ -102,6 +91,19 @@
     ),
     radial-gradient(ellipse 120% 90% at 50% -20%, #943038 0%, #682026 50%, #340e12 100%);
 
+  /* Surface sombre du shell (navigation et footer) */
+  --targon-veil-surface: #2b060a;
+  --targon-veil-surface-raised: #2b2325;
+  --targon-veil-text: #fffdf8;
+  --targon-veil-text-strong: #ffffff;
+  --targon-veil-text-muted: #cbb4af;
+  --targon-veil-text-soft: #e6d3cf;
+  --targon-veil-text-warm: #f7d5a5;
+  --targon-veil-accent: #ffd269;
+  --targon-veil-accent-soft: #fff0a8;
+  --targon-veil-accent-strong: #fbbf24;
+  --targon-veil-accent-text: #ffe08a;
+
   /* Effet Minéral & Grain de Pierre Targon (calibré à alpha 18) */
   --targon-mineral-grain: url("/images/targon/mineral-grain-seamless.png");
 
@@ -117,7 +119,6 @@
     #d49226 84%,
     #8c5713 100%
   );
-  --gold-glow: drop-shadow(0 0 10px rgba(255, 215, 80, 0.65)) drop-shadow(0 1px 2px rgba(90, 50, 5, 0.45));
 
   /* Formes */
   --radius: 12px;
@@ -126,6 +127,12 @@
   --card-shadow: 0 1px 2px rgba(20, 23, 24, 0.05), 0 10px 28px -22px rgba(20, 23, 24, 0.28);
   --card-shadow-hover: 0 1px 2px rgba(20, 23, 24, 0.06), 0 16px 38px -24px rgba(20, 23, 24, 0.36);
   --shadow-overlay: 0 20px 60px -18px rgba(20, 23, 24, 0.36);
+  --surface-inset-highlight: rgba(255, 255, 255, 0.95);
+
+  /* Contrastes partagés par les éléments du voile sombre */
+  --targon-veil-overlay: rgba(0, 0, 0, 0.35);
+  --targon-veil-border: rgba(185, 143, 83, 0.35);
+  --targon-veil-border-warm: rgba(215, 175, 110, 0.35);
 
   --transition-fast: color 140ms ease, background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
   --transition-base: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
@@ -133,10 +140,8 @@
 
   /* Compat : aucune dérive de fond sombre dans les pages existantes */
   --bg: var(--paper);
-  --bg-main: var(--paper);
   --bg-topbar: var(--paper);
   --bg-topbar-glass: rgba(247, 244, 237, 0.92);
-  --bg-gradient: var(--paper);
   --panel-gradient: var(--surface);
   --card-surface-gradient: var(--surface);
 }
@@ -293,7 +298,8 @@ h4 { font-size: 15px; font-weight: 700; }
   -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 100px), transparent 100%);
 }
 
-.side-artefact-item {
+.side-artefact-item,
+.side-artefact {
   position: absolute;
   mix-blend-mode: multiply;
   pointer-events: none;
@@ -389,7 +395,7 @@ global-coaching { display: block; }
   border: 1px solid rgba(195, 178, 155, 0.55);
   border-radius: var(--radius);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 1px 0 var(--surface-inset-highlight),
     inset 0 -1px 2px rgba(175, 155, 130, 0.10),
     0 2px 8px rgba(45, 35, 22, 0.05),
     var(--card-shadow);
@@ -423,6 +429,12 @@ global-coaching { display: block; }
   transform: translateY(-1px);
 }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn-small {
+  min-height: 30px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
 
 .btn-primary {
   color: var(--primary-text);
@@ -560,7 +572,17 @@ global-coaching { display: block; }
 .empty-state strong { color: var(--ink); font-size: 15px; }
 .empty-state span { font-size: 13px; color: var(--text-faint); }
 
-[x-cloak] { display: none !important; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 /* Loading */
 .loading-spinner-inline {

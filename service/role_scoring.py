@@ -7,7 +7,6 @@ oubliée d'un côté.
 """
 from __future__ import annotations
 
-import collections
 import json
 import math
 from pathlib import Path
@@ -74,14 +73,6 @@ def preflight_eligibility(role: str, tier: str | None,
     if (tier or "").upper() not in COVERED_TIERS:
         return "rank_out_of_scope"
     return None
-
-
-def dominant_role(games: list[dict]) -> str | None:
-    """Rôle le plus joué parmi les parties, ou None si aucun n'est exploitable."""
-    counts = collections.Counter(
-        rf.normalize_role(game["role"]) for game in games
-        if game.get("role") and rf.normalize_role(game["role"]) in rf.ROLES)
-    return counts.most_common(1)[0][0] if counts else None
 
 
 def role_games(games: list[dict], role: str) -> list[dict]:

@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import { formatDate } from "../account-profile";
 import { authToken, openCoachAuth, setStoredAuthToken, withAuthHeaders } from "../auth";
-import { insightBody, insightTitle } from "../coaching";
+import { categoryLabel, insightDetail, insightHeading } from "../coaching";
 import {
   gameChampion, gameDuration, gameIcon, gameKda, gameMatchId, gameMeta,
   gameOpponent, gamePatch, gameResult, iconFallback, type GameReview,
@@ -260,11 +260,11 @@ watch([filterResult, filterChampion], applyFilter);
         <header class="game-detail-header"><div class="game-detail-title"><img class="game-detail-icon" :src="gameIcon(selected)" :alt="gameChampion(selected)" @error="iconFallback($event, gameChampion(selected))"><div><p class="eyebrow">GAME ANALYSIS</p><h3>{{ gameChampion(selected) }}<span v-if="gameOpponent(selected)"> · vs {{ gameOpponent(selected) }}</span></h3><p class="game-match-id">{{ gameMatchId(selected) }}</p></div></div><span class="game-result" :class="gameResult(selected) === 'Victory' ? 'win' : 'loss'">{{ gameResult(selected) }}</span></header>
         <div class="game-detail-stats"><span v-if="gameKda(selected)"><small>KDA</small><strong>{{ gameKda(selected) }}</strong></span><span v-if="gameDuration(selected)"><small>Duration</small><strong>{{ gameDuration(selected) }}</strong></span><span v-if="gamePatch(selected)"><small>Patch</small><strong>{{ gamePatch(selected) }}</strong></span><span><small>Confidence</small><strong>{{ Math.round((selected.review.confidence || 0) * 100) }}%</strong></span></div>
         <section v-if="selected.review.summary" class="game-chief-summary"><span>Coach summary</span><p>{{ selected.review.summary }}</p></section>
-        <section v-if="selected.review.axes?.length" class="game-axis-list" aria-label="Specialist analyses"><details v-for="axis in selected.review.axes" :key="axis.axis" class="game-axis"><summary><span>{{ axis.label }}</span><small>{{ axis.strengths.length }} strength(s) · {{ axis.mistakes.length }} mistake(s)</small></summary><div class="game-axis-body"><article v-for="(item, index) in [...axis.strengths, ...axis.mistakes]" :key="`${axis.axis}-${index}`"><strong>{{ item.point }}</strong><p>{{ item.cause }}</p><span>{{ item.evidence }}</span></article></div></details></section>
+        <section v-if="selected.review.axes?.length" class="game-axis-list" aria-label="Specialist analyses"><details v-for="axis in selected.review.axes" :key="axis.axis" class="game-axis"><summary><span>{{ axis.label }}</span><small>{{ axis.strengths.length }} strength(s) · {{ axis.mistakes.length }} mistake(s)</small></summary><div class="game-axis-body"><article v-for="(item, index) in [...axis.strengths, ...axis.mistakes]" :key="`${axis.axis}-${index}`"><div class="insight-head"><span v-if="item.category" class="insight-cat">{{ categoryLabel(item.category) }}</span><strong>{{ insightHeading(item) }}</strong></div><p v-if="insightDetail(item)">{{ insightDetail(item) }}</p><p>{{ item.cause }}</p><span>{{ item.evidence }}</span></article></div></details></section>
         <section class="game-focus-card"><span class="game-focus-label">Focus for your next game</span><p class="game-focus-text">{{ selected.review.next_focus }}</p><FeedbackButtons kind="focus" :index="0" :state="feedbackState('focus', 0)" :busy="feedbackBusy['focus,0']" :open-key="openFeedback" prompt @vote="submitFeedback" @tag="(kind, index, tag) => submitFeedback(kind, index, false, tag)" /></section>
-        <div class="game-insight-grid">
-          <section class="game-insight-section strengths"><div class="col-head"><span class="col-icon">🛡️</span><h3>What worked well</h3></div><p v-if="!selected.review.strengths?.length" class="game-empty-copy">No sufficiently clear strength was identified for this game.</p><article v-for="(item, index) in selected.review.strengths || []" :key="`strength-${index}`" class="game-insight-item"><h4 class="insight-title">{{ insightTitle(item.point) }}</h4><p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p><details v-if="item.cause" class="cause-details"><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-strength">{{ item.evidence }}</span><FeedbackButtons kind="strength" :index="index" :state="feedbackState('strength', index)" :busy="feedbackBusy[feedbackKey('strength', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /></div></article></section>
-          <section class="game-insight-section mistakes"><div class="col-head"><span class="col-icon">⚠️</span><h3>Mistakes to remember</h3></div><article v-for="(item, index) in selected.review.mistakes || []" :key="`mistake-${index}`" class="game-insight-item"><h4 class="insight-title">{{ insightTitle(item.point) }}</h4><p v-if="insightBody(item.point)" class="insight-body">{{ insightBody(item.point) }}</p><details v-if="item.cause" class="cause-details" open><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-mistake">{{ item.evidence }}</span><div><FeedbackButtons kind="mistake" :index="index" :state="feedbackState('mistake', index)" :busy="feedbackBusy[feedbackKey('mistake', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /><button v-if="feedbackState('mistake', index)" type="button" class="fb-btn-compact" title="Add a note" @click="toggleNote('mistake', index)">✎</button><div v-if="openNotes[feedbackKey('mistake', index)]" class="fb-note-editor"><textarea v-model="noteDraft[feedbackKey('mistake', index)]" class="fb-note-input" rows="3" maxlength="500" placeholder="Explain what helps or what is missing…"></textarea><button type="button" class="btn btn-small" :disabled="feedbackBusy[feedbackKey('mistake', index)]" @click="saveNote('mistake', index)">Save note</button></div></div></div></article></section>
+        <div class="game-insight-grid shared-insights">
+          <section class="game-insight-section strengths"><div class="col-head"><span class="col-icon">🛡️</span><h3>What worked well</h3></div><p v-if="!selected.review.strengths?.length" class="game-empty-copy">No sufficiently clear strength was identified for this game.</p><article v-for="(item, index) in selected.review.strengths || []" :key="`strength-${index}`" class="game-insight-item"><div class="insight-head"><span v-if="item.category" class="insight-cat">{{ categoryLabel(item.category) }}</span><h4 class="insight-title">{{ insightHeading(item) }}</h4></div><p v-if="insightDetail(item)" class="insight-body">{{ insightDetail(item) }}</p><details v-if="item.cause" class="cause-details"><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-strength">{{ item.evidence }}</span><FeedbackButtons kind="strength" :index="index" :state="feedbackState('strength', index)" :busy="feedbackBusy[feedbackKey('strength', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /></div></article></section>
+          <section class="game-insight-section mistakes"><div class="col-head"><span class="col-icon">⚠️</span><h3>Mistakes to remember</h3></div><article v-for="(item, index) in selected.review.mistakes || []" :key="`mistake-${index}`" class="game-insight-item"><div class="insight-head"><span v-if="item.category" class="insight-cat">{{ categoryLabel(item.category) }}</span><h4 class="insight-title">{{ insightHeading(item) }}</h4></div><p v-if="insightDetail(item)" class="insight-body">{{ insightDetail(item) }}</p><details v-if="item.cause" class="cause-details" open><summary>Why?</summary><span>{{ item.cause }}</span></details><div class="insight-card-footer"><span class="evidence-chip kind-mistake">{{ item.evidence }}</span><div><FeedbackButtons kind="mistake" :index="index" :state="feedbackState('mistake', index)" :busy="feedbackBusy[feedbackKey('mistake', index)]" :open-key="openFeedback" @vote="submitFeedback" @tag="(kind, itemIndex, tag) => submitFeedback(kind, itemIndex, false, tag)" /><button v-if="feedbackState('mistake', index)" type="button" class="fb-btn-compact" title="Add a note" @click="toggleNote('mistake', index)">✎</button><div v-if="openNotes[feedbackKey('mistake', index)]" class="fb-note-editor"><textarea v-model="noteDraft[feedbackKey('mistake', index)]" class="fb-note-input" rows="3" maxlength="500" placeholder="Explain what helps or what is missing…"></textarea><button type="button" class="btn btn-small" :disabled="feedbackBusy[feedbackKey('mistake', index)]" @click="saveNote('mistake', index)">Save note</button></div></div></div></article></section>
         </div>
         <section class="game-chat" aria-labelledby="game-chat-title"><div class="game-chat-heading"><div><span class="game-focus-label">INTERACTIVE COACH</span><h3 id="game-chat-title">Challenge, explain, or dig deeper.</h3></div><small>The coach refuses to use hidden enemy information.</small></div><div v-if="chatMessages.length" class="game-chat-log"><p v-for="(message, index) in chatMessages" :key="index" :class="message.role">{{ message.content }}</p></div><form class="game-chat-form" @submit.prevent="sendChat"><label class="sr-only" for="game-chat-input">Question for the coach</label><textarea id="game-chat-input" v-model="chatDraft" rows="2" maxlength="2000" :placeholder="authenticated ? 'Example: was this choice really a mistake?' : '🔒 Sign in to chat with the AI coach…'"></textarea><button type="submit" :disabled="chatBusy || (authenticated && !chatDraft.trim())">{{ chatBusy ? "The coach is thinking…" : (authenticated ? "Send" : "🔒 Sign in") }}</button></form><p v-if="chatError" class="feedback-error">{{ chatError }}</p></section>
       </article>
@@ -822,54 +822,32 @@ watch([filterResult, filterChampion], applyFilter);
   line-height: 1.55;
 }
 
-.col-head {
+.insight-head {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
 }
 
-.col-icon {
-  font-size: 15px;
+.insight-head .insight-title {
+  margin-bottom: 0;
 }
 
-.insight-title {
-  margin: 0 0 5px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
+.insight-cat {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .05em;
+  line-height: 1.35;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
-
-.insight-body {
-  margin: 0 0 7px;
-  color: var(--text-dim);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.insight-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.evidence-chip {
-  display: inline-block;
-  font-size: 11px;
-  color: var(--text-dim);
-  background: var(--panel-2);
-  border-left: 3px solid var(--border);
-  padding: 4px 8px;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  max-width: 100%;
-  line-height: 1.4;
-}
-
-.evidence-chip.kind-strength { border-left-color: var(--win); }
-.evidence-chip.kind-mistake { border-left-color: var(--loss); }
 
 .fb-note-editor {
   position: absolute;

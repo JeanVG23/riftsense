@@ -96,7 +96,7 @@ function goPrivacy(): void {
 
         <section class="card legal-card">
           <h2>The end-to-end pipeline</h2>
-          <ol style="margin:6px 0 0; padding-left:20px">
+          <ol class="readme-inline-list">
             <li><strong>Collection</strong> — Riot API (Match-V5 + Timeline) for the player's games and thousands of high-elo reference games. <span class="faint">→ Data tab</span></li>
             <li><strong>Extraction</strong> — raw timelines become macro features: laning phase, positioning, deaths, and matchup context. <span class="faint">→ Features tab</span></li>
             <li><strong>Aggregation</strong> — profile features are compared with reference medians under matched outcomes and contexts.</li>
@@ -136,7 +136,7 @@ function goPrivacy(): void {
 
         <section class="card legal-card">
           <h2>APIs used</h2>
-          <div style="overflow-x:auto">
+          <div class="readme-table-scroll">
           <table class="readme-table">
             <thead>
               <tr><th>API</th><th>Key endpoint</th><th>Purpose</th><th>Routing</th></tr>
@@ -148,7 +148,7 @@ function goPrivacy(): void {
             </tbody>
           </table>
           </div>
-          <p class="faint" style="margin-top:10px">account-v1 and match-v5 use <strong>regional</strong> routing (Europe/Americas/Asia), while league-v4 uses <strong>platform</strong> routing (euw1, etc.). The production key only needs polite backoff on HTTP 429.</p>
+          <p class="faint readme-offset-copy">account-v1 and match-v5 use <strong>regional</strong> routing (Europe/Americas/Asia), while league-v4 uses <strong>platform</strong> routing (euw1, etc.). The production key only needs polite backoff on HTTP 429.</p>
         </section>
 
         <section class="card legal-card">
@@ -233,7 +233,7 @@ function goPrivacy(): void {
         <section class="card legal-card">
           <h2>Model card: metrics, protocol, and negative results</h2>
           <p>A metric without its protocol proves nothing. Both deployed models are evaluated on a <strong>held-out test set</strong>, never optimistic out-of-fold results:</p>
-          <div style="overflow-x:auto">
+          <div class="readme-table-scroll">
           <table class="readme-table">
             <thead>
               <tr><th>Model</th><th>Unit</th><th>Selection (purged CV on train)</th><th>Held-out test</th></tr>
@@ -244,7 +244,7 @@ function goPrivacy(): void {
             </tbody>
           </table>
           </div>
-          <p style="margin-top:10px"><strong>Purged CV.</strong> About 37% of games pair <em>two</em> players from the dataset, creating mirrored features and fold leakage. Training aggregates are recalculated at every fold with those games excluded. Leakage was <strong>measured, not assumed</strong>: approximately +0.005 AUC.</p>
+          <p class="readme-offset-copy"><strong>Purged CV.</strong> About 37% of games pair <em>two</em> players from the dataset, creating mirrored features and fold leakage. Training aggregates are recalculated at every fold with those games excluded. Leakage was <strong>measured, not assumed</strong>: approximately +0.005 AUC.</p>
           <p><strong>What the model actually uses.</strong> Dispersion statistics (standard deviation, p10, p90) account for <strong>65%</strong> of the SHAP signal, versus 20% for the mean. Rank is driven by a player's <em>floor</em>, not their average: bad games distinguish players more than good ones.</p>
           <p><strong>Negative results, reported openly.</strong> Hiding them would misrepresent the project:</p>
           <ul>
@@ -350,23 +350,7 @@ function goPrivacy(): void {
 </template>
 
 <style scoped>
-.legal-page,
-.readme {
-  position: relative;
-  width: 100%;
-  max-width: 100%;
-  margin: 0 0 60px;
-  padding: 0;
-  isolation: isolate;
-}
-
-/* Tous les contenus de la page méthodologie passent au-dessus des ornements */
-.legal-page.readme > *:not(.readme-side-artefacts):not(.readme-targon-backdrop) {
-  position: relative;
-  z-index: 2;
-}
-
-/* Toile de fond unboxed pour la page méthodologie */
+/* Page-specific Targon backdrop and artefacts. */
 .readme-targon-backdrop {
   position: absolute;
   top: -50px;
@@ -403,10 +387,7 @@ function goPrivacy(): void {
   filter: contrast(1.15) saturate(1.1);
 }
 
-/* Artefacts de bordure latérale spécifiques à la méthodologie */
-.readme-side-artefacts {
-  top: 360px;
-}
+.readme-side-artefacts { top: 360px; }
 
 .readme-artefact--astrolabe {
   top: 30px;
@@ -444,82 +425,14 @@ function goPrivacy(): void {
   filter: contrast(1.12);
 }
 
-@media (max-width: 1200px) {
-  .readme-artefact--astrolabe { opacity: 0.10; left: -30px; }
-  .readme-artefact--lunaris { opacity: 0.10; right: -30px; }
-  .readme-artefact--outil { display: none; }
-}
-
-.legal-header {
-  position: relative;
-  z-index: 1;
-  margin-bottom: 24px;
-}
-
-.legal-breadcrumbs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-faint);
-  margin-bottom: 12px;
-}
-
-.legal-breadcrumbs a {
-  color: var(--text-dim);
-  text-decoration: none;
-  transition: color 0.15s;
-}
-
-.legal-breadcrumbs a:hover {
-  color: var(--primary);
-}
-
-.legal-breadcrumbs .current {
-  color: var(--primary);
-  font-weight: 600;
-}
-
-.legal-sep {
-  color: var(--text-faint);
-  opacity: 0.5;
-}
-
-.legal-title {
-  font-size: clamp(28px, 4vw, 38px);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--text);
-  margin: 0 0 10px;
-  line-height: 1.2;
-}
-
-.legal-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--text-dim);
-  flex-wrap: wrap;
-  margin: 0 0 14px;
-}
-
-.badge-legal {
-  background: var(--primary-soft);
-  color: var(--primary);
-  border: 1px solid var(--primary-border);
-  font-weight: 650;
-  font-size: 11.5px;
-  padding: 2.5px 9px;
-  border-radius: 999px;
-}
+.legal-header { margin-bottom: 24px; }
 
 .legal-subline {
-  font-size: 15px;
-  color: var(--text-dim);
-  line-height: 1.65;
-  margin: 0 0 24px;
   max-width: 100%;
+  margin: 0 0 24px;
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1.65;
 }
 
 .legal-subline strong {
@@ -528,177 +441,78 @@ function goPrivacy(): void {
 }
 
 .tabs {
+  width: 100%;
   margin: 10px 0 26px;
-  width: 100%;
 }
 
-.legal-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  margin-bottom: 36px;
-  width: 100%;
-}
+.legal-card:hover { border-color: rgba(185, 143, 83, 0.42); }
 
-.legal-card {
-  padding: 24px 28px;
-  border-radius: 12px;
-  background: var(--card-surface-gradient);
-  border: 1px solid var(--border-soft);
-  box-shadow: var(--card-shadow);
-  margin: 0;
-  width: 100%;
-  box-sizing: border-box;
-  transition: var(--transition-base);
-}
-
-.legal-card:hover {
-  border-color: rgba(185, 143, 83, 0.42);
-  box-shadow: var(--card-shadow-hover);
-  transform: translateY(-1px);
-}
-
-.legal-card + .legal-card {
-  margin-top: 0;
-}
-
-.legal-card h2 {
-  font-size: 19px;
-  font-weight: 750;
-  color: var(--text);
-  margin: 0 0 12px;
-  letter-spacing: -0.015em;
-  line-height: 1.3;
-}
-
-.legal-card p {
-  font-size: 14.5px;
-  color: var(--text-dim);
-  line-height: 1.7;
-  margin: 0 0 12px;
-}
-
-.legal-card p:last-child {
-  margin-bottom: 0;
-}
-
-.legal-card ul,
-.legal-card ol {
-  margin: 0 0 12px;
-  padding-left: 22px;
-  color: var(--text-dim);
-  font-size: 14.5px;
-  line-height: 1.7;
-}
-
-.legal-card li {
-  margin: 6px 0;
-  line-height: 1.65;
-}
-
-.legal-card strong {
-  color: var(--text);
-  font-weight: 650;
-}
-
-.legal-card em {
-  color: var(--primary);
-  font-style: normal;
-  font-weight: 600;
-}
-
-.legal-card code,
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12.5px;
+  padding: 2px 6px;
+  color: var(--primary);
   background: var(--primary-soft);
   border: 1px solid var(--primary-border);
-  padding: 2px 6px;
   border-radius: 4px;
-  color: var(--primary);
-}
-
-.legal-card a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
 }
 
 .readme-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
+  margin: 14px 0;
   overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--border-soft);
   border-radius: 10px;
-  margin: 14px 0;
+  border-collapse: collapse;
+  font-size: 13.5px;
 }
+
+.readme-table-scroll { overflow-x: auto; }
+
+.readme-inline-list {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.readme-offset-copy { margin-top: 10px; }
 
 .readme-table th,
 .readme-table td {
-  text-align: left;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-soft);
+  text-align: left;
   vertical-align: top;
 }
 
 .readme-table th {
   color: var(--text-faint);
-  font-weight: 700;
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   background: var(--surface-alt);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.readme-table tr:last-child td {
-  border-bottom: none;
-}
+.readme-table tr:last-child td { border-bottom: none; }
 
-.legal-footer-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 36px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border-soft);
-  width: 100%;
-}
-
-.legal-footer-nav .btn-secondary {
-  color: var(--text-dim);
-  background: var(--panel-2);
-  border: 1px solid var(--border-soft);
-  text-decoration: none;
-}
-
-.legal-footer-nav .btn-secondary:hover {
-  color: var(--primary);
-  border-color: var(--primary);
-  background: var(--panel-hover);
-  text-decoration: none;
-}
-
-/* Visual editorial band */
+/* Editorial band unique to the methodology page. */
 .legal-visual-band {
   position: relative;
-  overflow: hidden;
   display: flex;
   align-items: center;
   min-height: 116px;
   margin-bottom: 22px;
   padding: 22px 32px;
-  border: 1.5px solid rgba(195, 160, 110, 0.45);
-  border-radius: 14px;
+  overflow: hidden;
   background:
     linear-gradient(95deg, rgba(255, 253, 248, .98) 0%, rgba(255, 253, 248, .92) 52%, rgba(247, 244, 237, .35) 100%),
     url('/images/targon/observatoire-zenith.jpg') right 12% center / cover no-repeat;
+  border: 1.5px solid rgba(195, 160, 110, 0.45);
+  border-radius: 14px;
   box-shadow:
     0 4px 18px rgba(20, 23, 24, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    inset 0 1px 0 var(--surface-inset-highlight);
   transition: var(--transition-base);
 }
 
@@ -712,19 +526,19 @@ function goPrivacy(): void {
 .legal-visual-copy {
   position: relative;
   z-index: 1;
-  max-width: 660px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-width: 660px;
 }
 
 .legal-visual-title {
   margin: 0;
   color: var(--ink);
   font-size: clamp(20px, 2.2vw, 24px);
-  line-height: 1.25;
-  letter-spacing: -.025em;
   font-weight: 760;
+  letter-spacing: -.025em;
+  line-height: 1.25;
 }
 
 .legal-visual-sub {
@@ -734,26 +548,18 @@ function goPrivacy(): void {
   line-height: 1.55;
 }
 
+@media (max-width: 1200px) {
+  .readme-artefact--astrolabe { opacity: 0.10; left: -30px; }
+  .readme-artefact--lunaris { opacity: 0.10; right: -30px; }
+  .readme-artefact--outil { display: none; }
+}
+
 @media (max-width: 860px) {
-  .readme-table {
-    min-width: 620px;
-  }
+  .readme-table { min-width: 620px; }
+
   .legal-visual-band {
     min-height: auto;
     padding: 18px 20px;
-  }
-  .legal-card {
-    padding: 18px 20px;
-  }
-  .legal-footer-nav {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  .legal-footer-nav .btn {
-    width: 100%;
-    text-align: center;
-    justify-content: center;
   }
 }
 </style>

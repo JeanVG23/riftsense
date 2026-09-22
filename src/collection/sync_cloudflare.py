@@ -97,9 +97,6 @@ def push_coaching(kv: KV, slug: str) -> None:
         kv.put(key, merge_jsonl(kv.get(key), parse_jsonl(path.read_text())))
 
 
-GAME_PAYLOAD_BUNDLE_MAX_BYTES = 20 * 1024 * 1024
-
-
 # Garde-fou asymétrie côté PUBLICATION. Les features per-player sont nommées
 # `pos_<base>__<stat>` (ml_features.aggregate_player_features), donc un proxy
 # ML_ONLY se reconnaît à son préfixe. Ces 3 proxys de vision alimentent le MODÈLE
@@ -179,11 +176,7 @@ def sync_account(kv: KV, slug: str, *, seed_reviews: bool = False,
 
     if games and game_payloads:
         bundle = coaching_payload.build_game_bundle(slug, records=games)
-        encoded = json.dumps(bundle, ensure_ascii=False, separators=(",", ":"))
-        if len(encoded.encode("utf-8")) > GAME_PAYLOAD_BUNDLE_MAX_BYTES:
-            raise RuntimeError(
-                f"bundle coaching {slug} > {GAME_PAYLOAD_BUNDLE_MAX_BYTES} octets"
-            )
+        encoded = coaching_payload.encode_game_bundle(bundle)
         kv.put(kv_key("game_payloads", slug=slug), encoded)
 
     import ml_rank  # noqa: E402  (artefacts ML chargés uniquement pour le sync)
@@ -237,6 +230,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="fusionne reviews + annotations locales dans KV (le site les publie)",
     )
+    parser.add_argument(
+        "--coaching-only",
+        action="store_true",
+        help="ne synchronise que reviews + annotations (aucun silver/gold/ML/référentiel)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="journalise sans écrire dans KV")
     parser.add_argument(
         "--skip-game-payloads", action="store_true",
@@ -269,10 +267,13 @@ def main(argv: list[str] | None = None) -> None:
         if not accounts:
             raise SystemExit(f"compte inconnu : {args.slug}")
     for account in accounts:
-        sync_account(kv, account["slug"], seed_reviews=args.seed_reviews,
-                     coaching=args.push_coaching,
-                     game_payloads=not args.skip_game_payloads)
-    if not args.skip_ref:
+        if args.coaching_only:
+            push_coaching(kv, account["slug"])
+        else:
+            sync_account(kv, account["slug"], seed_reviews=args.seed_reviews,
+                         coaching=args.push_coaching,
+                         game_payloads=not args.skip_game_payloads)
+    if not args.skip_ref and not args.coaching_only:
         sync_referential(kv)
 
     print(f"{len(kv.puts)} clés {'à pousser' if args.dry_run else 'poussées'} :")

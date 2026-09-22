@@ -77,6 +77,15 @@ def test_system_game_requires_cause_and_death_context():
     assert "behavior" in s            # forces = comportement, pas l'issue
 
 
+def test_system_game_requires_an_explicit_unit_for_every_numeric_citation():
+    s = PR.SYSTEM_GAME
+    assert "every number in every output field" in s
+    assert "3,200 gold" in s
+    assert "550 damage" in s
+    assert "19 CS vs 17 CS" in s
+    assert "If you cannot name the unit or payload meaning, omit the number" in s
+
+
 def test_render_game_includes_journal_and_match():
     system, user = PR.render_game(_game_payload())
     assert system == PR.SYSTEM_GAME
@@ -137,3 +146,40 @@ def test_chief_can_only_select_existing_insights():
         {"id": "death_positioning:mistakes:0", "point": "p"},
     ]}])
     assert "death_positioning:mistakes:0" in user
+
+
+def test_system_game_judges_a_recall_on_cost_and_benefit():
+    s = PR.SYSTEM_GAME
+    for field in ("cs_cost", "cs_missed_est", "cs_diff_swing", "opponent_spike",
+                  "death_after_visit", "finished_items", "is_spike", "precision_cs"):
+        assert field in s
+    assert "completed item" in s.lower()
+    assert "ordinary intermediate recall" in s.lower()
+
+
+def test_system_game_instructs_jungle_tracking_with_three_bans():
+    s = PR.SYSTEM_GAME
+    assert "jungle_signals" in s and "ally_context" in s
+    assert "is_ganked_by_jungle" in s
+    low = s.lower()
+    assert "summoner" in low and "does not exist" in low
+    assert "map_depth" in s
+    assert "current position" in low
+
+
+def test_system_game_requires_one_idea_per_mistake():
+    s = PR.SYSTEM_GAME
+    assert "category" in s and "title" in s
+    assert "1 to 5" in s
+    assert "Do not copy `point`" in s
+
+
+def test_system_game_lists_every_category():
+    import schema as S
+    for category in S.CATEGORIES:
+        assert PR.SYSTEM_GAME.count(category) >= 1, category
+    assert "VISION" not in PR.SYSTEM_GAME
+
+
+def test_system_chief_follows_to_five_mistakes():
+    assert "1 to 5 mistakes" in PR.SYSTEM_CHIEF

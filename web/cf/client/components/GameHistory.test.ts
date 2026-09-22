@@ -97,4 +97,22 @@ describe("GameHistory", () => {
     await flushPromises();
     expect(Object.keys(wrapper!.element.attributes).some(k => wrapper!.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
+
+  it("explique pourquoi une game n'est pas analysable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(page()));
+    wrapper = mount(GameHistory, {
+      props: {
+        slug: "Spadzze",
+        authenticated: true,
+        coachingContext: { matches: { EUW1_42: {
+          analyzable: false,
+          analysis_unavailable_reason: "outside_window",
+        } } },
+      },
+    });
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Analysis is available for the latest 50 games");
+    expect(wrapper.get(".btn-coach-shortcut").attributes("disabled")).toBeDefined();
+  });
 });

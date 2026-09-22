@@ -62,6 +62,21 @@ def test_generate_json_retries_on_429_then_succeeds(monkeypatch):
     assert out == {"ok": True}            # retry a réussi sur 2e appel
 
 
+def test_generate_json_retries_an_empty_success_response(monkeypatch):
+    monkeypatch.setattr(LC.rl, "load_env", lambda: {"OLLAMA_API_KEY": "k"})
+    monkeypatch.setattr(LC.time, "sleep", lambda _s: None)
+    seq = [
+        _Resp(200, {"message": {"content": ""}}),
+        _Resp(200, {"message": {"content": '{"ok": true}'}}),
+    ]
+    monkeypatch.setattr(LC.requests, "post", lambda *a, **k: seq.pop(0))
+
+    generated = LC.generate("m", "s", "u", {})
+
+    assert generated.data == {"ok": True}
+    assert generated.usage["attempts"] == 2
+
+
 def test_generate_json_timeout_exhausts_attempts(monkeypatch):
     monkeypatch.setattr(LC.rl, "load_env", lambda: {"OLLAMA_API_KEY": "k"})
     monkeypatch.setattr(LC.time, "sleep", lambda _s: None)

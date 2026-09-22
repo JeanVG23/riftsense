@@ -53,7 +53,7 @@ def test_generate_review_retries_then_raises(monkeypatch):
     with pytest.raises(C.CoachValidationError):
         C.generate_review({"meta": {"player": "x", "scope": "adc", "target": "challenger",
                                     "outcome_focus": "loss", "n_games_me": 1}}, "m")
-    assert calls["n"] == 2                            # 1 essai + 1 retry
+    assert calls["n"] == C._SCHEMA_ATTEMPTS
 
 
 def test_persist_appends_jsonl(tmp_path):
@@ -68,10 +68,16 @@ def test_persist_appends_jsonl(tmp_path):
     assert line["ts"] == "2026-06-30T10:00:00"
 
 
+def _gi(point="m", cause="solo 1v1 sans flash",
+        evidence="mort à 17:05, drake dans 6 s",
+        category="POSITIONNEMENT_COMBAT", title="Duel trop avancé"):
+    return {"point": point, "cause": cause, "evidence": evidence,
+            "category": category, "title": title}
+
+
 def _game_review_dict():
     return {"strengths": [],
-            "mistakes": [{"point": "m", "cause": "solo 1v1 sans flash",
-                          "evidence": "mort à 17:05, drake dans 6 s"}],
+            "mistakes": [_gi()],
             "next_focus": "f", "confidence": 0.4}
 
 
@@ -94,14 +100,15 @@ def test_generate_game_review_validates(monkeypatch):
 
 
 def test_specialized_review_runs_two_axes_then_chief_without_rewriting(monkeypatch):
-    death = {"strengths": [{"point": "bon placement", "cause": "reste derrière",
-                             "evidence": "à 10:04, 300 dégâts"}],
-             "mistakes": [{"point": "respecte le poke", "cause": "autos avant engage",
-                            "evidence": "mort à 11:06, 600 dégâts"}],
+    death = {"strengths": [_gi("bon placement", "reste derrière",
+                                  "à 10:04, 300 dégâts", title="Bon placement")],
+             "mistakes": [_gi("respecte le poke", "autos avant engage",
+                                "mort à 11:06, 600 dégâts", title="Poke avant engage")],
              "next_focus": "placement", "confidence": 0.7}
     economy = {"strengths": [],
-               "mistakes": [{"point": "reset avant objectif", "cause": "achat tardif",
-                              "evidence": "recall à 12:00, 1 500 g"}],
+               "mistakes": [_gi("reset avant objectif", "achat tardif",
+                                  "recall à 12:00, 1 500 g",
+                                  category="ECONOMIE_RECALL", title="Reset tardif")],
                "next_focus": "reset", "confidence": 0.6}
     chief = {
         "summary_insight_id": "death_positioning:mistakes:0",
@@ -176,6 +183,7 @@ def test_render_run_is_readable_without_price_table():
 def test_render_game_text_has_sections():
     txt = C.render_game_text(S.GameReview.model_validate(_game_review_dict()))
     assert "Erreurs" in txt and "Focus" in txt
+    assert "[POSITIONNEMENT_COMBAT] Duel trop avancé" in txt
 
 
 def test_render_text_is_french_and_has_sections():

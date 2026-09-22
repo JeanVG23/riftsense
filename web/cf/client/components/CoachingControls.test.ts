@@ -35,30 +35,36 @@ describe("CoachingControls", () => {
     expect(Object.keys(attrs).some(k => attrs[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);
   });
 
-  it("remonte les choix sans dupliquer l'état métier", async () => {
+  it("affiche le rôle principal partagé avec le SHAP sans sélecteur", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(evaluation(0.5)));
     wrapper = mount(CoachingControls, {
       props: {
         slug: "Spadzze",
-        scopes: [{ id: "all", label: "Toutes" }, { id: "adc", label: "ADC" }],
-        scope: "all",
-        outcome: "loss",
+        mainRoleName: "ADC",
+        roleReady: true,
         authenticated: true,
         gameReviewsCount: 12,
       },
     });
     await flushPromises();
 
-    await wrapper.findAll(".segmented-choice")[0].findAll("button")[1].trigger("click");
-    await wrapper.findAll(".segmented-choice")[1].findAll("button")[1].trigger("click");
     await wrapper.get(".coach-generate").trigger("click");
     await wrapper.findAll(".coach-view-tabs button")[1].trigger("click");
 
-    expect(wrapper.emitted("scope-change")?.[0]).toEqual(["adc"]);
-    expect(wrapper.emitted("outcome-change")?.[0]).toEqual(["win"]);
     expect(wrapper.emitted("generate")).toHaveLength(1);
     expect(wrapper.emitted("view-change")?.[0]).toEqual(["games"]);
+    expect(wrapper.text()).toContain("Main role detected");
+    expect(wrapper.text()).toContain("ADC");
+    expect(wrapper.find(".segmented-choice").exists()).toBe(false);
     expect(wrapper.text()).toContain("12");
+  });
+
+  it("bloque la génération tant que le rôle principal manque", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(evaluation(0.5)));
+    wrapper = mount(CoachingControls, { props: { slug: "Spadzze" } });
+    await flushPromises();
+    expect(wrapper.get(".coach-generate").attributes("disabled")).toBeDefined();
+    expect(wrapper.text()).toContain("Refresh required");
   });
 
   it("recalcule l'évaluation après un vote", async () => {

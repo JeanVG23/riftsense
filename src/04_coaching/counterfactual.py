@@ -17,6 +17,7 @@ Chaque perturbation porte son attente vérifiable :
 | `no_deaths`         | journal pauvre -> `confidence` baisse (règle 7 du prompt)   |
 | `zone_to_top`       | les morts citées basculent en TOP                          |
 | `unspent_gold_zero` | le gold non dépensé cité s'effondre                         |
+| `no_opponent_spike` | le coach cesse de citer le spike adverse                     |
 
 On mesure en plus l'ancrage de la sortie perturbée sur le payload perturbé : un
 modèle qui récite les chiffres de la game d'origine voit son ancrage chuter, ce
@@ -89,6 +90,14 @@ def perturb_unspent_gold_zero(payload: dict) -> dict:
     return out
 
 
+def perturb_no_opponent_spike(payload: dict) -> dict:
+    """Retire uniquement l'information de spike adverse des recalls."""
+    out = copy.deepcopy(payload)
+    for recall in out["journal"].get("recalls") or []:
+        recall.pop("opponent_spike", None)
+    return out
+
+
 # --- observations sur une review (pures) --------------------------------------
 
 def _texts(review: dict) -> list[str]:
@@ -96,7 +105,7 @@ def _texts(review: dict) -> list[str]:
     for section in ("strengths", "mistakes"):
         for insight in review.get(section) or []:
             if isinstance(insight, dict):
-                out += [insight[k] for k in ("point", "cause", "evidence")
+                out += [insight[k] for k in ("title", "point", "cause", "evidence")
                         if isinstance(insight.get(k), str)]
     if isinstance(review.get("next_focus"), str):
         out.append(review["next_focus"])
@@ -132,6 +141,13 @@ def original_unspent_gold(payload: dict) -> set[float]:
     return values
 
 
+def spiked_item_names(payload: dict) -> set[str]:
+    """Noms d'objets des spikes adverses du payload d'origine."""
+    return {str(name)
+            for recall in (payload.get("journal") or {}).get("recalls") or []
+            for name in ((recall.get("opponent_spike") or {}).get("items") or [])}
+
+
 def confidence(review: dict) -> float:
     value = review.get("confidence")
     return float(value) if isinstance(value, (int, float)) else 0.0
@@ -165,6 +181,16 @@ def check_unspent_gold_zero(base: dict, new: dict, payload: dict) -> dict:
             "passed": not recited}
 
 
+def check_no_opponent_spike(base: dict, new: dict, payload: dict) -> dict:
+    original = spiked_item_names(payload)
+    joined = " ".join(_texts(new)).lower()
+    recited = {name for name in original if name.lower() in joined}
+    return {"expected": "aucun objet de spike adverse d'origine encore cité",
+            "observed": f"objets d'origine {sorted(original) or '∅'} ; "
+                        f"encore cités après {sorted(recited) or '∅'}",
+            "passed": not recited}
+
+
 GEN_TIMEOUT_S = 600
 
 PERTURBATIONS = {
@@ -174,10 +200,17 @@ PERTURBATIONS = {
                     "toutes les morts déplacées en TOP"),
     "unspent_gold_zero": (perturb_unspent_gold_zero, check_unspent_gold_zero,
                           "gold non dépensé mis à zéro"),
+    "no_opponent_spike": (perturb_no_opponent_spike, check_no_opponent_spike,
+                          "spike adverse retiré des recalls"),
 }
 
 
 # --- exécution ----------------------------------------------------------------
+
+def is_applicable(record: dict, name: str) -> bool:
+    """Dit si la perturbation modifie l'entrée et justifie un appel LLM."""
+    return not (name == "no_opponent_spike"
+                and not spiked_item_names(record["payload"]))
 
 def baselines(player: str, n: int, root=None) -> list[dict]:
     """Reviews par-game déjà persistées, plus récentes d'abord : elles servent de
@@ -191,6 +224,11 @@ def run_one(record: dict, name: str, model: str, generate=None) -> dict:
     """Applique une perturbation, régénère, confronte à l'attente. `generate` est
     injectable (tests : aucun appel réseau)."""
     apply_fn, check_fn, label = PERTURBATIONS[name]
+    if not is_applicable(record, name):
+        return {"match_id": record.get("match_id"),
+                "baseline_ts": record.get("ts"), "perturbation": name,
+                "label": label, "model": model, "passed": None,
+                "skipped": "aucun spike adverse dans cette game"}
     # Ollama Cloud rend en 60-150 s sur un journal complet : le defaut 180 s de
     # llm_client expirait sur les 6 runs (mesure vide, pas verdict). On laisse
     # largement respirer, une eval n'est pas interactive.
@@ -222,7 +260,14 @@ def run(player: str, n: int = 3, model: str | None = None,
                              "baseline_ts": record.get("ts"),
                              "perturbation": name, "model": model,
                              "error": str(e), "passed": None})
+    return _summarize(player, model, names, rows)
+
+
+def _summarize(player: str, model: str, names: list[str], rows: list[dict]) -> dict:
+    """Reconstruit toutes les métriques depuis les runs, y compris après reprise."""
     done = [r for r in rows if r.get("passed") is not None]
+    errors = [r for r in rows if r.get("error")]
+    skipped = [r for r in rows if r.get("skipped")]
     grounded = [r["grounded_rate"] for r in done
                 if r.get("grounded_rate") is not None]
     by_perturbation = {}
@@ -235,11 +280,39 @@ def run(player: str, n: int = 3, model: str | None = None,
         }
     return {"player": player, "model": model,
             "generated_at": datetime.now().isoformat(timespec="seconds"),
-            "n_runs": len(rows), "n_errors": len(rows) - len(done),
+            "n_runs": len(rows), "n_errors": len(errors), "n_skipped": len(skipped),
             "sensitivity": (sum(1 for r in done if r["passed"]) / len(done))
             if done else None,
             "grounded_rate": (sum(grounded) / len(grounded)) if grounded else None,
             "by_perturbation": by_perturbation, "runs": rows}
+
+
+def retry_errors(report: dict, root=None, generate=None) -> dict:
+    """Rejoue uniquement les appels techniques en erreur d'un rapport existant.
+
+    Les échecs métier (`passed: false`) sont des résultats et ne sont jamais
+    retentés. La baseline exacte est résolue par son timestamp persistant.
+    """
+    player, model = report["player"], report["model"]
+    records = {(r.get("ts"), r.get("match_id")): r
+               for r in feedback_mod.list_reviews(player, root)
+               if r.get("kind") == "game"}
+    rows = list(report.get("runs") or [])
+    for index, row in enumerate(rows):
+        if not row.get("error"):
+            continue
+        record = records.get((row.get("baseline_ts"), row.get("match_id")))
+        if record is None:
+            rows[index] = {**row, "error": "baseline persistée introuvable"}
+            continue
+        try:
+            rows[index] = run_one(record, row["perturbation"], model, generate)
+        except (llm_client.LLMError, coach_mod.CoachValidationError) as e:
+            rows[index] = {**row, "error": str(e), "passed": None}
+    names = list((report.get("by_perturbation") or {}).keys()) or list(PERTURBATIONS)
+    refreshed = _summarize(player, model, names, rows)
+    refreshed["initial_generated_at"] = report.get("generated_at")
+    return refreshed
 
 
 def out_path(player: str, root=None) -> Path:
@@ -260,13 +333,18 @@ def render(report: dict) -> str:
     pct = lambda v: "—" if v is None else f"{v:.0%}"
     lines = [f"CONTREFACTUELS — {report['player']} ({report['model']})",
              f"  Sensibilité : {pct(report['sensitivity'])} "
-             f"({report['n_runs']} runs, {report['n_errors']} en échec)",
+             f"({report['n_runs']} runs, {report['n_errors']} en échec, "
+             f"{report.get('n_skipped', 0)} sautés)",
              f"  Ancrage des sorties perturbées : {pct(report['grounded_rate'])}",
              ""]
     for name, stats in report["by_perturbation"].items():
         lines.append(f"  {name:20} {pct(stats['pass_rate'])}  (n={stats['n']})")
     lines.append("")
     for row in report["runs"]:
+        if row.get("skipped"):
+            lines.append(f"  • {row['match_id']} | {row['perturbation']} : "
+                         f"{row['skipped']}")
+            continue
         if row.get("error"):
             lines.append(f"  ✗ {row['match_id']} | {row['perturbation']} : {row['error']}")
             continue
@@ -286,19 +364,32 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dry-run", action="store_true",
                     help="liste les runs prévus, aucun appel LLM")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--retry-errors", action="store_true",
+                    help="reprend uniquement les erreurs du rapport déjà persisté")
     args = ap.parse_args(argv)
 
     names = args.perturbation or list(PERTURBATIONS)
     if args.dry_run:
         records = baselines(args.player, args.n)
-        print(f"{len(records) * len(names)} appels LLM prévus "
+        calls = sum(is_applicable(record, name)
+                    for record in records for name in names)
+        print(f"{calls} appels LLM prévus "
               f"({len(records)} games × {len(names)} perturbations) :")
         for record in records:
             for name in names:
-                print(f"  {record['match_id']} | {name} — {PERTURBATIONS[name][2]}")
+                suffix = "" if is_applicable(record, name) else " (sautée)"
+                print(f"  {record['match_id']} | {name} — "
+                      f"{PERTURBATIONS[name][2]}{suffix}")
         return 0
 
-    report = run(args.player, args.n, args.model, names)
+    if args.retry_errors:
+        path = out_path(args.player)
+        if not path.exists():
+            print(f"✗ rapport absent : {path}", file=sys.stderr)
+            return 1
+        report = retry_errors(json.loads(path.read_text()))
+    else:
+        report = run(args.player, args.n, args.model, names)
     path = persist(args.player, report)
     print(json.dumps(report, ensure_ascii=False, indent=2) if args.json
           else render(report))

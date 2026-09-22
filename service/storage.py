@@ -7,6 +7,7 @@ ré-extrait les deux ADC depuis ce même raw.
 from __future__ import annotations
 
 import boto3
+from botocore.exceptions import ClientError
 
 # Nom de fichier identique à celui de la couche locale (`riotlib._raw_path`, qui
 # compose `{match_id}_{kind}` + `.json.zst`) : un rapatriement de R2 vers
@@ -37,3 +38,15 @@ class R2Storage:
         key = self.raw_key(platform, match_id, kind)
         self.client.put_object(Bucket=self.bucket, Key=key, Body=blob)
         return key
+
+    def get_raw(self, platform: str, match_id: str, kind: str) -> bytes | None:
+        """Lit un document raw, ou ``None`` lorsqu'il n'existe pas dans R2."""
+        key = self.raw_key(platform, match_id, kind)
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
+        except ClientError as error:
+            code = str(error.response.get("Error", {}).get("Code", ""))
+            if code in ("NoSuchKey", "404", "NotFound"):
+                return None
+            raise
+        return response["Body"].read()

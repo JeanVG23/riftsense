@@ -1,0 +1,302 @@
+/* Shared legal-page primitives.
+   Page-specific illustrations and accents remain with their page component. */
+.legal-page {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 60px;
+  padding: 0;
+  isolation: isolate;
+}
+
+.legal-header {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 12px;
+}
+
+.legal-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+.legal-breadcrumbs a {
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.legal-breadcrumbs a:hover { color: var(--primary); }
+
+.legal-breadcrumbs .current {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.legal-sep {
+  color: var(--text-faint);
+  opacity: 0.5;
+}
+
+.legal-title {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.legal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.badge-legal {
+  padding: 2.5px 9px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.legal-disclaimer-card {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 24px;
+  padding: 24px 28px;
+  background: linear-gradient(135deg, rgba(255, 253, 248, 0.98) 0%, rgba(247, 244, 237, 0.92) 100%);
+  border: 1.5px solid rgba(195, 160, 110, 0.45);
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(20, 23, 24, 0.05), inset 0 1px 0 var(--surface-inset-highlight);
+  transition: var(--transition-base);
+}
+
+.legal-disclaimer-card:hover {
+  border-color: rgba(185, 143, 83, 0.65);
+  box-shadow: 0 6px 24px rgba(185, 143, 83, 0.12), inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.legal-disclaimer-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.legal-disclaimer-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.legal-disclaimer-content strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 14.5px;
+}
+
+.legal-quote {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13.5px;
+  font-style: italic;
+  line-height: 1.65;
+}
+
+.legal-reviewer-box {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 24px;
+  padding: 24px 28px;
+  background: var(--surface-alt);
+  border: 1.5px solid rgba(195, 160, 110, 0.40);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(20, 23, 24, 0.04);
+  transition: var(--transition-base);
+}
+
+.legal-reviewer-box:hover { border-color: rgba(185, 143, 83, 0.55); }
+
+.legal-reviewer-badge {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 3px 8px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.legal-reviewer-text {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.legal-reviewer-list {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-dim);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+.legal-reviewer-list li { margin: 6px 0; }
+.legal-reviewer-list strong { color: var(--text); }
+
+.legal-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  margin-bottom: 36px;
+}
+
+.legal-card {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 24px 28px;
+  background: var(--card-surface-gradient);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  transition: var(--transition-base);
+}
+
+.legal-card:hover {
+  border-color: rgba(185, 143, 83, 0.40);
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.legal-card + .legal-card { margin-top: 0; }
+
+.legal-card h2 {
+  margin: 0 0 12px;
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  line-height: 1.3;
+}
+
+.legal-subheading {
+  margin: 18px 0 8px;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.legal-card p {
+  margin: 0 0 12px;
+  color: var(--text-dim);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+.legal-card p:last-child { margin-bottom: 0; }
+
+.legal-card ul,
+.legal-card ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+  color: var(--text-dim);
+  font-size: 14.5px;
+  line-height: 1.7;
+}
+
+.legal-card li {
+  margin: 6px 0;
+  line-height: 1.65;
+}
+
+.legal-card strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.legal-card em {
+  color: var(--primary);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.legal-card code {
+  padding: 2px 6px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary-border);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+}
+
+.legal-card a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.legal-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.legal-footer-nav .btn-secondary {
+  color: var(--text-dim);
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  text-decoration: none;
+}
+
+.legal-footer-nav .btn-secondary:hover {
+  color: var(--primary);
+  background: var(--panel-hover);
+  border-color: var(--primary);
+  text-decoration: none;
+}
+
+@media (max-width: 860px) {
+  .legal-card,
+  .legal-disclaimer-card,
+  .legal-reviewer-box {
+    padding: 18px 20px;
+  }
+
+  .legal-footer-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .legal-footer-nav .btn {
+    justify-content: center;
+    width: 100%;
+    text-align: center;
+  }
+}

@@ -109,7 +109,7 @@ def test_deep_link_to_game_review_is_preserved():
 
 def test_game_reviews_own_filters_pagination_and_details():
     component = _read("client/components/GameReviews.vue")
-    assert 'class="review-primer"' in component and "API Riot" in component
+    assert 'class="review-primer"' in component and "Riot API" in component
     assert 'class="game-review-layout"' in component
     assert "filterResult" in component and "filterChampion" in component
     assert "async function loadMore" in component and "/reviews?kind=game&page=" in component
@@ -120,7 +120,7 @@ def test_interactive_game_chat_is_vue_owned():
     component = _read("client/components/GameReviews.vue")
     assert 'class="game-chat"' in component
     assert "async function sendChat" in component and 'fetch("/api/chat"' in component
-    assert "informations ennemies cachées" in component
+    assert "hidden enemy information" in component
 
 
 def test_game_feedback_sends_full_map_and_notes():
@@ -148,14 +148,14 @@ def test_shap_is_lazy_and_charted():
 def test_readme_is_a_vue_page_and_keeps_methodology():
     page = _read("client/pages/ReadmePage.vue")
     assert "const tab = ref" in page and "v-if=\"tab === 'overview'\"" in page
-    for phrase in ("asymétrie", "benchmark", "positionnement", "Model card", "AUC 0.677", "Spearman 0.537", "held-out", "docs/MODEL_CARD.md", "auto-supervisé", "déprécié"):
+    for phrase in ("asymmetry", "benchmark", "positioning", "Model card", "AUC 0.677", "Spearman 0.537", "held-out", "docs/MODEL_CARD.md", "self-supervised", "deprecated"):
         assert phrase.lower() in page.lower(), phrase
 
 
 def test_readme_states_success_criterion_and_real_schema_bounds():
     import re
     page = _read("client/pages/ReadmePage.vue")
-    assert "≥70 %" in page and "10 analyses de parties annotées" in page
+    assert "at least 70%" in page and "at least 10 rated game analyses" in page
     schema = (ROOT / "src" / "04_coaching" / "schema.py").read_text()
     review = schema.split("class Review")[1].split("class ")[0]
     for field in ("strengths", "mistakes", "habits"):

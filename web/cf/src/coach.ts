@@ -3,7 +3,10 @@ import { generateJson } from "./llm_client";
 import { addGameReviewCauses, buildPayload, ROLE_SCOPES, type Outcome } from "./payload";
 import { render, SYSTEM, SYSTEM_GAME, versionOf } from "./prompt";
 import { jsonError, notFound, unprocessable } from "./http";
-import { appendJsonl, KEYS, readJson, readJsonl, type KVLike } from "./readers";
+import { mainRoleFromAnalysis } from "./main_role";
+import {
+  appendJsonl, KEYS, readJson, readJsonl, readRoleShap, type KVLike,
+} from "./readers";
 import { reviewJsonSchema, validateReview, type Review } from "./schema";
 import { REVIEW_SCHEMA_VERSION } from "./generated/shared";
 import type { Env } from "./index";
@@ -125,20 +128,20 @@ export async function* coachFlow(
 export async function apiCoach(request: Request, env: Env): Promise<Response> {
   const body = await request.json().catch(() => null) as {
     slug?: string;
-    scope?: string;
-    outcome?: string;
     target?: string;
     model?: string;
   } | null;
   const slug = body?.slug ?? "";
   if (!await readAccount(env.DATA, slug)) return notFound("unknown account");
   if (!env.OLLAMA_API_KEY) return jsonError(500, "OLLAMA_API_KEY is not configured");
-  const scope = (body?.scope ?? "adc").toLowerCase();
-  if (!(scope in ROLE_SCOPES)) return unprocessable("invalid benchmark scope");
+  const mainRole = mainRoleFromAnalysis(await readRoleShap(env.DATA, slug));
+  if (!mainRole) {
+    return unprocessable("main role is unavailable — refresh the account data");
+  }
   const params: CoachParams = {
     slug,
-    scope,
-    outcome: body?.outcome ?? "loss",
+    scope: mainRole.scope,
+    outcome: "overall",
     target: body?.target ?? "challenger",
     model: body?.model || env.OLLAMA_MODEL || "kimi-k2.6",
   };
@@ -147,7 +150,7 @@ export async function apiCoach(request: Request, env: Env): Promise<Response> {
     system,
     user,
     schema,
-    { apiKey: env.OLLAMA_API_KEY! },
+    { apiKey: env.OLLAMA_API_KEY!, timeoutMs: 180_000, maxAttempts: 1 },
   );
 
   const stream = new ReadableStream({
@@ -158,6 +161,9 @@ export async function apiCoach(request: Request, env: Env): Promise<Response> {
           { kv: env.DATA, generate, now: () => new Date().toISOString() },
           params,
         )) {
+          if (event.event === "error") {
+            console.error("aggregate coaching failed", event.data);
+          }
           controller.enqueue(encoder.encode(
             `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`,
           ));

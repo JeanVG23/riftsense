@@ -39,7 +39,8 @@ describe("prompt par partie", () => {
     expect(SYSTEM_GAME).toContain("INFORMATION ASYMMETRY");
     expect(SYSTEM_GAME).toContain("mm:ss");
     expect(SYSTEM_GAME).toContain("cheapest_item_cost");
-    expect(await versionOf(SYSTEM_GAME)).toBe("c55ac98bec44");
+    expect(SYSTEM_GAME).toContain("every number in every output field");
+    expect(await versionOf(SYSTEM_GAME)).toBe("07692894c681");
   });
 
   it("sérialise la partie et son issue", () => {

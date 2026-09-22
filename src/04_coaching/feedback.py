@@ -205,6 +205,49 @@ def objective_stats(fbs: list[schema_mod.Feedback],
             "target_rate": _OBJECTIVE_RATE}
 
 
+_SECTION_OF_KIND = {"strength": "strengths", "mistake": "mistakes"}
+NO_CATEGORY = "none"
+
+
+def category_of(review: dict | None, kind: str, index: int) -> str | None:
+    """Catégorie de l'insight visé par un feedback, si elle existe."""
+    section = _SECTION_OF_KIND.get(kind)
+    if not section:
+        return None
+    items = ((review or {}).get("review") or {}).get(section) or []
+    if 0 <= index < len(items) and isinstance(items[index], dict):
+        value = items[index].get("category")
+        return value if isinstance(value, str) and value else None
+    return None
+
+
+def by_category(fbs: list[schema_mod.Feedback],
+                reviews: list[dict]) -> dict[str, dict]:
+    """Ventile l'utilité par catégorie avec l'effectif de chaque seau."""
+    index = {r.get("ts"): r for r in reviews if r.get("ts")}
+    buckets: dict[str, dict] = {}
+    for feedback in fbs:
+        review = index.get(feedback.ts)
+        for item in feedback.items:
+            key = category_of(review, item.kind, item.index) or NO_CATEGORY
+            bucket = buckets.setdefault(key, {"n": 0, "useful": 0, "rate": None})
+            bucket["n"] += 1
+            bucket["useful"] += 1 if item.useful else 0
+    for bucket in buckets.values():
+        bucket["rate"] = bucket["useful"] / bucket["n"] if bucket["n"] else None
+    return dict(sorted(buckets.items()))
+
+
+def render_categories(categories: dict[str, dict]) -> str:
+    if not categories:
+        return ""
+    lines = ["Utilité par catégorie :"]
+    for category, stats in categories.items():
+        rate = "—" if stats["rate"] is None else f"{stats['rate']:.0%}"
+        lines.append(f"  {category:24} {stats['useful']}/{stats['n']} utiles ({rate})")
+    return "\n".join(lines)
+
+
 def render_objective(obj: dict) -> str:
     rate = ("—" if obj["mistake_useful_rate"] is None
             else f"{obj['mistake_useful_rate']:.0%}")
@@ -276,6 +319,7 @@ def eval_report(player: str, root=None) -> dict:
         "by_kind": stats.get("by_kind", {}),
         "top_tags": [{"tag": t, "n": n} for t, n in stats.get("top_tags", [])],
         "by_prompt_version": cohorts,
+        "by_category": by_category(fbs, reviews),
     }
 
 
@@ -296,11 +340,19 @@ def _display_items(review) -> list[tuple[str, int, str]]:
     for i, ins in enumerate(review.strengths):
         cause = getattr(ins, "cause", None)
         cause_txt = f"  — pourquoi : {cause}" if cause else ""
-        out.append(("strength", i, f"Force  {i}: {ins.point}{cause_txt}  ({ins.evidence})"))
+        title = getattr(ins, "title", None)
+        category = getattr(ins, "category", None)
+        heading = f"[{category}] {title} — " if title and category else ""
+        out.append(("strength", i,
+                    f"Force  {i}: {heading}{ins.point}{cause_txt}  ({ins.evidence})"))
     for i, ins in enumerate(review.mistakes):
         cause = getattr(ins, "cause", None)
         cause_txt = f"  — pourquoi : {cause}" if cause else ""
-        out.append(("mistake", i, f"Erreur {i}: {ins.point}{cause_txt}  ({ins.evidence})"))
+        title = getattr(ins, "title", None)
+        category = getattr(ins, "category", None)
+        heading = f"[{category}] {title} — " if title and category else ""
+        out.append(("mistake", i,
+                    f"Erreur {i}: {heading}{ins.point}{cause_txt}  ({ins.evidence})"))
     for i, h in enumerate(getattr(review, "habits", [])):
         out.append(("habit", i, f"Habitude {i}: {h}"))
     out.append(("focus", 0, f"Focus : {review.next_focus}"))
@@ -441,6 +493,9 @@ def main(argv: list[str] | None = None) -> int:
             fbs = [f for f in fbs if any(it.tag == args.tag for it in f.items)]
         print(f"FEEDBACK — {args.player}")
         print(render_objective(objective))
+        categories = render_categories(by_category(fbs, reviews))
+        if categories:
+            print(categories)
         print(render_summary(summarize(fbs)))
         return 0
     return 1

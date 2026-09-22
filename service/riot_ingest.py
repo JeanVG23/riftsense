@@ -1,4 +1,4 @@
-"""Ingestion d'un joueur : Riot -> raw R2 -> silver/gold KV.
+"""Ingestion d'un joueur : Riot -> raw R2 -> silver/gold et journaux KV.
 
 Rien n'est réimplémenté ici : la collecte et l'extraction sont celles du pipeline
 local (`riotlib`), et c'est le point. Réécrire l'extraction côté service créerait
@@ -14,7 +14,6 @@ présent dans l'image pour que `derive_context` fonctionne (voir Dockerfile) ;
 """
 from __future__ import annotations
 
-import collections
 import json
 import os
 import sys
@@ -26,8 +25,10 @@ from typing import NamedTuple
 import requests
 import riotlib as rl
 import role_features as rf
+import payload as coaching_payload
 from kv_keys import key as kv_key
 
+import main_role
 import role_scoring
 from errors import NoRankedGames, RiotIdNotFound, RiotUnavailable
 
@@ -36,6 +37,8 @@ TARGET_ROLE_GAMES = 20
 MAX_HISTORY_SCANNED = 100
 MAX_FETCH_FAILURES = 5
 DEEP_PHASE_DEADLINE_S = 480
+GAME_PAYLOAD_GAMES = 50
+GAME_PAYLOAD_TARGET = "challenger"
 
 
 class WindowHarvest(NamedTuple):
@@ -47,10 +50,6 @@ class WindowHarvest(NamedTuple):
     examined: int
     deadline_reached: bool
 
-# Rôle Riot -> scope du projet ({"adc": "BOTTOM"} lu à l'envers).
-_ROLE_TO_SCOPE = {role: scope for scope, role in rl.ROLE_SCOPES.items() if role}
-
-
 def scopes_for(games: list[dict]) -> list[str]:
     """`all` plus le scope du rôle dominant.
 
@@ -58,12 +57,7 @@ def scopes_for(games: list[dict]) -> list[str]:
     qu'il sert un joueur ADC. Un visiteur n'est pas forcément ADC : on agrège son
     rôle réel, majoritaire sur les parties collectées.
     """
-    roles = collections.Counter(
-        game.get("role") for game in games if game.get("role") in _ROLE_TO_SCOPE
-    )
-    if not roles:
-        return ["all"]
-    return ["all", _ROLE_TO_SCOPE[roles.most_common(1)[0][0]]]
+    return main_role.aggregate_scopes(games)
 
 
 def _rank_payload(entries: list[dict]) -> dict:
@@ -88,6 +82,55 @@ def _push_raw(r2, platform: str, match_ids: list[str]) -> None:
             path = rl._raw_path(base)
             if path is not None:
                 r2.put_raw(platform, match_id, kind, path.read_bytes())
+
+
+def _raw_loader(r2, platform: str):
+    """Raw local d'abord, puis R2 avec cache dans le répertoire du job."""
+    def load(base: str) -> dict | None:
+        local = rl._read_raw(base)
+        if local is not None:
+            return local
+        for suffix, kind in (("_match", "match"), ("_timeline", "timeline")):
+            if not base.endswith(suffix):
+                continue
+            match_id = base[:-len(suffix)]
+            blob = r2.get_raw(platform, match_id, kind)
+            if blob is None:
+                return None
+            path = rl.raw_dir() / f"{base}.json.zst"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(blob)
+            return rl._read_raw_at(path)
+        return None
+    return load
+
+
+def _ref_loader(kv, target: str):
+    """Référentiels KV chargés paresseusement et au plus une fois par scope."""
+    cache: dict[str, dict] = {}
+
+    def load(scope: str) -> dict:
+        if scope not in cache:
+            raw = kv.get(kv_key("ref", rank=target, scope=scope))
+            if raw is None:
+                raise FileNotFoundError(f"référentiel {target}/{scope} absent de KV")
+            value = json.loads(raw)
+            if not isinstance(value, dict):
+                raise ValueError(f"référentiel {target}/{scope} invalide")
+            cache[scope] = value
+        return cache[scope]
+    return load
+
+
+def _existing_game_bundle(kv, slug: str) -> dict | None:
+    raw = kv.get(kv_key("game_payloads", slug=slug))
+    if raw is None:
+        return None
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict) else None
 
 
 def role_in_match(match: dict, puuid: str) -> str | None:
@@ -156,12 +199,13 @@ def _role_analysis(role: str | None, reason: str | None, merged: list[dict],
         try:
             window = role_scoring.build_window(merged, role, TARGET_ROLE_GAMES)
             return {**role_scoring.score(models[role], window, sample),
-                    "generated_at": now}
+                    "scope": main_role.scope(role), "generated_at": now}
         except Exception:  # noqa: BLE001 : l'ingestion doit rester disponible
             print(f"  ⚠ scoring par rôle échoué pour {role}", file=sys.stderr)
             reason = "scoring_failed"
     return {"schema_version": role_scoring.SCHEMA_VERSION, "generated_at": now,
-            "available": False, "reason": reason, "role": role}
+            "available": False, "reason": reason, "role": role,
+            "scope": main_role.scope(role)}
 
 
 def run(payload: dict, *, client, kv, r2, data_dir: Path,
@@ -265,7 +309,7 @@ def run(payload: dict, *, client, kv, r2, data_dir: Path,
         profile_id_set = set(profile_ids)
         profile_games = [game for game in merged
                          if game.get("match_id") in profile_id_set]
-        role = role_scoring.dominant_role(profile_games)
+        role = main_role.detect(profile_games)
         reason = (role_scoring.preflight_eligibility(role, tier, models)
                   if role else "window_too_short")
 
@@ -285,18 +329,38 @@ def run(payload: dict, *, client, kv, r2, data_dir: Path,
         kv.put(kv_key("scan_index", slug=slug),
                json.dumps(scan_index, ensure_ascii=False))
 
-        scopes = scopes_for(merged)
+        # Le SHAP et le coaching consomment exactement le rôle décidé sur la
+        # fenêtre de profil. Ne pas revoter sur l'historique enrichi : celui-ci
+        # contient justement davantage de parties du rôle déjà choisi.
+        scopes = scopes_for(profile_games)
         rl.write_gold(rl.gold_base(rl.KIND_PERSONAL, slug), merged, scopes, player=slug)
 
+        # Le raw doit être durable avant que KV rende la game visible. Le bundle
+        # réutilise les payloads valides et ne relit R2 que pour les trous de la
+        # fenêtre ; les nouvelles parties sont encore dans le cache local du job.
+        if collected:
+            _push_raw(r2, platform, collected)
+        bundle = coaching_payload.build_game_bundle(
+            slug,
+            records=merged,
+            target=GAME_PAYLOAD_TARGET,
+            max_games=GAME_PAYLOAD_GAMES,
+            load_raw=_raw_loader(r2, platform),
+            load_ref=_ref_loader(kv, GAME_PAYLOAD_TARGET),
+            existing=_existing_game_bundle(kv, slug),
+        )
+        encoded_bundle = coaching_payload.encode_game_bundle(bundle)
+
+        # Pas de transaction multi-clés dans Workers KV. Publier le bundle avant
+        # games rend une éventuelle écriture partielle inoffensive : un payload
+        # en avance est invisible, une game en avance serait affichée sans journal.
+        kv.put(kv_key("game_payloads", slug=slug), encoded_bundle)
         kv.put(kv_key("games", slug=slug), silver_path.read_text())
         kv.put(kv_key("rank", slug=slug),
                json.dumps(_rank_payload(entries), ensure_ascii=False))
         for scope in scopes:
             aggregate = rl.gold_aggregate(rl.KIND_PERSONAL, slug, scope)
             kv.put(kv_key("gold", slug=slug, scope=scope), aggregate.read_text())
-
-        if collected:
-            _push_raw(r2, platform, collected)
 
         existing_raw = kv.get(kv_key("account", slug=slug))
         existing = json.loads(existing_raw) if existing_raw else {}

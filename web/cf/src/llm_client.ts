@@ -11,6 +11,7 @@ export interface GenerateOpts {
   apiKey: string;
   temperature?: number;
   timeoutMs?: number;
+  maxAttempts?: number;
   fetchImpl?: typeof fetch;
   sleepImpl?: (milliseconds: number) => Promise<void>;
 }
@@ -75,9 +76,10 @@ export async function generateJson(
     ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const temperature = opts.temperature ?? 0.2;
   const timeoutMs = opts.timeoutMs ?? 180_000;
+  const maxAttempts = opts.maxAttempts ?? MAX_ATTEMPTS;
   let lastReason = "unexpected response";
 
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       const response = await fetchImpl("https://ollama.com/api/chat", {
         method: "POST",
@@ -121,9 +123,9 @@ export async function generateJson(
       // Timeout, erreur réseau et réponse Ollama non JSON sont retentés.
       lastReason = error instanceof Error ? error.message : String(error);
     }
-    if (attempt < MAX_ATTEMPTS - 1) await sleep(2_000 * (attempt + 1));
+    if (attempt < maxAttempts - 1) await sleep(2_000 * (attempt + 1));
   }
   throw new LLMError(
-    `Ollama failed after ${MAX_ATTEMPTS} attempts (last reason: ${lastReason})`,
+    `Ollama failed after ${maxAttempts} attempt${maxAttempts === 1 ? "" : "s"} (last reason: ${lastReason})`,
   );
 }

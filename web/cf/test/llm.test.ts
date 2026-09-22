@@ -63,6 +63,14 @@ describe("generateJson", () => {
     expect(output).toEqual({ strengths: [], ok: true });
   });
 
+  it("peut borner la production à une seule tentative", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(response(503));
+    await expect(generateJson("m", "s", "u", {}, {
+      apiKey: "k", fetchImpl, sleepImpl: noSleep, maxAttempts: 1,
+    })).rejects.toThrow("failed after 1 attempt");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it("recompose un flux NDJSON même quand les lignes traversent plusieurs chunks", async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream<Uint8Array>({

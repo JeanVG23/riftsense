@@ -7,7 +7,7 @@ const review = {
   ts: "2026-09-17T10:00:00Z",
   model: "coach-model",
   scope: "adc",
-  outcome_focus: "loss",
+  outcome_focus: "overall",
   payload: { meta: {
     n_games_me: 20,
     n_games_ref: 100,
@@ -41,7 +41,7 @@ describe("GlobalCoaching", () => {
   it("rend le bilan et sa transparence statistique", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json([])));
     wrapper = mount(GlobalCoaching, {
-      props: { slug: "Spadzze", review, reviews: [review], scopeName: "ADC", outcome: "loss" },
+      props: { slug: "Spadzze", review, reviews: [review], scope: "adc", scopeName: "ADC" },
     });
     await flushPromises();
 
@@ -51,6 +51,7 @@ describe("GlobalCoaching", () => {
     expect(wrapper.text()).toContain("tempo perdu");
     expect(wrapper.text()).toContain("Confidence");
     expect(wrapper.text()).toContain("82%");
+    expect(wrapper.text()).toContain("Main role · ADC");
   });
 
   it("préserve tous les votes lors de l'enregistrement", async () => {
@@ -92,7 +93,7 @@ describe("GlobalCoaching", () => {
   it("compile avec les styles scoped de Vue", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json([])));
     wrapper = mount(GlobalCoaching, {
-      props: { slug: "Spadzze", review, reviews: [review], scopeName: "ADC", outcome: "loss" },
+      props: { slug: "Spadzze", review, reviews: [review], scope: "adc", scopeName: "ADC" },
     });
     await flushPromises();
     expect(Object.keys(wrapper!.element.attributes).some(k => wrapper!.element.attributes[Number(k)]?.name?.startsWith("data-v-"))).toBe(true);

@@ -102,6 +102,7 @@ def test_sync_account_pushes_keys(data_root, monkeypatch):
     assert "riftsense:p:reviews" not in kv.store
     assert "riftsense:p:feedback" not in kv.store
     bundle = json.loads(kv.store["riftsense:p:game-payloads"])
+    assert bundle["schema_version"] == sc.coaching_payload.GAME_BUNDLE_SCHEMA_VERSION
     assert bundle["items"] == {}
     assert bundle["unavailable"] == [
         {"match_id": "EUW1_10", "reason": "benchmark_missing"}
@@ -206,6 +207,23 @@ def test_push_coaching_merges_reviews_and_feedback(data_root, monkeypatch):
     reviews = [json.loads(l) for l in kv.store["riftsense:p:reviews"].splitlines()]
     assert [r["ts"] for r in reviews] == ["t1", "t2"]        # la review web survit
     assert json.loads(kv.store["riftsense:p:feedback"])["ts"] == "t2"
+
+
+def test_main_coaching_only_does_not_touch_pipeline_keys(data_root, monkeypatch, capsys):
+    _write(data_root / "07_coaching" / "p" / "reviews.jsonl",
+           json.dumps({"ts": "t2", "kind": "game"}) + "\n")
+    _write(data_root / "07_coaching" / "p" / "feedback.jsonl",
+           json.dumps({"ts": "t2", "items": []}) + "\n")
+    monkeypatch.setattr(sc, "load_accounts", lambda: [{"slug": "p"}])
+
+    sc.main(["--dry-run", "--slug", "p", "--coaching-only"])
+
+    output = capsys.readouterr().out
+    assert "2 clés à pousser" in output
+    assert "riftsense:p:reviews" in output
+    assert "riftsense:p:feedback" in output
+    for prefix in ("silver:", "gold:", "pred:", "shap:", "ref:"):
+        assert prefix not in output
 
 
 def test_ebm_drivers_excludes_ml_only_proxies(monkeypatch):

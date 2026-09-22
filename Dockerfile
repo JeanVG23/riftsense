@@ -10,6 +10,10 @@ COPY service/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/core/ ./src/core/
+# Producteur unique des journaux de game. L'ingestion et le sync local partagent
+# ce code afin qu'un refresh web ne fabrique pas un second format de payload.
+COPY src/04_coaching/payload.py ./src/04_coaching/payload.py
+COPY src/reporting/compare.py ./src/reporting/compare.py
 COPY service/ ./service/
 COPY data/00_static/ ./data/00_static/
 # Artefacts servis. Gitignores : la machine de build doit avoir lance `make roles`
@@ -17,7 +21,7 @@ COPY data/00_static/ ./data/00_static/
 COPY data/05_model/ ./data/05_model/
 
 # Convention flat-import du dépôt : les modules de src/core s'importent à plat.
-ENV PYTHONPATH=/app/src/core:/app/service
+ENV PYTHONPATH=/app/src/core:/app/src/04_coaching:/app/src/reporting:/app/service
 
 # Le catalogue Data Dragon (data/00_static/ddragon/) n'est PAS versionne dans git
 # (contrairement a champion_traits.json, force-ajoute) : la machine qui construit

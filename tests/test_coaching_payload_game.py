@@ -223,6 +223,7 @@ def test_build_game_bundle_is_bounded_hashed_and_records_unavailable(tmp_path, m
         now=lambda: "2026-09-06T10:00:00Z",
     )
     assert bundle["generated_at"] == "2026-09-06T10:00:00Z"
+    assert bundle["schema_version"] == PL.GAME_BUNDLE_SCHEMA_VERSION
     entry = bundle["items"]["EUW1_42"]
     assert entry["benchmark_scope"] == "adc"
     assert len(entry["payload_hash"]) == 12
@@ -230,6 +231,66 @@ def test_build_game_bundle_is_bounded_hashed_and_records_unavailable(tmp_path, m
     assert bundle["unavailable"] == [
         {"match_id": "EUW1_43", "reason": "benchmark_missing"}
     ]
+
+
+def test_build_game_bundle_reuses_compatible_entries_and_drops_old_ones():
+    def entry(match_id):
+        return {
+            "payload_hash": f"hash-{match_id}",
+            "benchmark_scope": "all",
+            "payload": {"meta": {"match_id": match_id}},
+        }
+
+    existing = {
+        "schema_version": PL.GAME_BUNDLE_SCHEMA_VERSION,
+        "target": "challenger",
+        "items": {"EUW1_3": entry("EUW1_3"), "EUW1_2": entry("EUW1_2")},
+    }
+    records = [
+        {"match_id": "EUW1_2", "game_ts": 2},
+        {"match_id": "EUW1_3", "game_ts": 3},
+    ]
+
+    bundle = PL.build_game_bundle(
+        "p", records=records, max_games=1, existing=existing, item_catalog={},
+        load_raw=lambda base: (_ for _ in ()).throw(AssertionError(base)),
+        load_ref=lambda scope: (_ for _ in ()).throw(AssertionError(scope)),
+    )
+
+    assert bundle["items"] == {"EUW1_3": existing["items"]["EUW1_3"]}
+    assert bundle["unavailable"] == []
+
+
+def test_build_game_bundle_retries_an_unavailable_entry_with_injected_ref(
+        tmp_path, monkeypatch):
+    silver, gold = _dirs(tmp_path)
+    monkeypatch.setattr(PL.cprof, "load_items", lambda: {})
+    records = PL._personal_records("spadzze", silver)
+    record = next(row for row in records if row["match_id"] == "EUW1_42")
+    scopes = []
+
+    def load_ref(scope):
+        scopes.append(scope)
+        return PL._load(gold, PL.rl.KIND_REF, "challenger", scope)
+
+    bundle = PL.build_game_bundle(
+        "spadzze", records=[record], existing={
+            "schema_version": PL.GAME_BUNDLE_SCHEMA_VERSION,
+            "target": "challenger", "items": {},
+            "unavailable": [{"match_id": "EUW1_42", "reason": "raw_missing"}],
+        },
+        gold_dir=gold, silver_dir=silver, load_raw=_load_raw,
+        load_ref=load_ref, item_catalog={},
+    )
+
+    assert "EUW1_42" in bundle["items"]
+    assert bundle["unavailable"] == []
+    assert scopes == ["adc"]
+
+
+def test_encode_game_bundle_enforces_the_shared_size_limit():
+    with pytest.raises(RuntimeError, match="bundle coaching"):
+        PL.encode_game_bundle({"items": {"x": "too large"}}, max_bytes=10)
 
 
 def test_build_game_injects_the_item_catalog_into_the_journal(tmp_path, monkeypatch):

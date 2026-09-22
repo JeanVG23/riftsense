@@ -149,14 +149,15 @@ agrégation contextuelle. Lancer : `poetry run pytest tests/`.
 
 ```
 src/
-  core/           riotlib.py, positioning.py, champion_profiles.py, game_journal.py, ml_features.py,
+  core/           riotlib.py, positioning.py, champion_profiles.py, game_journal.py,
+                  journal_signals.py, turrets.py, ml_features.py,
                   ranks.py, role_features.py, cli.py, kv_keys.py, dataset_split.py, ml_rank.py,
                   ebm_explain.py, settings.py
   collection/     build_referential.py, aggregate_games.py, sync_cloudflare.py,
                   refresh_cloudflare.py, pipeline.py, densify_targets.py, densify_sweet_spot.py,
                   densify_players.py, fetch_apex_lp.py, fetch_ladder.py,
                   backfill_summoner_profiles.py
-  pipeline_ops/   reextract_silver.py, rebuild_gold.py, compress_raw.py,
+  pipeline_ops/   reextract_silver.py, rebuild_gold.py, build_turret_map.py, compress_raw.py,
                   archive_patch.py, list_unknown_champions.py, dataset_report.py,
                   role_readiness.py
   reporting/      compare.py
@@ -173,7 +174,8 @@ src/
   04_coaching/          payload.py, prompt.py, schema.py, llm_client.py, coach.py, feedback.py,
                         grounding.py, counterfactual.py
 data/
-  00_static/      champion_traits.json (force-add : config source), ddragon/<version>/ (ignoré)
+  00_static/      champion_traits.json, sr_turrets.json (force-add : config source),
+                  ddragon/<version>/ (ignoré)
   01_raw/         JSON API brut compressé .json.zst (~10 Go -> ~750 Mo, ×13). Lecture/écriture
                   transparentes via riotlib._read_raw/_write_raw (tolérante .json.zst->.json.gz->.json)
                   rank_snapshots/<plateforme>/<jour>.jsonl.zst + manifest.json : ladder daté
@@ -401,14 +403,19 @@ lock puis `make demo`) : sur lock gelé, un cron ne vérifierait rien de plus qu
     `ready`/`stale` côté web — un hash qui bougerait sans le vouloir périmerait
     silencieusement cette classification.
   - **Chemin par-game** : `payload.build_game` (journal `game_journal` +
-    repères référentiel à issue égale ; recalls enrichis d'items résolus
-    {nom, coût} via `champion_profiles.load_items` ; bloc `context` = comp
+    repères référentiel à issue égale ; recalls enrichis d'items résolus,
+    coût CS, spike fini/adverse et mort consécutive ; morts enrichies des derniers
+    signaux publics du jungler, du support et des tourelles encore debout ; bloc `context` = comp
     botlane/jungle/mid + `lane_pattern`/`gank_exposure` via `derive_context`),
     `prompt.SYSTEM_GAME` (règle matchup basée sur ce `context` + règle de gold
     relatif au prochain achat de chaque recall), `coach.py --game
     [latest|MATCH_ID]` (records `kind: "game"` + `match_id`), `coach.py
     --game-batch [N]` (défaut 10 : reviews des N dernières games ADC pas
     encore reviewées, dédup par `match_id`, poursuit sur échec).
+    La sortie par-game porte une catégorie fermée et un titre court par insight,
+    accepte 1 à 5 erreurs et tente au plus 3 validations de schéma. Le feedback est
+    ventilé par catégorie et le contrefactuel `no_opponent_spike` vérifie que le
+    coach cesse de citer un spike retiré.
   - **Chemin par-game côté web** : `payload.build_game_bundle` sérialise ces
     payloads (clé KV `riftsense:{slug}:game-payloads`, `payload_hash` +
     `benchmark_scope` = rôle sinon global) ; `web/cf/src/game_coach.ts`
@@ -582,6 +589,17 @@ Historique complet des runs, métriques et decisions (dates, chiffres, specs) :
   (`auth.ts`). **Métrique produit atteinte** ✅ 2026-09-07 : ≥70 % de
   `mistakes` utiles sur ≥10 reviews par-game (100 % obtenu sur la cohorte
   `350f7c404b5b`, `kimi-k2.6`).
+- **Coaching enrichi recalls/tracking/catégories** 🚧 2026-09-21 : code P0 terminé.
+  Après rejet de la cohorte mixte `e1f3a4cb13da` à 81,9 %, le prompt `07692894c681`
+  impose l'unité ou le sens de chaque chiffre. Les mêmes 10 games rejouées avec
+  `deepseek-v4.1-flash` passent le gate : 91,8 % d'ancrage strict (669/729), 308/308
+  horodatages exacts, 0 violation d'asymétrie, 0 retry, médiane 93,2 s. Les 12
+  contrefactuels passent à 91,7 % de sensibilité et 95,7 % de grounding ; seul
+  `zone_to_top` échoue sur 1/3 games. L'annotation humaine de ce lot a été explicitement
+  sautée : ne pas le présenter comme validé en utilité. Les 10 reviews ont été fusionnées
+  dans KV via `sync_cloudflare.py --slug spadzze --coaching-only`, sans toucher aux clés
+  pipeline. Worker `b0f1bdf7-1c35-42c3-a24a-bfa3c8456c27` déployé et vérifié : l'API
+  publique sert les 10 reviews `07692894c681` (5 wins/5 losses), toutes `ready`.
 - **Migration Cloudflare** ✅ 2026-08-31 : `web/cf/` en prod sur
   `coaching-lol.jeanvg.fr` ; Fly.io inactif (facturation non réactivée).
 - **Dépôt exécutable après clone** ✅ 2026-09-04 : `make demo` (0 réseau/clé,
@@ -604,11 +622,11 @@ Historique complet des runs, métriques et decisions (dates, chiffres, specs) :
 
 ### Prochaines étapes
 
-1. **Coaching (axe prioritaire)** : métrique produit atteinte (≥70 % de mistakes
-   utiles sur ≥10 reviews par-game, 2026-09-07). Le prochain lot doit mesurer les
-   axes du feedback de lecture (recalls jugés, jungle tracking, erreurs découpées
-   et titrées : spec `2026-09-05-coaching-recalls-tracking-categories-design.md`),
-   pas reconfirmer le seuil. Ensuite **coacher le plancher** — cibler les games du
+1. **Coaching (axe prioritaire)** : décider si la cohorte homogène `07692894c681`
+   peut être synchronisée sans nouvelle annotation humaine. Les gates automatiques passent
+   (91,8 % d'ancrage, 91,7 % de sensibilité), mais l'utilité n'a pas été remesurée ; la
+   preuve humaine disponible reste la cohorte Kimi précédente. Ensuite
+   **coacher le plancher** — cibler les games du
    pire décile p10 (insight ML per-player : le rang = le plancher, pas la
    moyenne) et boucle de focus inter-games (adhérence au `next_focus`).
 2. Stabiliser et valider la **robustesse ML/SHAP** (qualité des prescriptions SHAP vs

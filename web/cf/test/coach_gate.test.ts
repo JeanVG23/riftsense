@@ -19,6 +19,8 @@ describe("CoachGate", () => {
         get: async (key: string) => lock.get(key),
         put: async (key: string, value: unknown) => { lock.set(key, value); },
         delete: async (key: string) => lock.delete(key),
+        setAlarm: async (value: number) => { lock.set("alarm", value); },
+        deleteAlarm: async () => lock.delete("alarm"),
       },
       waitUntil: (promise: Promise<unknown>) => { void promise; },
     } as unknown as DurableObjectState;
@@ -36,5 +38,28 @@ describe("CoachGate", () => {
     const after = await gate.fetch(request());
     expect(after.status).toBe(404);
     await after.text();
+  });
+
+  it("ignore un ancien verrou 30 minutes devenu obsolète", async () => {
+    const env = {
+      DATA: new MemoryKV(), ASSETS: { fetch: async () => new Response("spa") },
+    } as unknown as Env;
+    const lock = new Map<string, unknown>([["active_until", Date.now() + 25 * 60_000]]);
+    const state = {
+      storage: {
+        get: async (key: string) => lock.get(key),
+        put: async (key: string, value: unknown) => { lock.set(key, value); },
+        delete: async (key: string) => lock.delete(key),
+        setAlarm: async (value: number) => { lock.set("alarm", value); },
+        deleteAlarm: async () => lock.delete("alarm"),
+      },
+    } as unknown as DurableObjectState;
+    const gate = new CoachGate(state, env);
+    const response = await gate.fetch(new Request("http://x/api/coach", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug: "inconnu" }),
+    }));
+    expect(response.status).toBe(404);
+    await response.text();
   });
 });

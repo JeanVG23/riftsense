@@ -88,12 +88,12 @@ auth-control {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(185, 143, 83, 0.35);
+  background: var(--targon-veil-overlay);
+  border: 1px solid var(--targon-veil-border);
   border-radius: 8px;
   font-size: 11.5px;
   font-weight: 600;
-  color: #fffdf8;
+  color: var(--targon-veil-text);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -101,7 +101,7 @@ auth-control {
 .topbar-auth-btn:hover {
   background: rgba(0, 0, 0, 0.55);
   border-color: var(--gold);
-  color: #fbbf24;
+  color: var(--targon-veil-accent-strong);
 }
 
 .topbar-auth-logged {

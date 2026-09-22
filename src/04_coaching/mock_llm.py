@@ -39,6 +39,12 @@ def _fmt_gold(value) -> str:
     return f"{int(value)} g" if isinstance(value, (int, float)) else "0 g"
 
 
+def _game_insight(point: str, cause: str, evidence: str,
+                  category: str, title: str) -> dict:
+    return {"point": point, "cause": cause, "evidence": evidence,
+            "category": category, "title": title}
+
+
 def _game_review(pl: dict) -> dict:
     deaths = (pl.get("journal") or {}).get("deaths") or []
     recalls = (pl.get("journal") or {}).get("recalls") or []
@@ -47,41 +53,44 @@ def _game_review(pl: dict) -> dict:
 
     mistakes = []
     if worst:
-        mistakes.append({
-            "point": f"You die with unspent gold in {worst.get('zone', '?')}.",
-            "cause": (f"{'solo death' if worst.get('is_solo') else 'outnumbered death'} "
-                      f"against {worst.get('killer_champ') or 'an opponent'}, "
-                      f"during the {worst.get('phase', '?')} phase"),
-            "evidence": (f"death at {worst.get('clock', '0:00')} in "
-                         f"{worst.get('zone', '?')}, "
-                         f"{_fmt_gold(worst.get('unspent_gold'))} unspent"),
-        })
+        mistakes.append(_game_insight(
+            f"You die with unspent gold in {worst.get('zone', '?')}.",
+            (f"{'solo death' if worst.get('is_solo') else 'outnumbered death'} "
+             f"against {worst.get('killer_champ') or 'an opponent'}, "
+             f"during the {worst.get('phase', '?')} phase"),
+            (f"death at {worst.get('clock', '0:00')} in "
+             f"{worst.get('zone', '?')}, "
+             f"{_fmt_gold(worst.get('unspent_gold'))} unspent"),
+            "ECONOMIE_RECALL",
+            "Unspent gold before a death"))
     if first and first is not worst:
-        mistakes.append({
-            "point": f"Your first death happens in {first.get('zone', '?')}.",
-            "cause": f"killed by {first.get('killer_champ') or 'an opponent'}",
-            "evidence": (f"death at {first.get('clock', '0:00')} in "
-                         f"{first.get('zone', '?')}"),
-        })
+        mistakes.append(_game_insight(
+            f"Your first death happens in {first.get('zone', '?')}.",
+            f"killed by {first.get('killer_champ') or 'an opponent'}",
+            (f"death at {first.get('clock', '0:00')} in "
+             f"{first.get('zone', '?')}"),
+            "TRACKING_JUNGLE" if first.get("is_ganked_by_jungle")
+            else "POSITIONNEMENT_COMBAT",
+            "First preventable death"))
     if not mistakes:                       # journal sans mort : le schéma en exige une
-        mistakes.append({
-            "point": "No death-related mistake to flag in this game.",
-            "cause": "no deaths in the timeline",
-            "evidence": "0 deaths recorded between 0:00 and the end of the game",
-        })
+        mistakes.append(_game_insight(
+            "No death-related mistake to flag in this game.",
+            "no deaths in the timeline",
+            "0 deaths recorded between 0:00 and the end of the game",
+            "POSITIONNEMENT_COMBAT", "No death to review"))
 
     strengths = []
-    if recalls:
+    if recalls and (recalls[0].get("outcome") or {}).get("is_spike") is True:
         r = recalls[0]
-        strengths.append({
-            "point": "You return to base with enough gold to buy.",
-            "cause": "recall triggered by a gold threshold, not by a death",
-            "evidence": (f"recall at {r.get('clock', '0:00')} with "
-                         f"{_fmt_gold(r.get('gold_before'))}"),
-        })
+        strengths.append(_game_insight(
+            "You convert your recall into a completed-item spike.",
+            "the shop visit completes an item instead of only components",
+            (f"recall at {r.get('clock', '0:00')} with "
+             f"{_fmt_gold(r.get('gold_before'))}"),
+            "BUILD_ACHATS", "Completed item on recall"))
     # La confiance suit la matière disponible : c'est la règle que le harnais
     # contrefactuel vérifie (journal vidé -> confiance en baisse).
-    return {"strengths": strengths, "mistakes": mistakes[:3],
+    return {"strengths": strengths, "mistakes": mistakes[:5],
             "next_focus": "Spend your gold before taking another fight.",
             "confidence": round(min(0.9, 0.2 + 0.1 * len(deaths)), 2)}
 

@@ -99,4 +99,26 @@ describe("readEval", () => {
     expect(report.by_prompt_version["none"]).toBeDefined();
     expect(report.by_prompt_version[""]).toBeUndefined();
   });
+
+  it("ventile l'utilité par catégorie avec l'effectif et un seau legacy", async () => {
+    const kv = kvWith(
+      [
+        { ts: "g1", kind: "game", review: { strengths: [], mistakes: [
+          { category: "TRACKING_JUNGLE" }, { category: "ECONOMIE_RECALL" },
+        ] } },
+        { ts: "g2", kind: "game", review: { strengths: [], mistakes: [{}] } },
+      ],
+      [
+        { ts: "g1", items: [
+          { kind: "mistake", index: 0, useful: true },
+          { kind: "mistake", index: 1, useful: false },
+        ] },
+        { ts: "g2", items: [{ kind: "mistake", index: 0, useful: true }] },
+      ],
+    );
+    const report = await readEval(kv, "s");
+    expect(report.by_category.TRACKING_JUNGLE).toEqual({ n: 1, useful: 1, rate: 1 });
+    expect(report.by_category.ECONOMIE_RECALL).toEqual({ n: 1, useful: 0, rate: 0 });
+    expect(report.by_category.none).toEqual({ n: 1, useful: 1, rate: 1 });
+  });
 });

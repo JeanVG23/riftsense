@@ -38,6 +38,7 @@ interface ReviewRecord {
 interface MatchCoachInfo {
   review_status?: string;
   analyzable?: boolean;
+  analysis_unavailable_reason?: string | null;
   pedagogic?: { kind?: string; label?: string; hint?: string };
 }
 
@@ -154,7 +155,16 @@ function coachButtonText(game: GameSummary): string {
   const info = matchCoachInfo(game.match_id);
   if (isGameCoachRunning(game.match_id)) return `Ollama analysis in progress… ${props.job?.progress || ""}`.trim();
   if (hasReview(game.match_id)) return "View LLM coaching analysis →";
-  if (info && !info.analyzable) return "Journal unavailable; refresh the data";
+  if (info && !info.analyzable) {
+    const labels: Record<string, string> = {
+      outside_window: "Analysis is available for the latest 50 games",
+      raw_missing: "Match data unavailable",
+      benchmark_missing: "Coaching reference unavailable",
+      not_eligible: "This game cannot be analyzed",
+      bundle_missing: "Refresh to prepare the game journal",
+    };
+    return labels[info.analysis_unavailable_reason || ""] || "Game journal unavailable";
+  }
   if (!props.authenticated) return "🔒 Sign in to analyze";
   return pedagogicTarget(game) ? "Analyze this recommended game →" : "Analyze this game with AI →";
 }
@@ -201,7 +211,7 @@ onMounted(loadGames);
         >
           <div class="gr-champ-wrap">
             <img class="champ-icon" :src="championIcon(game.champion, game.patch)" :alt="game.champion" loading="lazy" @error="fallbackChampionIcon($event, game.champion)">
-            <span class="champ-fallback" style="display:none">{{ game.champion }}</span>
+            <span class="champ-fallback">{{ game.champion }}</span>
           </div>
           <div class="gr-main">
             <div class="gr-top-row">
@@ -357,7 +367,7 @@ onMounted(loadGames);
                       <div v-for="player in alliedTeam(game)" :key="`${player.role}-${player.champ}`" class="gd-player-row" :class="{ 'is-self': player.isSelf }">
                         <img class="gd-mini-icon" :src="championIcon(player.champ, game.patch)" :alt="player.champ" loading="lazy" @error="fallbackChampionIcon($event, player.champ)"><span class="gd-role-badge">{{ player.roleName }}</span><span class="gd-pname">{{ player.champ }}</span><span v-if="player.isSelf" class="gd-self-badge">You</span>
                       </div>
-                      <div v-if="alliedTeam(game).length === 0" class="faint" style="font-size:11px;padding:8px 0">Composition unavailable</div>
+                      <div v-if="alliedTeam(game).length === 0" class="faint gd-composition-empty">Composition unavailable</div>
                     </div>
                   </div>
                   <div class="gd-team-col enemy-team">
@@ -366,7 +376,7 @@ onMounted(loadGames);
                       <div v-for="player in enemyTeam(game)" :key="`${player.role}-${player.champ}`" class="gd-player-row">
                         <img class="gd-mini-icon" :src="championIcon(player.champ, game.patch)" :alt="player.champ" loading="lazy" @error="fallbackChampionIcon($event, player.champ)"><span class="gd-role-badge">{{ player.roleName }}</span><span class="gd-pname">{{ player.champ }}</span>
                       </div>
-                      <div v-if="enemyTeam(game).length === 0" class="faint" style="font-size:11px;padding:8px 0">Composition unavailable</div>
+                      <div v-if="enemyTeam(game).length === 0" class="faint gd-composition-empty">Composition unavailable</div>
                     </div>
                   </div>
                 </div>
@@ -411,7 +421,7 @@ onMounted(loadGames);
         </div>
       </div>
 
-      <div class="row" style="justify-content:space-between;margin-top:16px">
+      <div class="row gd-pagination">
         <button class="btn" :disabled="page <= 1 || loading" @click="previousPage">← Previous</button>
         <span class="faint">page {{ page }} / {{ pageCount }}</span>
         <button class="btn" data-testid="next-page" :disabled="page * size >= total || loading" @click="nextPage">Next →</button>
@@ -537,12 +547,14 @@ onMounted(loadGames);
   font-weight: 700;
   letter-spacing: .02em;
 }
-.gr-badge-pedagogic.badge-loss {
+.gr-badge-pedagogic.badge-loss,
+.pedagogic-target-pill.pill-loss {
   background: var(--loss-soft);
   border: 1px solid var(--loss-border);
   color: var(--danger);
 }
-.gr-badge-pedagogic.badge-win {
+.gr-badge-pedagogic.badge-win,
+.pedagogic-target-pill.pill-win {
   background: var(--win-soft);
   border: 1px solid var(--win-border);
   color: var(--success);
@@ -564,17 +576,6 @@ onMounted(loadGames);
   font-weight: 700;
   cursor: help;
 }
-.pedagogic-target-pill.pill-loss {
-  background: var(--loss-soft);
-  border: 1px solid var(--loss-border);
-  color: var(--danger);
-}
-.pedagogic-target-pill.pill-win {
-  background: var(--win-soft);
-  border: 1px solid var(--win-border);
-  color: var(--success);
-}
-
 /* Volet de détails de la partie (style OP.GG / U.GG) */
 .game-details-panel {
   border-top: 1px solid var(--border-soft);
@@ -959,7 +960,8 @@ onMounted(loadGames);
   text-align: center;
   font-size: 12px;
 }
-.gd-objectives-timeline {
+.gd-objectives-timeline,
+.gd-combat-timeline {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -967,7 +969,8 @@ onMounted(loadGames);
   overflow-y: auto;
   padding-right: 4px;
 }
-.gd-obj-entry {
+.gd-obj-entry,
+.gd-combat-entry {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -978,7 +981,8 @@ onMounted(loadGames);
   border-radius: 4px;
   transition: background .15s ease;
 }
-.gd-obj-entry:hover {
+.gd-obj-entry:hover,
+.gd-combat-entry:hover {
   background: var(--surface-alt);
 }
 .gd-obj-entry.ally {
@@ -987,7 +991,8 @@ onMounted(loadGames);
 .gd-obj-entry.enemy {
   border-left: 3px solid var(--danger);
 }
-.gd-obj-time {
+.gd-obj-time,
+.gd-combat-time {
   font-weight: 800;
   color: var(--text-dim);
   min-width: 28px;
@@ -1101,30 +1106,6 @@ onMounted(loadGames);
   font-size: 14px;
 }
 
-.gd-combat-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.gd-combat-entry {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  padding: 5px 8px;
-  background: var(--panel-2);
-  border: 1px solid var(--border-soft);
-  border-radius: 4px;
-  transition: background .15s ease;
-}
-.gd-combat-entry:hover {
-  background: var(--surface-alt);
-}
-
 .gd-combat-entry.entry-kill {
   border-left: 3px solid var(--success);
 }
@@ -1133,13 +1114,6 @@ onMounted(loadGames);
 }
 .gd-combat-entry.entry-assist {
   border-left: 3px solid var(--info);
-}
-
-.gd-combat-time {
-  font-weight: 800;
-  color: var(--text-dim);
-  min-width: 28px;
-  font-family: var(--font-mono, monospace);
 }
 
 .gd-combat-type-badge {
@@ -1220,11 +1194,7 @@ onMounted(loadGames);
   color: var(--danger);
   border: 1px solid var(--loss-border);
 }
-.tag-gank {
-  background: var(--info-soft);
-  color: var(--info);
-  border: 1px solid var(--info-border);
-}
+.tag-gank,
 .tag-2v2 {
   background: var(--info-soft);
   color: var(--info);
@@ -1391,6 +1361,18 @@ onMounted(loadGames);
   text-transform: uppercase;
 }
 
+.champ-fallback { display: none; }
+
+.gd-composition-empty {
+  padding: 8px 0;
+  font-size: 11px;
+}
+
+.gd-pagination {
+  justify-content: space-between;
+  margin-top: 16px;
+}
+
 
 @media (max-width: 860px) {
   .gd-grid { grid-template-columns: 1fr; }
@@ -1409,7 +1391,6 @@ onMounted(loadGames);
   .gd-sides-row { flex-direction: column; align-items: flex-start; gap: 8px; }
   .gd-action-bar { flex-direction: column; align-items: stretch; gap: 10px; }
   .btn-coach-shortcut { width: 100%; justify-content: center; }
-  .select { width: 100%; min-width: 0; }
 }
 
 </style>

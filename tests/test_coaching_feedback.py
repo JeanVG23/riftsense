@@ -74,7 +74,9 @@ def _game_review_record():
             "payload": {"meta": {}},
             "review": {"strengths": [],
                        "mistakes": [{"point": "m", "cause": "solo 1v1 sans flash",
-                                     "evidence": "mort à 17:05, drake dans 6 s"}],
+                                     "evidence": "mort à 17:05, drake dans 6 s",
+                                     "category": "POSITIONNEMENT_COMBAT",
+                                     "title": "Duel trop avancé"}],
                        "next_focus": "f", "confidence": 0.4}}
 
 
@@ -89,6 +91,12 @@ def test_annotate_handles_game_reviews(tmp_path):
     assert len(fbs) == 1
     kinds = {(it.kind, it.useful) for it in fbs[0].items}
     assert ("mistake", True) in kinds and ("focus", False) in kinds
+
+
+def test_display_items_exposes_game_category_and_title():
+    review = S.GameReview.model_validate(_game_review_record()["review"])
+    lines = F._display_items(review)
+    assert "[POSITIONNEMENT_COMBAT] Duel trop avancé" in lines[0][2]
 
 
 def test_list_reviews_empty(tmp_path):
@@ -439,3 +447,62 @@ def test_cohort_of_treats_empty_prompt_version_as_none():
     reviews = [{"ts": "t1", "run": {"prompt_version": ""}}]
     cohorts = F.cohort_of(reviews)
     assert cohorts["t1"] == "none"
+
+
+def _category_review(ts, categories):
+    return {"ts": ts, "kind": "game", "match_id": f"EUW1_{ts}",
+            "run": {"prompt_version": "abc123"},
+            "review": {"strengths": [],
+                       "mistakes": [{"point": "p", "cause": "c",
+                                     "evidence": "8:31", "title": "t",
+                                     "category": cat} for cat in categories],
+                       "next_focus": "f", "confidence": 0.6}}
+
+
+def _category_feedback(ts, verdicts):
+    return {"ts": ts, "player": "p", "model": "kimi-k2.6",
+            "rated_at": "2026-09-08T12:00:00",
+            "items": [{"kind": "mistake", "index": i, "useful": useful,
+                       "tag": None if useful else "autre", "note": None}
+                      for i, useful in enumerate(verdicts)]}
+
+
+def test_by_category_carries_its_sample_size(tmp_path):
+    root = tmp_path / "07_coaching"
+    (root / "p").mkdir(parents=True)
+    reviews = [_category_review("t1", ["TRACKING_JUNGLE", "ECONOMIE_RECALL"]),
+               _category_review("t2", ["TRACKING_JUNGLE"])]
+    (root / "p" / "reviews.jsonl").write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in reviews) + "\n")
+    feedbacks = [_category_feedback("t1", [True, False]),
+                 _category_feedback("t2", [True])]
+    (root / "p" / "feedback.jsonl").write_text(
+        "\n".join(json.dumps(f, ensure_ascii=False) for f in feedbacks) + "\n")
+    report = F.eval_report("p", root=root)
+    assert report["by_category"]["TRACKING_JUNGLE"] == {
+        "n": 2, "useful": 2, "rate": 1.0}
+    assert report["by_category"]["ECONOMIE_RECALL"] == {
+        "n": 1, "useful": 0, "rate": 0.0}
+    assert "POSITIONNEMENT_COMBAT" not in report["by_category"]
+
+
+def test_by_category_puts_old_reviews_in_a_none_bucket(tmp_path):
+    root = tmp_path / "07_coaching"
+    (root / "p").mkdir(parents=True)
+    legacy = {"ts": "t0", "kind": "game", "match_id": "EUW1_0",
+              "review": {"strengths": [], "mistakes": [
+                  {"point": "p", "cause": "c", "evidence": "8:31"}],
+                  "next_focus": "f", "confidence": 0.5}}
+    (root / "p" / "reviews.jsonl").write_text(json.dumps(legacy) + "\n")
+    (root / "p" / "feedback.jsonl").write_text(
+        json.dumps(_category_feedback("t0", [True])) + "\n")
+    assert F.eval_report("p", root=root)["by_category"]["none"] == {
+        "n": 1, "useful": 1, "rate": 1.0}
+
+
+def test_category_of_tolerates_a_missing_insight():
+    review = _category_review("t1", ["OBJECTIFS"])
+    assert F.category_of(review, "mistake", 0) == "OBJECTIFS"
+    assert F.category_of(review, "mistake", 9) is None
+    assert F.category_of(review, "habit", 0) is None
+    assert F.category_of({}, "mistake", 0) is None

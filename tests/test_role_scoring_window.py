@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src" / "core"))
 sys.path.insert(0, str(ROOT / "service"))
 
 import game_rows  # noqa: E402
+import main_role  # noqa: E402
 import ml_features as mf  # noqa: E402
 import riotlib as rl  # noqa: E402
 import role_features as rf  # noqa: E402
@@ -98,8 +99,9 @@ def test_la_fenetre_prend_les_plus_recentes(records_silver):
 def test_le_role_dominant_ignore_les_parties_sans_role(records_silver):
     games = [{"role": "JUNGLE"}, {"role": "JUNGLE"},
              {"role": "MIDDLE"}, {"role": None}]
-    assert role_scoring.dominant_role(games) == "JUNGLE"
-    assert role_scoring.dominant_role([{"role": None}]) is None
+    assert main_role.detect(games) == "JUNGLE"
+    assert main_role.detect([{"role": None}]) is None
+    assert main_role.scope("JUNGLE") == "jungle"
 
 
 def test_le_payload_publie_la_decomposition_complete_et_verifiable():

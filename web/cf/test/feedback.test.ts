@@ -47,8 +47,14 @@ async function makeGameEnv(): Promise<Env> {
     JSON.stringify({
       ts: "T-game", kind: "game", model: "kimi-k2.6", payload: {},
       review: {
-        strengths: [{ point: "s", evidence: "12:30 : bon move", cause: "vision" }],
-        mistakes: [{ point: "m", evidence: "15:10 : mauvais recall", cause: "wave" }],
+        strengths: [{
+          category: "OBJECTIFS", title: "Bonne priorité", point: "s",
+          evidence: "12:30 : bon move", cause: "vision",
+        }],
+        mistakes: [{
+          category: "ECONOMIE_RECALL", title: "Recall tardif", point: "m",
+          evidence: "15:10 : mauvais recall", cause: "wave",
+        }],
         next_focus: "Prépare ton recall.", confidence: 0.7,
       },
     }),

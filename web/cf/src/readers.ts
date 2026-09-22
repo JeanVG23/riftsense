@@ -24,6 +24,7 @@ export const KEYS = {
 };
 
 export interface GamePayloadBundle {
+  schema_version: number;
   generated_at: string | null;
   target: string;
   max_games: number;
@@ -40,12 +41,14 @@ export async function readGamePayloadBundle(
   slug: string,
 ): Promise<GamePayloadBundle> {
   const empty: GamePayloadBundle = {
-    generated_at: null, target: "challenger", max_games: 0, items: {}, unavailable: [],
+    schema_version: 1, generated_at: null, target: "challenger", max_games: 0,
+    items: {}, unavailable: [],
   };
   const value = await readJson<Partial<GamePayloadBundle>>(kv, KEYS.game_payloads(slug));
   if (!value || typeof value.items !== "object" || value.items === null
       || Array.isArray(value.items)) return empty;
   return {
+    schema_version: typeof value.schema_version === "number" ? value.schema_version : 1,
     generated_at: typeof value.generated_at === "string" ? value.generated_at : null,
     target: typeof value.target === "string" ? value.target : "challenger",
     max_games: typeof value.max_games === "number" ? value.max_games : 0,
@@ -103,6 +106,7 @@ export interface RoleAnalysis {
   schema_version: number;
   available: boolean;
   role: string | null;
+  scope?: string | null;
   reason?: string;
   [key: string]: unknown;
 }

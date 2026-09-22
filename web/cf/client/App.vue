@@ -16,7 +16,6 @@ import NavSearch from "./components/NavSearch.vue";
 import RegisterForm from "./components/RegisterForm.ce.vue";
 
 const AccountPage = defineAsyncComponent(() => import("./pages/AccountPage.vue"));
-const CaseStudyPage = defineAsyncComponent(() => import("./pages/CaseStudyPage.vue"));
 const ReadmePage = defineAsyncComponent(() => import("./pages/ReadmePage.vue"));
 const TermsPage = defineAsyncComponent(() => import("./pages/TermsPage.vue"));
 const PrivacyPage = defineAsyncComponent(() => import("./pages/PrivacyPage.vue"));
@@ -306,7 +305,6 @@ onBeforeUnmount(() => {
       <HomePage v-if="route.name === 'home'" :accounts="accounts" :recent-accounts="recentAccounts" :loading="accountsLoading" />
       <RegisterForm v-else-if="route.name === 'register'" mode="status" />
       <AccountPage v-else-if="route.name === 'account'" :key="slug" :slug="slug" />
-      <CaseStudyPage v-else-if="route.name === 'case-study'" />
       <ReadmePage v-else-if="route.name === 'readme'" />
       <TermsPage v-else-if="route.name === 'terms'" />
       <PrivacyPage v-else-if="route.name === 'privacy'" />
@@ -316,7 +314,7 @@ onBeforeUnmount(() => {
   <footer class="site-footer" role="contentinfo">
     <div class="footer-inner"><div class="footer-grid">
       <div class="footer-col footer-col-brand"><div class="footer-brand"><span class="brand-mark" aria-hidden="true"><img class="brand-svg" src="/logo.svg" alt="RiftSense Logo" width="26" height="26"></span><span class="footer-brand-title">RiftSense</span><span class="brand-badge">LoL Esports Analytics</span></div><p class="footer-mission">League of Legends performance analytics and tactical coaching powered by machine learning and statistical explainability.</p><div class="footer-disclaimer"><span>RiftSense isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.</span></div></div>
-      <div class="footer-col"><h4 class="footer-heading">My accounts</h4><ul class="footer-accounts-list"><li v-for="account in ownerAccounts" :key="account.slug"><a :href="`/c/${account.slug}`" class="footer-account-link" @click.prevent="go(`/c/${account.slug}`)"><img class="footer-account-avatar" :src="summonerIcon(account)" alt="" loading="lazy"><div class="footer-account-info"><div class="row" style="gap:6px;align-items:center"><span class="footer-account-slug">{{ formatPseudo(account) }}</span><span class="badge badge-region-xs">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><span class="footer-account-games">{{ account.games_count }} games</span></div></a></li></ul></div>
+      <div class="footer-col"><h4 class="footer-heading">My accounts</h4><ul class="footer-accounts-list"><li v-for="account in ownerAccounts" :key="account.slug"><a :href="`/c/${account.slug}`" class="footer-account-link" @click.prevent="go(`/c/${account.slug}`)"><img class="footer-account-avatar" :src="summonerIcon(account)" alt="" loading="lazy"><div class="footer-account-info"><div class="row footer-account-title-row"><span class="footer-account-slug">{{ formatPseudo(account) }}</span><span class="badge badge-region-xs">{{ (account.region || "euw1").slice(0, 3).toUpperCase() }}</span></div><span class="footer-account-games">{{ account.games_count }} games</span></div></a></li></ul></div>
       <div class="footer-col"><h4 class="footer-heading">Stack &amp; Architecture</h4><ul class="footer-tech-list"><li><span class="tech-pill">Cloudflare Workers</span><span class="tech-desc">Edge serving &amp; KV API</span></li><li><span class="tech-pill">EBM &amp; SHAP</span><span class="tech-desc">Rank prediction model</span></li><li><span class="tech-pill">Ollama LLM</span><span class="tech-desc">Game review generation</span></li><li><span class="tech-pill">Riot Games API</span><span class="tech-desc">Game and metric collection</span></li></ul></div>
     </div><div class="footer-bottom"><div class="footer-copyright"><span>© 2026 RiftSense</span><span class="footer-sep">·</span><a href="/c/spadzze?review=EUW1_7898084645" class="footer-link-subtle" @click.prevent="go('/c/spadzze?review=EUW1_7898084645')">Spadzze demo</a><span class="footer-sep">·</span><a href="/readme" class="footer-link-subtle" @click.prevent="go('/readme')">Methodology</a><span class="footer-sep">·</span><a href="/terms" class="footer-link-subtle" @click.prevent="go('/terms')">Terms</a><span class="footer-sep">·</span><a href="/privacy" class="footer-link-subtle" @click.prevent="go('/privacy')">Privacy</a></div><div class="footer-bottom-actions"><AuthControl /><button class="footer-scroll-top" type="button" aria-label="Back to top" @click="scrollTop"><span>Back to top</span><svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"/></svg></button></div></div></div>
   </footer>
@@ -383,12 +381,12 @@ onBeforeUnmount(() => {
   border-radius: 11px;
   box-shadow:
     0 2px 6px rgba(20, 23, 24, .08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    inset 0 1px 0 var(--surface-inset-highlight);
   flex-shrink: 0;
   transition: var(--transition-fast);
 }
 .brand:hover .brand-mark {
-  border-color: #ffd269;
+  border-color: var(--targon-veil-accent);
   box-shadow:
     0 3px 12px rgba(185, 143, 83, 0.3),
     0 0 12px rgba(255, 215, 80, 0.3);
@@ -408,14 +406,14 @@ onBeforeUnmount(() => {
   font-weight: 700;
   letter-spacing: .065em;
   padding: 3px 9px;
-  background-color: #2b060a;
+  background-color: var(--targon-veil-surface);
   background: var(--targon-veil-button);
-  color: #fffdf8;
+  color: var(--targon-veil-text);
   border: 1px solid rgba(215, 175, 110, 0.55);
   border-radius: 5px;
   text-transform: uppercase;
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.35),
+    0 2px 6px var(--targon-veil-overlay),
     inset 0 1px 0 rgba(255, 200, 210, 0.35),
     inset 0 -1px 2px rgba(0, 0, 0, 0.4);
 }
@@ -428,8 +426,8 @@ onBeforeUnmount(() => {
   gap: 6px;
   padding: 6px 12px;
   min-height: 38px;
-  color: #fffdf8;
-  background-color: #2b060a;
+  color: var(--targon-veil-text);
+  background-color: var(--targon-veil-surface);
   background: var(--targon-veil-button);
   border: 1px solid rgba(215, 175, 110, 0.50);
   font-size: 12.5px;
@@ -442,12 +440,12 @@ onBeforeUnmount(() => {
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.30),
     inset 0 1px 0 rgba(255, 210, 220, 0.35),
-    inset 0 -2px 5px rgba(0, 0, 0, 0.35);
+    inset 0 -2px 5px var(--targon-veil-overlay);
 }
 .nav-link:hover {
   background: var(--targon-veil-button-hover);
-  border-color: #ffd269;
-  color: #ffffff;
+  border-color: var(--targon-veil-accent);
+  color: var(--targon-veil-text-strong);
   text-decoration: none;
   box-shadow:
     0 5px 16px rgba(120, 32, 37, 0.40),
@@ -457,20 +455,20 @@ onBeforeUnmount(() => {
 }
 .nav-link.active {
   background: var(--targon-veil-button);
-  border-color: #ffd269;
-  color: #ffffff;
+  border-color: var(--targon-veil-accent);
+  color: var(--targon-veil-text-strong);
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45), inset 0 -1px 0 rgba(255, 210, 220, 0.2);
 }
 .nav-icon {
   flex-shrink: 0;
-  color: #ffd269;
+  color: var(--targon-veil-accent);
   filter: drop-shadow(0 0 4px rgba(255, 210, 80, 0.75));
   opacity: 0.95;
 }
 .nav-link:hover .nav-icon,
 .nav-link.active .nav-icon {
   opacity: 1;
-  color: #fff0a8;
+  color: var(--targon-veil-accent-soft);
   filter: drop-shadow(0 0 8px rgba(255, 220, 100, 0.95));
 }
 
@@ -479,8 +477,8 @@ onBeforeUnmount(() => {
 .switcher-btn {
   min-height: 38px;
   padding: 4px 12px;
-  color: #fffdf8;
-  background-color: #2b060a;
+  color: var(--targon-veil-text);
+  background-color: var(--targon-veil-surface);
   background: var(--targon-veil-button);
   border: 1px solid rgba(215, 175, 110, 0.50);
   border-radius: 9px;
@@ -495,13 +493,13 @@ onBeforeUnmount(() => {
   box-shadow:
     0 3px 10px rgba(0, 0, 0, 0.30),
     inset 0 1px 0 rgba(255, 210, 220, 0.35),
-    inset 0 -2px 5px rgba(0, 0, 0, 0.35);
+    inset 0 -2px 5px var(--targon-veil-overlay);
 }
 .switcher-btn:hover,
 .switcher-btn.open {
   background: var(--targon-veil-button-hover);
-  border-color: #ffd269;
-  color: #ffffff;
+  border-color: var(--targon-veil-accent);
+  color: var(--targon-veil-text-strong);
   box-shadow:
     0 5px 16px rgba(120, 32, 37, 0.40),
     inset 0 1px 0 rgba(255, 220, 230, 0.45),
@@ -509,11 +507,11 @@ onBeforeUnmount(() => {
   transform: translateY(-1px);
 }
 .switcher-btn.is-selected {
-  border-color: #ffd269;
+  border-color: var(--targon-veil-accent);
   background: var(--targon-veil-button);
 }
 .switcher-btn.is-selected:hover {
-  border-color: #ffe08a;
+  border-color: var(--targon-veil-accent-text);
 }
 .switcher-user-preview { display: flex; align-items: center; gap: 9px; }
 .switcher-avatar {
@@ -531,21 +529,21 @@ onBeforeUnmount(() => {
   place-items: center;
   border-radius: 7px;
   background: rgba(0, 0, 0, 0.28);
-  color: #fbbf24;
+  color: var(--targon-veil-accent-strong);
   border: 1px solid rgba(185, 143, 83, 0.35);
 }
 .switcher-meta { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
 .switcher-label {
   font-size: 9px;
   font-weight: 700;
-  color: #f7d5a5;
+  color: var(--targon-veil-text-warm);
   text-transform: uppercase;
   letter-spacing: .06em;
 }
-.switcher-name { font-size: 13px; font-weight: 700; color: #ffffff; }
-.switcher-arrow { color: #f7d5a5; transition: var(--transition-base); flex-shrink: 0; }
+.switcher-name { font-size: 13px; font-weight: 700; color: var(--targon-veil-text-strong); }
+.switcher-arrow { color: var(--targon-veil-text-warm); transition: var(--transition-base); flex-shrink: 0; }
 .switcher-btn:hover .switcher-arrow,
-.switcher-btn.open .switcher-arrow { color: #ffffff; }
+.switcher-btn.open .switcher-arrow { color: var(--targon-veil-text-strong); }
 .switcher-arrow.rotated { transform: rotate(180deg); }
 
 .switcher-dropdown {
@@ -704,12 +702,12 @@ onBeforeUnmount(() => {
 .site-footer {
   margin-top: 0;
   border-top: 2px solid rgba(195, 155, 90, 0.70);
-  background-color: #2b2325;
+  background-color: var(--targon-veil-surface-raised);
   background-image: var(--targon-veil-drape);
   background-position: center top;
   background-size: 1920px 100%;
   background-repeat: repeat-x;
-  color: #fffdf8;
+  color: var(--targon-veil-text);
   position: relative;
   clear: both;
   box-shadow:
@@ -731,7 +729,7 @@ onBeforeUnmount(() => {
 .footer-col { display: flex; flex-direction: column; }
 .footer-col-brand { padding-right: 20px; }
 .footer-brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.footer-brand-title { color: #ffffff; font-size: 18.5px; font-weight: 800; letter-spacing: -.01em; }
+.footer-brand-title { color: var(--targon-veil-text-strong); font-size: 18.5px; font-weight: 800; letter-spacing: -.01em; }
 .footer-brand .brand-badge {
   background: rgba(185, 143, 83, 0.22);
   color: #fce7c8;
@@ -743,30 +741,30 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.08);
   border: 1.5px solid rgba(195, 155, 90, 0.45);
   border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 6px var(--targon-veil-overlay);
 }
 .footer-brand .brand-svg {
   display: block;
   filter: drop-shadow(0 0 6px rgba(255, 215, 80, 0.45));
 }
-.footer-mission { color: #e6d3cf; font-size: 13px; line-height: 1.6; margin: 0 0 16px; }
+.footer-mission { color: var(--targon-veil-text-soft); font-size: 13px; line-height: 1.6; margin: 0 0 16px; }
 .footer-disclaimer {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--targon-veil-overlay);
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 8px;
   font-size: 11px;
   line-height: 1.5;
-  color: #cbb4af;
+  color: var(--targon-veil-text-muted);
 }
 .disclaimer-icon { flex-shrink: 0; margin-top: 2px; color: var(--gold-soft); }
 .footer-heading {
   font-size: 12px;
   font-weight: 750;
-  color: #fbbf24;
+  color: var(--targon-veil-accent-strong);
   text-transform: uppercase;
   letter-spacing: .08em;
   margin: 0 0 16px;
@@ -790,7 +788,7 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 6px 10px;
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--targon-veil-text-strong);
   text-decoration: none;
   background: rgba(0, 0, 0, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -811,11 +809,12 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
 .footer-account-info { display: flex; flex-direction: column; gap: 1px; }
-.footer-account-slug { font-size: 12px; font-weight: 700; color: #ffffff; }
-.footer-account-games { font-size: 10px; color: #cbb4af; }
+.footer-account-title-row { align-items: center; gap: 6px; }
+.footer-account-slug { font-size: 12px; font-weight: 700; color: var(--targon-veil-text-strong); }
+.footer-account-games { font-size: 10px; color: var(--targon-veil-text-muted); }
 .footer-tech-list li { display: flex; flex-direction: column; gap: 2px; }
-.tech-pill { font-weight: 650; color: #ffffff; font-size: 12px; }
-.tech-desc { font-size: 11px; color: #cbb4af; }
+.tech-pill { font-weight: 650; color: var(--targon-veil-text-strong); font-size: 12px; }
+.tech-desc { font-size: 11px; color: var(--targon-veil-text-muted); }
 .footer-bottom {
   padding-top: 22px;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
@@ -827,30 +826,30 @@ onBeforeUnmount(() => {
 }
 .footer-copyright {
   font-size: 12px;
-  color: #cbb4af;
+  color: var(--targon-veil-text-muted);
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 .footer-sep { opacity: .4; }
-.footer-link-subtle { color: #e6d3cf; text-decoration: none; transition: var(--transition-fast); font-size: 12px; }
-.footer-link-subtle:hover { color: #fbbf24; text-decoration: underline; }
+.footer-link-subtle { color: var(--targon-veil-text-soft); text-decoration: none; transition: var(--transition-fast); font-size: 12px; }
+.footer-link-subtle:hover { color: var(--targon-veil-accent-strong); text-decoration: underline; }
 .footer-scroll-top {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(185, 143, 83, 0.35);
+  background: var(--targon-veil-overlay);
+  border: 1px solid var(--targon-veil-border);
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--targon-veil-text-strong);
   font-size: 12px;
   font-weight: 650;
   cursor: pointer;
   transition: var(--transition-fast);
 }
-.footer-scroll-top:hover { color: #fbbf24; border-color: var(--gold); background: rgba(0, 0, 0, 0.55); }
+.footer-scroll-top:hover { color: var(--targon-veil-accent-strong); border-color: var(--gold); background: rgba(0, 0, 0, 0.55); }
 .footer-bottom-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* Navigation Desktop & Mobile Menu elements */
@@ -865,7 +864,7 @@ onBeforeUnmount(() => {
   width: 38px;
   height: 38px;
   padding: 0;
-  background-color: #2b060a;
+  background-color: var(--targon-veil-surface);
   background: var(--targon-veil-button);
   border: 1px solid rgba(215, 175, 110, 0.50);
   border-radius: 9px;
@@ -881,7 +880,7 @@ onBeforeUnmount(() => {
 
 .mobile-menu-btn:hover {
   background: var(--targon-veil-button-hover);
-  border-color: #ffd269;
+  border-color: var(--targon-veil-accent);
 }
 
 .hamburger-box {
@@ -896,7 +895,7 @@ onBeforeUnmount(() => {
 .hamburger-inner::after {
   width: 18px;
   height: 2px;
-  background-color: #ffd269;
+  background-color: var(--targon-veil-accent);
   border-radius: 2px;
   position: absolute;
   transition: transform 0.2s ease, top 0.2s ease, opacity 0.2s ease;
@@ -926,13 +925,13 @@ onBeforeUnmount(() => {
 .hamburger-inner.is-active::before {
   top: 0;
   transform: rotate(45deg);
-  background-color: #fff0a8;
+  background-color: var(--targon-veil-accent-soft);
 }
 
 .hamburger-inner.is-active::after {
   top: 0;
   transform: rotate(-45deg);
-  background-color: #fff0a8;
+  background-color: var(--targon-veil-accent-soft);
 }
 
 /* Mobile drawer */
@@ -973,7 +972,7 @@ onBeforeUnmount(() => {
 .mobile-drawer-title {
   font-size: 10.5px;
   font-weight: 750;
-  color: #f7d5a5;
+  color: var(--targon-veil-text-warm);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 10px;
@@ -1008,16 +1007,16 @@ onBeforeUnmount(() => {
   width: 36px;
   height: 36px;
   border-radius: 9px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(215, 175, 110, 0.35);
-  color: #ffd269;
+  background: var(--targon-veil-overlay);
+  border: 1px solid var(--targon-veil-border-warm);
+  color: var(--targon-veil-accent);
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 
 .mobile-nav-icon-wrap.gold-glow {
-  color: #ffe08a;
+  color: var(--targon-veil-accent-text);
   border-color: rgba(255, 210, 80, 0.65);
   box-shadow: 0 0 12px rgba(255, 210, 80, 0.25);
 }
@@ -1038,7 +1037,7 @@ onBeforeUnmount(() => {
 .mobile-nav-heading {
   font-size: 14px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--targon-veil-text-strong);
 }
 
 .mobile-nav-desc {
@@ -1053,7 +1052,7 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: rgba(185, 143, 83, 0.30);
   border: 1px solid rgba(255, 210, 80, 0.55);
-  color: #ffe08a;
+  color: var(--targon-veil-accent-text);
 }
 
 .mobile-drawer-footer {
@@ -1076,7 +1075,7 @@ onBeforeUnmount(() => {
 }
 
 .mobile-legal-link:hover {
-  color: #ffe08a;
+  color: var(--targon-veil-accent-text);
   text-decoration: underline;
 }
 

@@ -20,7 +20,13 @@ const PAYLOAD = {
 };
 const REVIEW = {
   strengths: [],
-  mistakes: [{ point: "Prépare la vague", cause: "recall tardif", evidence: "12:30" }],
+  mistakes: [{
+    category: "WAVE_MANAGEMENT",
+    title: "Prépare la vague",
+    point: "Prépare la vague",
+    cause: "recall tardif",
+    evidence: "12:30",
+  }],
   next_focus: "Anticipe ton prochain reset.",
   confidence: 0.7,
 };
@@ -111,7 +117,7 @@ describe("gameCoachFlow", () => {
     const invalid = await collect(gameCoachFlow({
       kv, generate: async () => { calls += 1; return { strengths: [] }; }, now: () => "t",
     }, PARAMS));
-    expect(calls).toBe(2);
+    expect(calls).toBe(3);
     expect(invalid.map((event) => event.event)).toEqual(["payload", "llm", "error"]);
     expect(await readJsonl(kv, KEYS.reviews("spadzze"))).toEqual([]);
   });

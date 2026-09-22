@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { setStoredAuthToken } from "../auth";
 import AccountPage from "./AccountPage.vue";
 
 /** Capture hissée : les factories vi.mock s'exécutent AVANT les imports,
@@ -12,10 +13,16 @@ const captured = vi.hoisted(() => ({
   shapProps: null as Record<string, unknown> | null,
   onDone: null as ((nGames?: number) => void) | null,
   sync: null as Record<string, unknown> | null,
+  reloadPage: vi.fn(),
+  routeQuery: {} as Record<string, string>,
+  generateGlobal: null as (() => void) | null,
+  generateGame: null as ((game: Record<string, unknown>) => void) | null,
 }));
 
+vi.mock("../page-reload", () => ({ reloadPage: captured.reloadPage }));
+
 vi.mock("vue-router", () => ({
-  useRoute: () => ({ query: { tab: "shap" } }),
+  useRoute: () => ({ query: captured.routeQuery }),
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
@@ -43,9 +50,25 @@ vi.mock("../components/ShapProfile.ce.vue", () => ({
   },
 }));
 
-vi.mock("../components/CoachingControls.ce.vue", () => ({ default: { render: () => null } }));
+vi.mock("../components/CoachingControls.ce.vue", () => ({
+  default: {
+    emits: ["generate"],
+    setup(_props: unknown, { emit }: { emit: (event: string) => void }) {
+      captured.generateGlobal = () => emit("generate");
+      return () => null;
+    },
+  },
+}));
 vi.mock("../components/DemoRecruiterBanner.vue", () => ({ default: { render: () => null } }));
-vi.mock("../components/GameHistory.ce.vue", () => ({ default: { render: () => null } }));
+vi.mock("../components/GameHistory.ce.vue", () => ({
+  default: {
+    emits: ["coach-game"],
+    setup(_props: unknown, { emit }: { emit: (event: string, game: Record<string, unknown>) => void }) {
+      captured.generateGame = game => emit("coach-game", game);
+      return () => null;
+    },
+  },
+}));
 vi.mock("../components/GameReviews.vue", () => ({ default: { render: () => null } }));
 vi.mock("../components/GlobalCoaching.ce.vue", () => ({ default: { render: () => null } }));
 vi.mock("../components/JobBanner.ce.vue", () => ({ default: { render: () => null } }));
@@ -57,11 +80,30 @@ function jsonResponse(value: unknown, status = 200): Response {
   });
 }
 
+function sseResponse(...frames: Array<[string, unknown]>): Response {
+  return new Response(frames.map(([event, data]) =>
+    `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join(""), {
+    headers: { "content-type": "text/event-stream" },
+  });
+}
+
+function pageFetch(path: RequestInfo | URL): Promise<Response> {
+  if (String(path).includes("/coaching-context")) {
+    return Promise.resolve(jsonResponse({ main_role_scope: "adc", main_role_label: "ADC" }));
+  }
+  return Promise.resolve(jsonResponse({ items: [], total: 0, page: 1 }));
+}
+
 afterEach(() => {
   captured.profileProps = null;
   captured.shapProps = null;
   captured.onDone = null;
   captured.sync = null;
+  captured.reloadPage.mockClear();
+  captured.routeQuery = {};
+  captured.generateGlobal = null;
+  captured.generateGame = null;
+  setStoredAuthToken(null);
   vi.unstubAllGlobals();
 });
 
@@ -70,6 +112,7 @@ describe("AccountPage · jointure du composable de sync", () => {
     // Un seul état de refresh pour toute la page (spec §6.5) : si AccountPage
     // instanciait le composable deux fois, chaque bouton poserait son propre
     // cooldown et lancer deux jobs concurrents sur la même file.
+    captured.routeQuery = { tab: "shap" };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0, page: 1 })));
     mount(AccountPage, { props: { slug: "Spadzze" } });
     await flushPromises();
@@ -80,25 +123,73 @@ describe("AccountPage · jointure du composable de sync", () => {
     expect(captured.profileProps!.sync).toBe(captured.shapProps!.sync);
   });
 
-  it("onDone incrémente reloadToken et recharge reviews + contexte, pas le compte", async () => {
+  it("recharge la page après réception du coaching global", async () => {
+    captured.routeQuery = { tab: "coaching" };
+    setStoredAuthToken("test-token");
+    vi.stubGlobal("fetch", vi.fn((path: RequestInfo | URL) => {
+      if (String(path) === "/api/coach") {
+        return Promise.resolve(sseResponse(["payload", {}], ["llm", {}], ["review", { id: "r1" }]));
+      }
+      return pageFetch(path);
+    }));
+    mount(AccountPage, { props: { slug: "Spadzze" } });
+    await flushPromises();
+
+    captured.generateGlobal!();
+    await flushPromises();
+
+    expect(captured.reloadPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("ne recharge pas la page si le coaching global échoue", async () => {
+    captured.routeQuery = { tab: "coaching" };
+    setStoredAuthToken("test-token");
+    vi.stubGlobal("fetch", vi.fn((path: RequestInfo | URL) => {
+      if (String(path) === "/api/coach") {
+        return Promise.resolve(sseResponse(["error", { error: "LLM unavailable" }]));
+      }
+      return pageFetch(path);
+    }));
+    mount(AccountPage, { props: { slug: "Spadzze" } });
+    await flushPromises();
+
+    captured.generateGlobal!();
+    await flushPromises();
+
+    expect(captured.reloadPage).not.toHaveBeenCalled();
+  });
+
+  it("recharge la page après réception du coaching d'une game", async () => {
+    captured.routeQuery = { tab: "history" };
+    setStoredAuthToken("test-token");
+    vi.stubGlobal("fetch", vi.fn((path: RequestInfo | URL) => {
+      if (String(path) === "/api/coach/game") {
+        return Promise.resolve(sseResponse(["payload", {}], ["llm", {}], ["review", { id: "g1" }]));
+      }
+      return pageFetch(path);
+    }));
+    mount(AccountPage, { props: { slug: "Spadzze" } });
+    await flushPromises();
+
+    captured.generateGame!({ match_id: "EUW1_123" });
+    await flushPromises();
+
+    expect(captured.reloadPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("recharge toute la page quand la collecte de games est terminée", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0, page: 1 }));
     vi.stubGlobal("fetch", fetchMock);
     mount(AccountPage, { props: { slug: "Spadzze" } });
     await flushPromises();
-    // Montage : 2 appels reviews (aggregate + game) + 1 contexte + 1 compte
-    // (saveRecentAccount). On mémorise la part « reviews + contexte ».
+    // Montage : 2 appels reviews (aggregate + game) + 1 contexte + 1 compte.
     expect(fetchMock).toHaveBeenCalledTimes(4);
-    const accountCalls = fetchMock.mock.calls.filter(([path]) => String(path).includes("/account")).length;
     expect(captured.profileProps!.reloadToken).toBe(0);
 
     captured.onDone!(12);
     await flushPromises();
 
-    // Reviews + contexte rechargés une fois de plus ; le compte n'est pas
-    // re-demandé ; les deux enfants voient le même token incrémenté.
-    expect(fetchMock.mock.calls.length - accountCalls).toBe(6);
-    expect(fetchMock.mock.calls.filter(([path]) => String(path).includes("/account")).length).toBe(accountCalls);
-    expect(captured.profileProps!.reloadToken).toBe(1);
-    expect(captured.shapProps!.reloadToken).toBe(1);
+    expect(captured.reloadPage).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });

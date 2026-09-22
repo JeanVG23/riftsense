@@ -33,6 +33,7 @@ import feedback as feedback_mod
 # fidèlement l'asymétrie (règle 3 : profondeur/overextension = observation neutre,
 # pas une faute). Surclassable via --model ou OLLAMA_MODEL (.env).
 DEFAULT_MODEL = "kimi-k2.6"
+_SCHEMA_ATTEMPTS = 3
 
 
 class CoachValidationError(RuntimeError):
@@ -51,7 +52,7 @@ def _generate(system: str, user: str, sch: dict, cls, model: str,
     last_raw = None
     total = {"latency_ms": 0, "prompt_tokens": 0, "completion_tokens": 0}
     usage: dict = {}
-    for attempt in range(2):                 # 1 essai + 1 retry
+    for attempt in range(_SCHEMA_ATTEMPTS):
         gen = llm_client.generate(model, system, user, sch, timeout=timeout)
         usage = dict(gen.usage)
         for k in total:
@@ -275,14 +276,16 @@ def persist(player: str, model: str, pl: dict, review, ts: str,
 
 
 def render_game_text(review: schema_mod.GameReview) -> str:
+    def line(prefix: str, insight) -> str:
+        return (f"    {prefix} [{insight.category}] {insight.title} — {insight.point}"
+                f"  — pourquoi : {insight.cause}  ({insight.evidence})")
+
     lines = [f"\n  Confiance : {review.confidence:.0%}"]
     if review.strengths:
         lines.append("\n  Forces :")
-        lines += [f"    + {i.point}  — pourquoi : {i.cause}  ({i.evidence})"
-                  for i in review.strengths]
+        lines += [line("+", insight) for insight in review.strengths]
     lines.append("\n  Erreurs prioritaires :")
-    lines += [f"    - {i.point}  — pourquoi : {i.cause}  ({i.evidence})"
-              for i in review.mistakes]
+    lines += [line("-", insight) for insight in review.mistakes]
     lines.append(f"\n  Focus prochaine game : {review.next_focus}")
     return "\n".join(lines)
 

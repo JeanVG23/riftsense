@@ -1,17 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { rankEmblem } from "../account-profile";
 import { withAuthHeaders } from "../auth";
+import { categoryLabel } from "../coaching";
 
 type CoachingView = "overall" | "games";
-type CoachingOutcome = "loss" | "win" | "overall";
-
-interface ScopeOption {
-  id: string;
-  label: string;
-  rawLabel?: string;
-  isTop?: boolean;
-}
 
 interface EvaluationReport {
   target_met?: boolean;
@@ -20,24 +13,23 @@ interface EvaluationReport {
     n_game_reviews_annotated?: number;
     target_n?: number;
   };
+  by_category?: Record<string, { n: number; useful: number; rate: number | null }>;
 }
 
 const props = withDefaults(defineProps<{
   slug: string;
   view?: CoachingView;
   gameReviewsCount?: number;
-  scopes?: ScopeOption[];
-  scope?: string;
-  outcome?: CoachingOutcome;
+  mainRoleName?: string;
+  roleReady?: boolean;
   authenticated?: boolean;
   busy?: boolean;
   evalRevision?: number;
 }>(), {
   view: "overall",
   gameReviewsCount: 0,
-  scopes: () => [],
-  scope: "adc",
-  outcome: "loss",
+  mainRoleName: "",
+  roleReady: false,
   authenticated: false,
   busy: false,
   evalRevision: 0,
@@ -45,12 +37,13 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   "view-change": [view: CoachingView];
-  "scope-change": [scope: string];
-  "outcome-change": [outcome: CoachingOutcome];
   generate: [];
 }>();
 
 const evaluation = ref<EvaluationReport | null>(null);
+const categoryScores = computed(() => Object.entries(evaluation.value?.by_category || {})
+  .filter(([category, score]) => category !== "none" && score.n > 0)
+  .sort((left, right) => right[1].n - left[1].n));
 let requestSequence = 0;
 
 function percent(value: number | null | undefined): string {
@@ -82,7 +75,7 @@ onMounted(loadEvaluation);
       :aria-selected="view === 'overall'"
       @click="emit('view-change', 'overall')"
     >
-      Overall coaching
+      Global coaching
     </button>
     <button
       type="button"
@@ -105,43 +98,30 @@ onMounted(loadEvaluation);
         </span>
       </div>
       <p class="eval-note">This rate comes from your votes on per-game analysis mistakes. It is recalculated without another LLM call.</p>
+      <div v-if="categoryScores.length" class="eval-categories" aria-label="Usefulness by coaching category">
+        <span v-for="[category, score] in categoryScores" :key="category">
+          {{ categoryLabel(category) }}: <strong>{{ percent(score.rate) }}</strong> <small>n={{ score.n }}</small>
+        </span>
+      </div>
     </div>
 
     <section class="coach-builder" aria-labelledby="coach-builder-title">
       <div class="coaching-intro">
-        <span class="coaching-kicker">OVERALL ANALYSIS &amp; HABITS</span>
+        <span class="coaching-kicker">GLOBAL ANALYSIS &amp; HABITS</span>
         <h2 id="coach-builder-title">See the bigger picture</h2>
-        <p>Compare your habits with Challenger players by champion pool and game outcome.</p>
+        <p>One clear synthesis of your reviewed games, automatically adapted to your main role.</p>
       </div>
       <div class="coach-options">
-        <div class="choice-group" role="group" aria-label="Games to analyze">
-          <span class="choice-label">Scope</span>
-          <div class="segmented-choice">
-            <button
-              v-for="item in scopes"
-              :key="item.id"
-              type="button"
-              :class="{ selected: scope === item.id }"
-              :aria-pressed="scope === item.id"
-              @click="emit('scope-change', item.id)"
-            >
-              {{ item.label }}
-            </button>
-          </div>
-        </div>
-        <div class="choice-group" role="group" aria-label="Outcome to analyze">
-          <span class="choice-label">Outcome</span>
-          <div class="segmented-choice">
-            <button type="button" :class="{ selected: outcome === 'loss', 'loss-choice': outcome === 'loss' }" :aria-pressed="outcome === 'loss'" @click="emit('outcome-change', 'loss')">Losses</button>
-            <button type="button" :class="{ selected: outcome === 'win', 'win-choice': outcome === 'win' }" :aria-pressed="outcome === 'win'" @click="emit('outcome-change', 'win')">Wins</button>
-            <button type="button" :class="{ selected: outcome === 'overall' }" :aria-pressed="outcome === 'overall'" @click="emit('outcome-change', 'overall')">Overall</button>
-          </div>
+        <div class="choice-group main-role-card" aria-label="Detected main role">
+          <span class="choice-label">Main role detected</span>
+          <strong>{{ mainRoleName || "Refresh required" }}</strong>
+          <small>{{ roleReady ? "Shared with your ML & SHAP profile" : "Refresh the account to detect your main role" }}</small>
         </div>
         <div class="coach-reference" aria-label="Reference: Challenger players">
           <img class="coach-ref-emblem" :src="rankEmblem('challenger')" alt="Challenger" loading="lazy">
           <div><span>Reference</span><strong>Challenger players</strong></div>
         </div>
-        <button class="btn btn-primary coach-generate" :disabled="busy" @click="emit('generate')">
+        <button class="btn btn-primary coach-generate" :disabled="busy || !roleReady" @click="emit('generate')">
           <span>{{ busy ? "Analyzing…" : (authenticated ? "Generate coaching" : "🔒 Unlock coaching") }}</span>
           <span v-if="!busy" aria-hidden="true">→</span>
         </button>
@@ -259,6 +239,26 @@ onMounted(loadEvaluation);
   line-height: 1.5;
 }
 
+.eval-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.eval-categories > span {
+  padding: 3px 8px;
+  color: var(--text-dim);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+.eval-categories small {
+  color: var(--text-faint);
+}
+
 .coach-builder {
   padding: 22px;
   margin-bottom: 22px;
@@ -296,7 +296,7 @@ onMounted(loadEvaluation);
 
 .coach-options {
   display: grid;
-  grid-template-columns: minmax(205px, 1.1fr) minmax(245px, 1.25fr) minmax(150px, .75fr) auto;
+  grid-template-columns: minmax(205px, 1fr) minmax(245px, 1.15fr) auto;
   gap: 10px;
   align-items: stretch;
 }
@@ -320,56 +320,20 @@ onMounted(loadEvaluation);
   text-transform: uppercase;
 }
 
-.segmented-choice {
-  display: grid;
-  grid-auto-columns: 1fr;
-  grid-auto-flow: column;
-  gap: 3px;
-  padding: 3px;
-  background: var(--panel-2);
-  border-radius: 8px;
+.main-role-card strong,
+.main-role-card small {
+  display: block;
 }
 
-.segmented-choice button {
-  min-width: 0;
-  min-height: 30px;
-  padding: 5px 7px;
-  overflow: hidden;
-  color: var(--text-faint);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: var(--transition-fast);
-}
-
-.segmented-choice button:hover {
+.main-role-card strong {
   color: var(--text);
-  background: var(--surface-alt);
+  font-size: 15px;
 }
 
-.segmented-choice button.selected {
-  color: var(--primary-text);
-  background: var(--primary-gradient);
-  border-color: var(--primary);
-  font-weight: 700;
-}
-
-.segmented-choice button.selected.loss-choice {
-  color: var(--paper);
-  background: var(--loss);
-  border-color: var(--loss);
-}
-
-.segmented-choice button.selected.win-choice {
-  color: var(--paper);
-  background: var(--win);
-  border-color: var(--win);
+.main-role-card small {
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-size: 10px;
 }
 
 .coach-reference {

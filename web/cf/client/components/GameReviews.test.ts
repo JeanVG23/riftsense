@@ -75,6 +75,28 @@ describe("GameReviews", () => {
     expect(wrapper.emitted("review-select")?.[0]).toEqual(["EUW1_42"]);
   });
 
+  it("affiche le titre et la catégorie structurés avec repli legacy", async () => {
+    const structured = {
+      ...detail,
+      review: {
+        ...detail.review,
+        mistakes: [{
+          title: "Recall tardif avant drake",
+          category: "ECONOMIE_RECALL",
+          point: "Reset before the objective instead of extending one wave.",
+          cause: "The visit lost lane tempo.",
+          evidence: "14:20",
+        }],
+      },
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(structured)).mockResolvedValueOnce(json([])));
+    wrapper = mount(GameReviews, { props: { slug: "Spadzze", reviews: [summary], total: 1 } });
+    await flushPromises();
+    expect(wrapper.get(".insight-cat").text()).toBe("Recalls");
+    expect(wrapper.text()).toContain("Recall tardif avant drake");
+    expect(wrapper.text()).toContain("Reset before the objective");
+  });
+
   it("compile avec les styles scoped de Vue", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json(detail)).mockResolvedValueOnce(json([])));
     wrapper = mount(GameReviews, { props: { slug: "Spadzze", reviews: [summary], total: 1 } });

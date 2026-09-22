@@ -51,6 +51,28 @@ def test_put_raw_envoie_la_cle_calculee():
     assert sent == {"bucket": "coaching-lol-raw", "key": key, "body": b"payload"}
 
 
+def test_get_raw_lit_la_cle_calculee():
+    seen = {}
+
+    class _Body:
+        def read(self):
+            return b"compressed"
+
+    class _FakeClient:
+        def get_object(self, Bucket, Key):  # noqa: N803 (signature boto3)
+            seen.update(bucket=Bucket, key=Key)
+            return {"Body": _Body()}
+
+    r2 = storage.R2Storage.__new__(storage.R2Storage)
+    r2.bucket = "coaching-lol-raw"
+    r2.client = _FakeClient()
+    assert r2.get_raw("euw1", "EUW1_1", "timeline") == b"compressed"
+    assert seen == {
+        "bucket": "coaching-lol-raw",
+        "key": "raw/euw1/EUW1_1_timeline.json.zst",
+    }
+
+
 def test_le_nom_de_fichier_suit_la_convention_de_la_couche_locale(tmp_path, monkeypatch):
     """Un rapatriement de R2 vers data/01_raw/ doit être une copie, pas un
     renommage : le nom de fichier produit ici est celui que `riotlib._raw_path`

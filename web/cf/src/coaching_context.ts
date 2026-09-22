@@ -1,7 +1,8 @@
 import { pedagogicTarget } from "./curation";
+import { mainRoleFromAnalysis, mainRoleLabel } from "./main_role";
 import { reviewMatchesScope } from "./payload";
 import {
-  KEYS, readGamePayloadBundle, readJsonl, type KVLike,
+  KEYS, matchSeq, readGamePayloadBundle, readJsonl, readRoleShap, type KVLike,
 } from "./readers";
 import { SYSTEM, SYSTEM_GAME, versionOf } from "./prompt";
 
@@ -12,21 +13,25 @@ function matchIdOf(review: JsonRecord): string {
 }
 
 export async function buildCoachingContext(kv: KVLike, slug: string): Promise<JsonRecord> {
-  const [games, reviews, bundle, promptVersion, globalPromptVersion] = await Promise.all([
+  const [games, reviews, bundle, roleAnalysis, promptVersion, globalPromptVersion] = await Promise.all([
     readJsonl<JsonRecord>(kv, KEYS.games(slug)),
     readJsonl<JsonRecord>(kv, KEYS.reviews(slug)),
     readGamePayloadBundle(kv, slug),
+    readRoleShap(kv, slug),
     versionOf(SYSTEM_GAME),
     versionOf(SYSTEM),
   ]);
-  const adcGames = games.filter((game) => game.role === "BOTTOM");
-  const scopes = [
-    { id: "all", label: "All", rawLabel: "All", kind: "role", n_games: games.length,
-      share: games.length ? 1 : 0 },
-    { id: "adc", label: "ADC", rawLabel: "ADC", kind: "role", n_games: adcGames.length,
-      share: adcGames.length ? 1 : 0 },
-  ];
-  const defaultScope = "adc";
+  const mainRole = mainRoleFromAnalysis(roleAnalysis);
+  const roleGames = mainRole ? games.filter((game) => game.role === mainRole.role) : [];
+  const scopes = mainRole ? [{
+    id: mainRole.scope,
+    label: "Global",
+    rawLabel: mainRoleLabel(mainRole.role),
+    kind: "main-role",
+    n_games: roleGames.length,
+    share: games.length ? roleGames.length / games.length : 0,
+  }] : [];
+  const defaultScope = mainRole?.scope ?? null;
 
   const gameReviews = reviews.filter((review) => review.kind === "game")
     .sort((a, b) => String(b.ts ?? "").localeCompare(String(a.ts ?? "")));
@@ -39,6 +44,21 @@ export async function buildCoachingContext(kv: KVLike, slug: string): Promise<Js
   const currentGameReviews = latestGameReviews.filter((review) =>
     review.run?.prompt_version === promptVersion
   );
+
+  const unavailable = new Map(bundle.unavailable.map((entry) =>
+    [String(entry.match_id), String(entry.reason)]
+  ));
+  const selectedMatchIds = new Set([...games]
+    .sort((a, b) => {
+      const byTimestamp = Number(b.game_ts ?? 0) - Number(a.game_ts ?? 0);
+      if (byTimestamp !== 0) return byTimestamp;
+      const bySequence = matchSeq(String(b.match_id ?? ""))
+        - matchSeq(String(a.match_id ?? ""));
+      if (bySequence !== 0) return bySequence;
+      return String(b.match_id ?? "").localeCompare(String(a.match_id ?? ""));
+    })
+    .slice(0, Math.max(0, bundle.max_games))
+    .map((game) => String(game.match_id ?? "")));
 
   const matches: JsonRecord = {};
   for (const game of games) {
@@ -57,8 +77,14 @@ export async function buildCoachingContext(kv: KVLike, slug: string): Promise<Js
         && (hash === undefined || hash === null || hash === entry.payload_hash)
         && latest.run?.prompt_version === promptVersion ? "ready" : "stale";
     }
+    const unavailableReason = entry ? null
+      : unavailable.get(matchId)
+        ?? (bundle.generated_at && !selectedMatchIds.has(matchId)
+          ? "outside_window"
+          : "bundle_missing");
     matches[matchId] = {
       analyzable: Boolean(entry),
+      analysis_unavailable_reason: unavailableReason,
       review_status: reviewStatus,
       review_ts: latest?.ts ?? null,
       pedagogic: entry ? pedagogicTarget(game, entry.payload as JsonRecord) : null,
@@ -79,7 +105,7 @@ export async function buildCoachingContext(kv: KVLike, slug: string): Promise<Js
       latest_ts: eligible[0]?.ts ?? null,
     };
     aggregateStatus[scope.id] = {};
-    for (const outcome of ["overall", "win", "loss"]) {
+    for (const outcome of ["overall"]) {
       const latest = aggregateReviews.find((review) =>
         String(review.scope ?? review.payload?.meta?.scope ?? "").toLowerCase() === scope.id
         && String(review.outcome_focus ?? review.payload?.meta?.outcome_focus ?? "overall") === outcome
@@ -97,6 +123,9 @@ export async function buildCoachingContext(kv: KVLike, slug: string): Promise<Js
 
   return {
     default_scope: defaultScope,
+    main_role: mainRole?.role ?? null,
+    main_role_scope: mainRole?.scope ?? null,
+    main_role_label: mainRole ? mainRoleLabel(mainRole.role) : null,
     scopes,
     matches,
     review_samples: reviewSamples,

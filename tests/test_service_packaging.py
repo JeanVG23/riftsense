@@ -81,6 +81,9 @@ def motifs() -> list[str]:
     "data/05_model/role_readiness.json",
     "data/00_static/champion_traits.json",
     "src/core/ebm_lookup.py",
+    "src/04_coaching/payload.py",
+    "src/reporting/compare.py",
+    "service/main_role.py",
     "service/role_scoring.py",
 ])
 def test_ce_que_l_image_doit_recevoir(motifs, chemin):
@@ -116,6 +119,8 @@ def test_le_modele_de_motifs_reproduit_le_piege_mesure():
 def test_le_dockerfile_copie_les_artefacts_et_tient_le_budget():
     texte = (ROOT / "Dockerfile").read_text()
     assert "data/05_model/" in texte
+    assert "src/04_coaching/payload.py" in texte
+    assert "src/reporting/compare.py" in texte
     assert "--timeout 600" in texte
     assert "--timeout 300" not in texte, (
         "un commentaire ou un flag qui décrit l'ancien dimensionnement est pire qu'absent"

@@ -72,7 +72,7 @@ const emit = defineEmits<{
   gap: 10px;
   box-shadow:
     0 4px 16px rgba(20, 23, 24, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    inset 0 1px 0 var(--surface-inset-highlight);
   transition: var(--transition-base);
 }
 

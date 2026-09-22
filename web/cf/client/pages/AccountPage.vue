@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { titleCase, type PredictedRank } from "../account-profile";
+import type { PredictedRank } from "../account-profile";
 import { authToken, openCoachAuth, setStoredAuthToken, withAuthHeaders } from "../auth";
-import { gameChampion, gameMatchId, type GameReview } from "../game-review";
+import { gameMatchId, type GameReview } from "../game-review";
+import { reloadPage } from "../page-reload";
 import { RECENT_ACCOUNTS_CHANGED, rememberRecentAccount } from "../recent-accounts";
 import AccountProfile from "../components/AccountProfile.ce.vue";
 import CoachingControls from "../components/CoachingControls.ce.vue";
@@ -14,10 +15,11 @@ import GlobalCoaching from "../components/GlobalCoaching.ce.vue";
 import JobBanner from "../components/JobBanner.ce.vue";
 import ShapProfile from "../components/ShapProfile.ce.vue";
 import { useIngestSync } from "../ingest-sync";
+import "../styles/account-controls.css";
+import "../styles/coaching-insights.css";
 
 type Tab = "history" | "coaching" | "shap";
 type CoachingView = "overall" | "games";
-type Outcome = "loss" | "win" | "overall";
 interface Job { type: "coach" | "game-coach"; status: "running" | "done" | "error"; progress?: string; error?: string; matchId?: string; notice?: string }
 
 const props = defineProps<{ slug: string }>();
@@ -33,8 +35,8 @@ const games = ref<any[]>([]);
 const total = ref(0);
 const predictedRank = ref<PredictedRank | null>(null);
 const job = ref<Job | null>(null);
-const scope = ref("adc");
-const outcome = ref<Outcome>("loss");
+const scope = ref("");
+const outcome = "overall";
 const target = ref("challenger");
 const reviews = ref<any[]>([]);
 const review = ref<any | null>(null);
@@ -43,7 +45,6 @@ const gameReviewsPage = ref(1);
 const gameReviewsCount = ref(0);
 const reviewsLoading = ref(true);
 const coachingContext = ref<any | null>(null);
-const scopeTouched = ref(false);
 const evalRevision = ref(0);
 let reviewsInFlight = false;
 
@@ -51,10 +52,7 @@ const reloadToken = ref(0);
 // Un seul état de rafraîchissement pour toute la page : le bouton du hero et
 // celui de l'onglet SHAP déclenchent le même job, le même cooldown (spec §6.5).
 const sync = useIngestSync(computed(() => props.slug), {
-  onDone: () => {
-    reloadToken.value += 1;
-    void Promise.all([loadReviews(), loadCoachingContext()]);
-  },
+  onDone: () => reloadPage(),
 });
 
 function ownerViewFromQuery(): boolean {
@@ -85,17 +83,15 @@ function findMatchingReview(): any | null {
   const normalized = scope.value.toLowerCase();
   return reviews.value.find(item =>
     String(item.scope || item.payload?.meta?.scope || "").toLowerCase() === normalized &&
-    (outcome.value === "overall" || item.outcome_focus === outcome.value)
+    String(item.outcome_focus || item.payload?.meta?.outcome_focus || "overall") === outcome
   ) || null;
 }
 
 async function loadCoachingContext(): Promise<void> {
   try {
     coachingContext.value = await api(`/api/c/${encodeURIComponent(props.slug)}/coaching-context`);
-    if (!scopeTouched.value && coachingContext.value?.default_scope) {
-      scope.value = coachingContext.value.default_scope;
-      review.value = findMatchingReview();
-    }
+    scope.value = coachingContext.value?.main_role_scope || "";
+    review.value = findMatchingReview();
   } catch { coachingContext.value = null; }
 }
 
@@ -126,34 +122,18 @@ async function loadReviews(): Promise<void> {
   finally { reviewsLoading.value = false; reviewsInFlight = false; }
 }
 
-const dynamicScopes = computed(() => {
-  if (coachingContext.value?.scopes?.length) return coachingContext.value.scopes;
-  const list: any[] = [{ id: "all", label: "All", rawLabel: "All" }, { id: "adc", label: "ADC", rawLabel: "ADC" }];
-  const counts: Record<string, number> = {};
-  for (const game of games.value) if (game?.champion) counts[game.champion] = (counts[game.champion] || 0) + 1;
-  for (const item of gameReviews.value) {
-    const champion = gameChampion(item);
-    if (champion !== "Analyzed game") counts[champion] = (counts[champion] || 0) + 1;
-  }
-  Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 3).forEach((champion, index) => {
-    const id = champion.toLowerCase();
-    if (!list.some(item => item.id === id)) list.push({ id, label: `${index === 0 && counts[champion] >= 2 ? "⭐ " : ""}${champion} (${counts[champion]})`, rawLabel: champion });
-  });
-  if (!list.some(item => item.id === scope.value.toLowerCase())) list.push({ id: scope.value.toLowerCase(), label: titleCase(scope.value), rawLabel: titleCase(scope.value) });
-  return list;
-});
-
-const scopeLabel = computed(() => dynamicScopes.value.find((item: any) => item.id === scope.value.toLowerCase())?.rawLabel || titleCase(scope.value));
+const mainRoleLabel = computed(() => coachingContext.value?.main_role_label || "");
+const mainRoleReady = computed(() => Boolean(scope.value));
+const globalReviews = computed(() => reviews.value.filter(item =>
+  String(item.scope || item.payload?.meta?.scope || "").toLowerCase() === scope.value.toLowerCase()
+  && String(item.outcome_focus || item.payload?.meta?.outcome_focus || "overall") === outcome
+));
 const coachBusy = computed(() => job.value?.status === "running");
 
 function setTab(value: Tab): void { tab.value = value; void updateQuery(); }
 function setCoachingView(value: CoachingView): void { coachingView.value = value; void updateQuery(); }
-function setScope(value: string): void { scopeTouched.value = true; scope.value = value; review.value = findMatchingReview(); }
-function setOutcome(value: Outcome): void { outcome.value = value; review.value = findMatchingReview(); }
 function selectGlobalReview(value: any): void {
   review.value = value;
-  if (value?.scope) scope.value = value.scope.toLowerCase();
-  if (value?.outcome_focus) outcome.value = value.outcome_focus;
 }
 
 async function updateQuery(): Promise<void> {
@@ -190,19 +170,23 @@ async function consumeSse(response: Response, onEvent: (event: string, data: any
 }
 
 async function generateGlobal(): Promise<void> {
+  if (!mainRoleReady.value || coachBusy.value) return;
   if (!authToken) { openCoachAuth(() => void generateGlobal()); return; }
   job.value = { type: "coach", status: "running" };
   try {
-    const response = await fetch("/api/coach", { method: "POST", headers: withAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ slug: props.slug, scope: scope.value, outcome: outcome.value, target: target.value }) });
+    const response = await fetch("/api/coach", { method: "POST", headers: withAuthHeaders({ "Content-Type": "application/json" }), body: JSON.stringify({ slug: props.slug, target: target.value }) });
     if (response.status === 401) { setStoredAuthToken(null); window.dispatchEvent(new CustomEvent("coach-auth-change", { detail: { authenticated: false } })); openCoachAuth(() => void generateGlobal()); throw new Error("HTTP 401"); }
     if (!response.ok) throw new Error(response.status === 409 ? "An analysis is already in progress." : `HTTP ${response.status}`);
+    let completed = false;
     await consumeSse(response, (event, data) => {
       if (event === "payload") job.value = { type: "coach", status: "running", progress: "payload ready" };
-      else if (event === "llm") job.value = { type: "coach", status: "running", progress: "LLM generation…" };
-      else if (event === "review") job.value = { type: "coach", status: "done" };
+      else if (event === "llm") job.value = { type: "coach", status: "running", progress: "LLM generation… usually 1–2 minutes" };
+      else if (event === "review") completed = true;
       else if (event === "error") throw new Error(data.error);
     });
-    await Promise.all([loadReviews(), loadCoachingContext()]);
+    if (!completed) throw new Error("The stream ended before the analysis was received.");
+    job.value = { type: "coach", status: "done" };
+    reloadPage();
   } catch (error) { job.value = { type: "coach", status: "error", error: coachError(error) }; }
 }
 
@@ -218,14 +202,14 @@ async function generateGame(game: any, force = false): Promise<void> {
     let completed = false;
     await consumeSse(response, (event, data) => {
       if (event === "payload") job.value = { type: "game-coach", matchId, status: "running", progress: "journal ready" };
-      else if (event === "llm") job.value = { type: "game-coach", matchId, status: "running", progress: "LLM generation…" };
+      else if (event === "llm") job.value = { type: "game-coach", matchId, status: "running", progress: "LLM generation… usually 1–2 minutes" };
       else if (event === "review") completed = true;
       else if (event === "error") throw new Error(data.error);
     });
     if (!completed) throw new Error("The stream ended before the analysis was received.");
     job.value = { type: "game-coach", matchId, status: "done" };
-    await Promise.all([loadReviews(), loadCoachingContext()]);
-    goToGameReview(matchId);
+    await goToGameReview(matchId);
+    reloadPage();
   } catch (error) { job.value = { type: "game-coach", matchId, status: "error", error: coachError(error) }; }
 }
 
@@ -240,8 +224,8 @@ function gameCoachAction(game: any): void {
   else void generateGame(game, status === "stale");
 }
 
-function goToGameReview(matchId: string): void {
-  pendingReviewId.value = matchId; tab.value = "coaching"; coachingView.value = "games"; void updateQuery();
+async function goToGameReview(matchId: string): Promise<void> {
+  pendingReviewId.value = matchId; tab.value = "coaching"; coachingView.value = "games"; await updateQuery();
 }
 
 function selectGameTarget(matchId: string): void { pendingReviewId.value = matchId; void updateQuery(); }
@@ -323,14 +307,48 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
     <GameHistory v-if="tab === 'history'" :slug="slug" :game-reviews="gameReviews" :coaching-context="coachingContext" :job="job" :predicted-rank="predictedRank" :authenticated="authenticated" @games-loaded="syncGamesPage" @coach-game="gameCoachAction" @regenerate-game="game => generateGame(game, true)" />
     <ShapProfile v-else-if="tab === 'shap'" :slug="slug" :sync="sync" :reload-token="reloadToken" />
     <div v-else-if="tab === 'coaching'">
-      <CoachingControls :slug="slug" :view="coachingView" :game-reviews-count="gameReviewsCount" :scopes="dynamicScopes" :scope="scope" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :eval-revision="evalRevision" @view-change="setCoachingView" @scope-change="setScope" @outcome-change="setOutcome" @generate="generateGlobal" />
-      <GlobalCoaching v-if="coachingView === 'overall'" :slug="slug" :review="review" :reviews="reviews" :loading="reviewsLoading" :scope="scope" :scope-name="scopeLabel" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :coaching-context="coachingContext" @generate="generateGlobal" @review-select="selectGlobalReview" @feedback-saved="evalRevision += 1" />
+      <CoachingControls :slug="slug" :view="coachingView" :game-reviews-count="gameReviewsCount" :main-role-name="mainRoleLabel" :role-ready="mainRoleReady" :authenticated="authenticated" :busy="coachBusy" :eval-revision="evalRevision" @view-change="setCoachingView" @generate="generateGlobal" />
+      <div v-if="job?.type === 'coach' && job.status === 'running'" class="coaching-inline-progress" role="status">
+        <strong>Generating global coaching…</strong>
+        <span>DeepSeek usually needs 1–2 minutes. Keep this tab open.</span>
+      </div>
+      <div v-if="job?.type === 'coach' && job.status === 'error'" class="coaching-inline-error" role="alert">
+        <strong>Global coaching could not be generated.</strong>
+        <span>{{ job.error }}</span>
+      </div>
+      <GlobalCoaching v-if="coachingView === 'overall'" :slug="slug" :review="review" :reviews="globalReviews" :loading="reviewsLoading" :scope="scope" :scope-name="mainRoleLabel" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :coaching-context="coachingContext" @generate="generateGlobal" @review-select="selectGlobalReview" @feedback-saved="evalRevision += 1" />
       <GameReviews v-else :slug="slug" :reviews="gameReviews" :total="gameReviewsCount" :page="gameReviewsPage" :loading="reviewsLoading" :authenticated="authenticated" :target-match-id="pendingReviewId" @reviews-loaded="syncGameReviews" @review-select="selectGameTarget" @feedback-saved="evalRevision += 1" />
     </div>
   </div>
 </template>
 
 <style scoped>
+.coaching-inline-error {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 10px 14px;
+  margin: -8px 0 18px;
+  color: var(--loss);
+  background: color-mix(in srgb, var(--loss) 8%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--loss) 30%, var(--border));
+  border-radius: 9px;
+  font-size: 12px;
+}
+
+.coaching-inline-progress {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 10px 14px;
+  margin: -8px 0 18px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 9px;
+  font-size: 12px;
+}
+
 .account-page-container {
   position: relative;
   width: 100%;

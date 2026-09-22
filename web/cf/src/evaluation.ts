@@ -15,9 +15,13 @@ import { KEYS, readJsonl, type KVLike } from "./readers";
 export const TARGET_N = 10;
 export const TARGET_RATE = 0.7;
 
-type FeedbackItem = { kind?: string; useful?: boolean; tag?: string | null };
+type FeedbackItem = { kind?: string; index?: number; useful?: boolean; tag?: string | null };
 type FeedbackRow = { ts?: string; items?: FeedbackItem[] };
-type ReviewRow = { ts?: string; kind?: string; model?: string; run?: { prompt_version?: string } };
+type Insight = { category?: string };
+type ReviewRow = {
+  ts?: string; kind?: string; model?: string; run?: { prompt_version?: string };
+  review?: { strengths?: Insight[]; mistakes?: Insight[] };
+};
 
 export interface EvalReport {
   n_game_reviews: number;
@@ -39,6 +43,7 @@ export interface EvalReport {
     n_items: number;
     global_rate: number | null;
   }>;
+  by_category: Record<string, { n: number; useful: number; rate: number | null }>;
 }
 
 const KINDS = ["strength", "mistake", "habit", "focus"] as const;
@@ -76,6 +81,31 @@ export async function readEval(kv: KVLike, slug: string): Promise<EvalReport> {
   const tags = new Map<string, number>();
   for (const it of items) {
     if (!it.useful && it.tag) tags.set(it.tag, (tags.get(it.tag) ?? 0) + 1);
+  }
+
+  const sectionOfKind: Record<string, "strengths" | "mistakes"> = {
+    strength: "strengths",
+    mistake: "mistakes",
+  };
+  const reviewByTs = new Map<string, ReviewRow>();
+  for (const review of reviews) {
+    if (review.ts) reviewByTs.set(review.ts, review);
+  }
+  const byCategory: EvalReport["by_category"] = {};
+  for (const feedback of feedbacks) {
+    const review = feedback.ts ? reviewByTs.get(feedback.ts) : undefined;
+    for (const item of feedback.items ?? []) {
+      const section = sectionOfKind[item.kind ?? ""];
+      const insight = section ? review?.review?.[section]?.[item.index ?? -1] : undefined;
+      const key = insight?.category ?? "none";
+      const bucket = byCategory[key] ?? { n: 0, useful: 0, rate: null };
+      bucket.n += 1;
+      bucket.useful += item.useful ? 1 : 0;
+      byCategory[key] = bucket;
+    }
+  }
+  for (const bucket of Object.values(byCategory)) {
+    bucket.rate = rate(bucket.useful, bucket.n);
   }
 
   // Cohorte de prompt : "none" pour les reviews d'avant le bloc `run`. Sans
@@ -119,5 +149,6 @@ export async function readEval(kv: KVLike, slug: string): Promise<EvalReport> {
       .sort((a, b) => b[1] - a[1])
       .map(([tag, n]) => ({ tag, n })),
     by_prompt_version: byPromptVersion,
+    by_category: byCategory,
   };
 }

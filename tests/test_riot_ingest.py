@@ -82,23 +82,34 @@ class CountingRiotClient(FakeRiotClient):
 class FakeKV:
     def __init__(self):
         self.store = {}
+        self.puts = []
 
     def get(self, key):
         return self.store.get(key)
 
     def put(self, key, value):
+        self.puts.append(key)
         self.store[key] = value
 
 
 class FakeR2:
     def __init__(self):
         self.keys = []
+        self.blobs = {}
+        self.get_keys = []
 
     def put_raw(self, platform, match_id, kind, blob):
         from storage import R2Storage
         key = R2Storage.raw_key(platform, match_id, kind)
         self.keys.append(key)
+        self.blobs[key] = blob
         return key
+
+    def get_raw(self, platform, match_id, kind):
+        from storage import R2Storage
+        key = R2Storage.raw_key(platform, match_id, kind)
+        self.get_keys.append(key)
+        return self.blobs.get(key)
 
 
 @pytest.fixture()
@@ -114,6 +125,13 @@ def _run(tmp_path, client, kv, r2, slug="demo-euw"):
         {"slug": slug, "riot_id": "Demo#euw", "platform": "euw1"},
         client=client, kv=kv, r2=r2, data_dir=tmp_path, max_games=3,
     )
+
+
+def _seed_challenger_refs(kv):
+    for scope in rl.ROLE_SCOPES:
+        aggregate = rl.gold_aggregate(rl.KIND_REF, "challenger", scope)
+        if aggregate.exists():
+            kv.store[f"ref:challenger:{scope}"] = aggregate.read_text()
 
 
 def _pile_medaillon() -> tuple:
@@ -206,6 +224,46 @@ def test_publie_les_cles_attendues(tmp_path, demo_data, demo_puuid):
     games = [json.loads(line)
              for line in kv.store["silver:demo-euw:games"].splitlines() if line.strip()]
     assert games and all(game["puuid"] == demo_puuid for game in games)
+
+
+def test_publie_le_bundle_avant_de_rendre_les_games_visibles(
+        tmp_path, demo_data, demo_puuid):
+    kv, r2 = FakeKV(), FakeR2()
+    _seed_challenger_refs(kv)
+    _run(tmp_path, FakeRiotClient(_demo_match_ids(), puuid=demo_puuid), kv, r2)
+
+    bundle = json.loads(kv.store["riftsense:demo-euw:game-payloads"])
+    assert bundle["items"]
+    assert bundle["unavailable"] == []
+    assert kv.puts.index("riftsense:demo-euw:game-payloads") \
+        < kv.puts.index("silver:demo-euw:games")
+
+
+def test_refresh_repare_un_trou_du_bundle_depuis_r2_sans_appel_riot(
+        tmp_path, demo_data):
+    puuid = "DEMO-PUUID-0009"
+    match_ids = _demo_match_ids()
+    kv, r2 = FakeKV(), FakeR2()
+    _seed_challenger_refs(kv)
+    _run(tmp_path / "initial", FakeRiotClient(match_ids, puuid=puuid), kv, r2)
+
+    bundle = json.loads(kv.store["riftsense:demo-euw:game-payloads"])
+    missing = next(iter(bundle["items"]))
+    del bundle["items"][missing]
+    bundle["unavailable"] = [{"match_id": missing, "reason": "raw_missing"}]
+    kv.store["riftsense:demo-euw:game-payloads"] = json.dumps(bundle)
+    r2.get_keys.clear()
+
+    client = CountingRiotClient(match_ids, puuid=puuid)
+    result = _run(tmp_path / "refresh", client, kv, r2)
+
+    repaired = json.loads(kv.store["riftsense:demo-euw:game-payloads"])
+    assert missing in repaired["items"]
+    assert repaired["unavailable"] == []
+    assert result["n_games"] == 0
+    assert client.match_calls == []
+    assert client.timeline_calls == []
+    assert any(missing in key for key in r2.get_keys)
 
 
 def test_le_raw_est_pousse_indexe_par_match(tmp_path, demo_data, demo_puuid):
@@ -433,8 +491,10 @@ def test_l_echec_du_scoring_n_emporte_pas_l_ingestion(
         data_dir=tmp_path, models=models)
     assert "silver:visiteur:games" in kv.store
     assert "account:visiteur" in kv.store
-    reason = json.loads(kv.store["shap:visiteur:role"])["reason"]
+    analysis = json.loads(kv.store["shap:visiteur:role"])
+    reason = analysis["reason"]
     assert reason in ("window_too_short", "scoring_failed")
+    assert analysis["scope"] == riot_ingest.main_role.scope(analysis["role"])
 
 
 def test_l_index_de_scan_est_publie(tmp_path, demo_data, demo_puuid):

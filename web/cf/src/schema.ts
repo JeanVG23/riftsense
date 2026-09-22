@@ -17,7 +17,16 @@ export interface Review {
 
 export interface GameInsight extends Insight {
   cause: string;
+  category: InsightCategory;
+  title: string;
 }
+
+export const CATEGORIES = [
+  "TRADE_LANE", "WAVE_MANAGEMENT", "TRACKING_JUNGLE",
+  "POSITIONNEMENT_COMBAT", "ECONOMIE_RECALL", "BUILD_ACHATS", "OBJECTIFS",
+  "EXECUTION_TEAMFIGHT", "GESTION_AVANCE_RETARD",
+] as const;
+export type InsightCategory = (typeof CATEGORIES)[number];
 
 export interface GameReview {
   strengths: GameInsight[];
@@ -59,6 +68,12 @@ function isGameInsight(value: unknown): value is GameInsight {
   return isInsight(value)
     && typeof (value as GameInsight).cause === "string"
     && (value as GameInsight).cause.trim() !== ""
+    && (value as GameInsight).cause.length <= 350
+    && typeof (value as GameInsight).title === "string"
+    && (value as GameInsight).title.trim() !== ""
+    && (value as GameInsight).title.length <= 60
+    && CATEGORIES.includes((value as GameInsight).category)
+    && (value as GameInsight).evidence.length <= 350
     && /\d+:\d\d/.test((value as GameInsight).evidence);
 }
 
@@ -89,7 +104,7 @@ export function validateGameReview(raw: unknown): GameReview | null {
   if (!Array.isArray(value.strengths) || value.strengths.length > 2) return null;
   if (!Array.isArray(value.mistakes)
       || value.mistakes.length < 1
-      || value.mistakes.length > 3) return null;
+      || value.mistakes.length > 5) return null;
   if (!value.strengths.every(isGameInsight) || !value.mistakes.every(isGameInsight)) return null;
   if (typeof value.next_focus !== "string" || value.next_focus.trim() === "") return null;
   if (!isConfidence(value.confidence)) return null;

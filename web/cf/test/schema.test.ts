@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  gameReviewJsonSchema, NEG_TAGS, reviewJsonSchema, validateGameReview, validateReview,
+  CATEGORIES, gameReviewJsonSchema, NEG_TAGS, reviewJsonSchema, validateGameReview, validateReview,
 } from "../src/schema";
 
 const INSIGHT = (point: string, evidence: string) => ({ point, evidence });
@@ -63,8 +63,8 @@ describe("validateReview", () => {
 
 describe("validateGameReview", () => {
   const validGameReview = () => ({
-    strengths: [{ point: "bon timing", evidence: "12:30 : objectif sécurisé", cause: "priorité de voie" }],
-    mistakes: [{ point: "recall tardif", evidence: "15:10 : 1 400 or en poche", cause: "wave mal préparée" }],
+    strengths: [{ point: "bon timing", evidence: "12:30 : objectif sécurisé", cause: "priorité de voie", category: "OBJECTIFS", title: "Priorité avant objectif" }],
+    mistakes: [{ point: "recall tardif", evidence: "15:10 : 1 400 or en poche", cause: "wave mal préparée", category: "ECONOMIE_RECALL", title: "Recall tardif" }],
     next_focus: "Prépare ton recall avant la prochaine wave.",
     confidence: 0.8,
   });
@@ -78,17 +78,33 @@ describe("validateGameReview", () => {
   it("exige une cause sur chaque insight", () => {
     expect(validateGameReview({
       ...validGameReview(),
-      strengths: [{ point: "bon timing", evidence: "12:30" }],
+      strengths: [{ point: "bon timing", evidence: "12:30", category: "OBJECTIFS", title: "Priorité" }],
     })).toBeNull();
   });
 
   it("exige une cause non vide et un horaire dans chaque preuve", () => {
     expect(validateGameReview({
-      ...validGameReview(), mistakes: [{ point: "m", cause: "  ", evidence: "12:30" }],
+      ...validGameReview(), mistakes: [{ point: "m", cause: "  ", evidence: "12:30", category: "OBJECTIFS", title: "Titre" }],
     })).toBeNull();
     expect(validateGameReview({
-      ...validGameReview(), mistakes: [{ point: "m", cause: "c", evidence: "sans heure" }],
+      ...validGameReview(), mistakes: [{ point: "m", cause: "c", evidence: "sans heure", category: "OBJECTIFS", title: "Titre" }],
     })).toBeNull();
+  });
+
+  it("impose catégorie fermée, titre et plafonds", () => {
+    const valid = validGameReview();
+    expect(validateGameReview({ ...valid, mistakes: [{ ...valid.mistakes[0], category: "VISION" }] })).toBeNull();
+    expect(validateGameReview({ ...valid, mistakes: [{ ...valid.mistakes[0], title: "" }] })).toBeNull();
+    expect(validateGameReview({ ...valid, mistakes: [{ ...valid.mistakes[0], title: "x".repeat(61) }] })).toBeNull();
+    expect(validateGameReview({ ...valid, mistakes: [{ ...valid.mistakes[0], cause: "x".repeat(351) }] })).toBeNull();
+    expect(CATEGORIES).toHaveLength(9);
+    expect(CATEGORIES).not.toContain("VISION");
+  });
+
+  it("accepte jusqu'à cinq erreurs et refuse la sixième", () => {
+    const valid = validGameReview();
+    expect(validateGameReview({ ...valid, mistakes: Array.from({ length: 5 }, () => valid.mistakes[0]) })).not.toBeNull();
+    expect(validateGameReview({ ...valid, mistakes: Array.from({ length: 6 }, () => valid.mistakes[0]) })).toBeNull();
   });
 });
 
@@ -96,9 +112,10 @@ describe("gameReviewJsonSchema", () => {
   it("reflète les bornes et l'ancrage de GameReview", () => {
     const schema = gameReviewJsonSchema() as any;
     expect(schema.properties.strengths).toMatchObject({ maxItems: 2 });
-    expect(schema.properties.mistakes).toMatchObject({ minItems: 1, maxItems: 3 });
+    expect(schema.properties.mistakes).toMatchObject({ minItems: 1, maxItems: 5 });
     expect([...schema.properties.mistakes.items.required].sort())
-      .toEqual(["cause", "evidence", "point"]);
+      .toEqual(["category", "cause", "evidence", "point", "title"]);
+    expect(schema.properties.mistakes.items.properties.category.enum).toEqual(CATEGORIES);
     expect(schema.properties.mistakes.items.properties.evidence.pattern).toContain("\\d");
   });
 });

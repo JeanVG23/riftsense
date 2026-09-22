@@ -87,6 +87,10 @@ supprime pas l'historique distant. Il reconstruit aussi, depuis le cache raw loc
 payloads déterministes des 50 parties les plus récentes dans
 `riftsense:{slug}:game-payloads` (20 Mio maximum). Cela ne provoque ni appel Riot ni appel
 LLM ; `--skip-game-payloads` permet de sauter cette reconstruction lors d'un diagnostic.
+Le service Cloud Run maintient la même clé à chaque actualisation web : il réutilise les
+payloads encore valides, construit les nouvelles parties depuis le raw du job et répare les
+trous depuis R2. Le bundle est publié avant la liste des games, afin qu'une partie visible ne
+se retrouve pas momentanément sans journal.
 
 ```bash
 poetry run python src/collection/sync_cloudflare.py --dry-run

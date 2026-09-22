@@ -35,9 +35,10 @@ import game_journal
 # --- extraction des nombres cités --------------------------------------------
 
 _CLOCK_RE = re.compile(r"\b(\d{1,2}):([0-5]\d)\b")
-# 1 225 / 1 225 (espace fine) / 11,3 / 0.85 — jamais la partie d'un mm:ss (exclu
-# en retirant les horloges du texte au préalable).
-_NUM_RE = re.compile(r"\d{1,3}(?:[\s  ]\d{3})+|\d+(?:[.,]\d+)?")
+# 1 225 / 1 225 (espace fine) / 3,200 (milliers anglais) / 11,3 / 0.85 —
+# jamais la partie d'un mm:ss (exclu en retirant les horloges au préalable).
+_NUM_RE = re.compile(
+    r"\d{1,3}(?:[\s  ]\d{3})+|\d{1,3}(?:,\d{3})+|\d+(?:[.,]\d+)?")
 _SPACES = str.maketrans({" ": "", " ": "", " ": ""})
 
 # Tolérances de rapprochement d'un nombre cité à une valeur du payload.
@@ -64,7 +65,13 @@ def cited_numbers(text: str) -> list[tuple[str, float, str]]:
     for m in matches:
         raw = m.group(0)
         try:
-            value = float(raw.translate(_SPACES).replace(",", "."))
+            compact = raw.translate(_SPACES)
+            # Le coaching est rédigé en anglais : `3,200 gold` est un entier
+            # avec séparateur de milliers, pas 3,2 gold. On conserve toutefois
+            # la virgule décimale française pour `0,290` et `29,06`.
+            english_thousands = (re.fullmatch(r"[1-9]\d{0,2}(?:,\d{3})+",
+                                               compact) is not None)
+            value = float(compact.replace(",", "" if english_thousands else "."))
         except ValueError:
             continue
         unit = unit_of_citation(stripped[m.end():m.end() + 8])
@@ -370,7 +377,7 @@ def _clock_seconds(clock: str) -> int:
 
 
 # Unité portée par le texte qui suit immédiatement le nombre.
-_EXACT_SUFFIXES = {"g": "g", "or": "g", "cs": "cs", "s": "s",
+_EXACT_SUFFIXES = {"g": "g", "or": "g", "gold": "g", "cs": "cs", "s": "s",
                    "dmg": "dmg"}
 _PREFIX_SUFFIXES = (("sec", "s"), ("min", "min"), ("unit", "u"),
                     ("dégât", "dmg"), ("degat", "dmg"), ("damage", "dmg"),
@@ -449,15 +456,31 @@ def classify_clock(clock: str, available: set[str]) -> str:
 DESCRIPTIVE_TERMS = ("profondeur", "over-extend", "overextens", "surextension",
                      "sur-extension")
 PRESCRIPTIVE_SECTIONS = ("mistakes", "habits", "next_focus")
+_TURRET_BOUNDARY_RE = re.compile(
+    r"(?:beyond|past)\b.{0,40}\bouter turret|"
+    r"au[- ]del[aà]\b.{0,40}\btourelle extérieure",
+    re.IGNORECASE,
+)
 
 
 def asymmetry_violations(review: dict) -> list[str]:
     out = []
     for section in PRESCRIPTIVE_SECTIONS:
-        for text in _texts(review.get(section)):
-            low = text.lower()
-            for term in DESCRIPTIVE_TERMS:
-                if term in low:
+        node = review.get(section)
+        children = node if isinstance(node, list) else [node]
+        for child in children:
+            texts = _texts(child)
+            literal_turret_boundary = bool(_TURRET_BOUNDARY_RE.search(" ".join(texts)))
+            for text in texts:
+                low = text.lower()
+                for term in DESCRIPTIVE_TERMS:
+                    if term not in low:
+                        continue
+                    # `overextension` fondé sur map_depth reste interdit. Le mot
+                    # devient vérifiable quand LE MÊME insight cite la frontière
+                    # déterministe de la tourelle extérieure.
+                    if "profondeur" not in term and literal_turret_boundary:
+                        continue
                     out.append(f"{section}: « {text[:90]} »")
                     break
     return out

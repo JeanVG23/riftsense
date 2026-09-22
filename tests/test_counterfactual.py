@@ -46,6 +46,7 @@ def test_perturbations_do_not_mutate_the_source():
     CF.perturb_no_deaths(payload)
     CF.perturb_zone_to_top(payload)
     CF.perturb_unspent_gold_zero(payload)
+    CF.perturb_no_opponent_spike(payload)
     assert payload == _payload()          # la reference sert de baseline ailleurs
 
 
@@ -65,6 +66,22 @@ def test_unspent_gold_zero_covers_deaths_and_recalls():
     out = CF.perturb_unspent_gold_zero(_payload())
     assert {d["unspent_gold"] for d in out["journal"]["deaths"]} == {0}
     assert out["journal"]["recalls"][0]["gold_before"] == 0
+
+
+def _payload_with_spike():
+    return {"meta": {"kda": {"deaths": 1}},
+            "journal": {"deaths": [{"clock": "8:31", "zone": "BOT"}],
+                        "recalls": [
+                            {"clock": "7:38", "gold_before": 1450,
+                             "opponent_spike": {"clock": "7:52", "delta_s": 14,
+                                                "items": ["Kraken Slayer"]}},
+                            {"clock": "14:02", "gold_before": 900}]}}
+
+
+def test_perturb_no_opponent_spike_removes_every_block():
+    out = CF.perturb_no_opponent_spike(_payload_with_spike())
+    assert all("opponent_spike" not in r for r in out["journal"]["recalls"])
+    assert "opponent_spike" in _payload_with_spike()["journal"]["recalls"][0]
 
 
 # --- attentes ------------------------------------------------------------------
@@ -128,6 +145,37 @@ def test_gold_expectation_ignores_values_below_the_floor():
     assert CF.check_unspent_gold_zero(_review(), new_review, payload)["passed"] is True
 
 
+def test_check_no_opponent_spike_fails_when_the_coach_still_cites_it():
+    base = {"mistakes": [{"point": "p", "cause": "c",
+                          "evidence": "recall à 7:38, Kraken Slayer adverse à 7:52"}]}
+    still = {"mistakes": [{"point": "p", "cause": "c",
+                           "evidence": "Kraken Slayer terminé par Jinx à 7:52"}]}
+    verdict = CF.check_no_opponent_spike(base, still, _payload_with_spike())
+    assert verdict["passed"] is False
+    assert "Kraken Slayer" in verdict["observed"]
+
+
+def test_check_no_opponent_spike_passes_when_the_coach_drops_it():
+    base = {"mistakes": [{"point": "p", "cause": "c",
+                          "evidence": "Kraken Slayer adverse à 7:52"}]}
+    quiet = {"mistakes": [{"point": "p", "cause": "c",
+                           "evidence": "recall à 7:38 avec 1450 g"}]}
+    assert CF.check_no_opponent_spike(base, quiet, _payload_with_spike())["passed"]
+
+
+def test_no_opponent_spike_is_registered():
+    apply_fn, check_fn, label = CF.PERTURBATIONS["no_opponent_spike"]
+    assert apply_fn is CF.perturb_no_opponent_spike
+    assert check_fn is CF.check_no_opponent_spike
+    assert label
+
+
+def test_no_opponent_spike_is_only_applicable_when_a_spike_exists():
+    assert CF.is_applicable({"payload": _payload_with_spike()}, "no_opponent_spike")
+    assert not CF.is_applicable(_record(), "no_opponent_spike")
+    assert CF.is_applicable(_record(), "no_deaths")
+
+
 # --- execution -----------------------------------------------------------------
 
 class _FakeReview(dict):
@@ -162,7 +210,8 @@ def test_run_scores_a_sensitive_model(tmp_path):
     (root / "p" / "reviews.jsonl").write_text(
         json.dumps(_record(), ensure_ascii=False) + "\n")
     report = CF.run("p", n=1, model="m", root=root, generate=_generator(SENSITIVE))
-    assert report["n_runs"] == 3 and report["n_errors"] == 0
+    assert report["n_runs"] == 4 and report["n_errors"] == 0
+    assert report["n_skipped"] == 1
     assert report["sensitivity"] == 1.0
     assert set(report["by_perturbation"]) == set(CF.PERTURBATIONS)
 
@@ -191,7 +240,33 @@ def test_llm_failure_is_reported_not_fatal(tmp_path):
         raise CF.llm_client.LLMError("api down")
 
     report = CF.run("p", n=1, model="m", root=root, generate=boom)
-    assert report["n_errors"] == 3 and report["sensitivity"] is None
+    assert report["n_errors"] == 3 and report["n_skipped"] == 1
+    assert report["sensitivity"] is None
+
+
+def test_retry_errors_replays_only_technical_failures(tmp_path):
+    root = tmp_path / "07_coaching"
+    (root / "p").mkdir(parents=True)
+    (root / "p" / "reviews.jsonl").write_text(
+        json.dumps(_record(), ensure_ascii=False) + "\n")
+    report = CF.run("p", n=1, model="m", root=root,
+                    generate=lambda *_: (_ for _ in ()).throw(
+                        CF.llm_client.LLMError("empty")))
+    # Un échec sémantique déjà mesuré ne doit pas être rejoué avec les erreurs.
+    report["runs"].append({"match_id": "EUW1_1", "baseline_ts": "t1",
+                           "perturbation": "zone_to_top", "model": "m",
+                           "passed": False, "observed": "pas de TOP"})
+    calls = []
+
+    def recovered(payload, model):
+        calls.append(payload)
+        return _FakeReview(SENSITIVE["zone_to_top"]), {"prompt_version": "v"}
+
+    retried = CF.retry_errors(report, root=root, generate=recovered)
+
+    assert len(calls) == 3                    # 3 erreurs, pas le false ni le skipped
+    assert retried["n_errors"] == 0
+    assert any(row.get("passed") is False for row in retried["runs"])
 
 
 def test_report_is_persisted_outside_the_review_corpus(tmp_path):

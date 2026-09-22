@@ -10,7 +10,7 @@ class MemoryKV implements KVLike {
 }
 
 describe("buildCoachingContext", () => {
-  it("n'expose que les benchmarks globaux et ADC, même si d'anciens agrégats champion existent", async () => {
+  it("n'expose qu'un coaching global lié au rôle principal du SHAP", async () => {
     const kv = new MemoryKV();
     const games = [
       ...Array.from({ length: 6 }, (_, i) => ({
@@ -22,6 +22,9 @@ describe("buildCoachingContext", () => {
       })),
     ];
     await kv.put(KEYS.games("spadzze"), games.map((game) => JSON.stringify(game)).join("\n"));
+    await kv.put(KEYS.role_shap("spadzze"), JSON.stringify({
+      schema_version: 1, available: true, role: "BOTTOM", scope: "adc",
+    }));
     await kv.put(KEYS.gold("spadzze", "zeri"), JSON.stringify({ n_games: 6 }));
     await kv.put(KEYS.ref("challenger", "zeri"), JSON.stringify({ n_games: 100 }));
     const payload = (id: string) => ({ meta: {
@@ -37,18 +40,21 @@ describe("buildCoachingContext", () => {
       ts: "2026-09-06", kind: "game", match_id: "z0", scope: "adc",
       payload: payload("z0"), run: { payload_hash: "old", prompt_version: "old" }, review: {},
     }) + "\n" + JSON.stringify({
-      ts: "2026-09-05", scope: "adc", outcome_focus: "loss",
+      ts: "2026-09-05", scope: "adc", outcome_focus: "overall",
       run: { prompt_version: "old" }, payload: { meta: { scope: "adc" } }, review: {},
     }));
 
     const context = await buildCoachingContext(kv, "spadzze");
     expect(context.default_scope).toBe("adc");
-    expect(context.scopes.map((scope: any) => scope.id)).toEqual(["all", "adc"]);
+    expect(context.main_role).toBe("BOTTOM");
+    expect(context.main_role_label).toBe("ADC");
+    expect(context.scopes.map((scope: any) => scope.id)).toEqual(["adc"]);
     expect(context.matches.z0).toMatchObject({ analyzable: true, review_status: "stale" });
     expect(context.review_samples.adc).toMatchObject({ available: 0, available_losses: 0 });
-    expect(context.aggregate_status.adc.loss).toMatchObject({
+    expect(context.aggregate_status.adc.overall).toMatchObject({
       review_ts: "2026-09-05", needs_refresh: false, stale_prompt: true,
     });
+    expect(context.aggregate_status.adc.loss).toBeUndefined();
   });
   it("classe ready une review CLI sans payload_hash mais au prompt courant", async () => {
     // Les reviews produites par `coach.py` ne portent pas de `payload_hash` :
@@ -85,5 +91,22 @@ describe("buildCoachingContext", () => {
     expect(context.matches.cli.review_status).toBe("ready");
     expect(context.matches["hash-ko"].review_status).toBe("stale");
     expect(context.matches.vieux.review_status).toBe("stale");
+  });
+
+  it("distingue une indisponibilité du bundle d'une game hors fenêtre", async () => {
+    const kv = new MemoryKV();
+    const games = [3, 2, 1].map((sequence) => ({
+      match_id: `EUW1_${sequence}`, game_ts: sequence, role: "BOTTOM",
+    }));
+    await kv.put(KEYS.games("p"), games.map((game) => JSON.stringify(game)).join("\n"));
+    await kv.put(KEYS.game_payloads("p"), JSON.stringify({
+      generated_at: "now", target: "challenger", max_games: 2, items: {},
+      unavailable: [{ match_id: "EUW1_3", reason: "raw_missing" }],
+    }));
+
+    const context = await buildCoachingContext(kv, "p");
+    expect(context.matches.EUW1_3.analysis_unavailable_reason).toBe("raw_missing");
+    expect(context.matches.EUW1_2.analysis_unavailable_reason).toBe("bundle_missing");
+    expect(context.matches.EUW1_1.analysis_unavailable_reason).toBe("outside_window");
   });
 });

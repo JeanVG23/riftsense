@@ -8,7 +8,6 @@ import {
 export type AppRoute =
   | { name: "home" }
   | { name: "readme" }
-  | { name: "case-study" }
   | { name: "terms" }
   | { name: "privacy" }
   | { name: "register"; slug: string }

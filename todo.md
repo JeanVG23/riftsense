@@ -1,6 +1,6 @@
 # TODO — RiftSense
 
-> État au 2026-09-07. Ce fichier ne conserve que les travaux encore actionnables.
+> État au 2026-09-21. Ce fichier ne conserve que les travaux encore actionnables.
 > Les résultats historiques et fonctionnalités terminées sont documentés dans
 > `CLAUDE.md`, `docs/MODEL_CARD.md` et `src/04_coaching/README.md`.
 
@@ -24,18 +24,49 @@ Reste facultatif : `model_ab.py --player spadzze --n 3` (`kimi-k2.6` vs `glm-5.3
 choix du modèle doit être rouvert. Le payload y est contrôlé, la mesure porte sur ancrage,
 sensibilité, schéma et latence.
 
-## ⚡ Priorité 0 bis — exploiter le feedback de lecture des 10 reviews
+## ⚡ Priorité 0 bis — terminer la validation du coaching enrichi
 
-Design validé et amendé :
+Design validé, amendé et implémenté en TDD :
 `docs/superpowers/specs/2026-09-05-coaching-recalls-tracking-categories-design.md`
 (recalls jugés aux CS perdues et au spike adverse, jungle tracking, erreurs découpées et
-titrées par catégorie). Rien n'est implémenté : ni `src/core/turrets.py`, ni
-`src/core/journal_signals.py`, ni la table `data/00_static/sr_turrets.json`.
+titrées par catégorie). Le payload, le schéma strict, le prompt, l'évaluation par
+catégorie, le contrefactuel `no_opponent_spike` et l'affichage web sont en place.
 
-- [ ] **Écrire le plan** depuis la spec amendée, puis l'exécuter en TDD.
-- [ ] **Regénérer un lot** sous la nouvelle empreinte de prompt et le comparer à la cohorte
+- [x] **Exécuter le plan en TDD** jusqu'à l'intégration frontend et aux contrôles
+  automatiques. Première empreinte par-game : `e1f3a4cb13da`.
+- [x] **Compléter le lot de 10 reviews** sous cette empreinte et le comparer à la cohorte
   `350f7c404b5b` comme troisième population observée (le seuil ≥70 % est déjà atteint : la
   question devient la précision des recalls et la lisibilité des erreurs, pas l'utilité).
+  Le lot mélange 1 review `kimi-k2.6` et 9 `deepseek-v4.1-flash`, sous le même prompt.
+  DeepSeek : 9/9 sans retry, latence médiane 94,6 s (772 s cumulées) ; Kimi : 1 retry,
+  850,5 s. Les 294 horodatages sont exacts et l'asymétrie compte 0 violation, mais
+  l'ancrage numérique strict n'est que de 81,9 % (484/591) : **cohorte rejetée** sous le
+  seuil de 90 %. Les 107 rejets DeepSeek correspondent à des valeurs du payload citées
+  sans unité explicite (`Stormrazor (3200)`, `Yasuo 550`, `19 vs 17`) ; ne pas rendre le
+  contrôleur permissif en les rapprochant de n'importe quel nombre du journal.
+- [x] **Exiger une unité ou un nom de champ pour chaque chiffre compact** et régénérer les
+  mêmes 10 games avec `deepseek-v4.1-flash`. Cohorte homogène `07692894c681` : 10/10 sans
+  retry, ancrage numérique strict **91,8 %** (669/729, dont 645 exacts), 308/308
+  horodatages exacts et 0 violation d'asymétrie. Latence médiane 93,2 s, 890,9 s cumulées,
+  359 128 tokens. Le parseur reconnaît désormais les séparateurs de milliers anglais
+  (`3,200 gold`) sans élargir le rapprochement inter-unités ; les 60 citations restantes
+  restent refusées.
+- [x] **Mesurer les contrefactuels** sur 3 games × 4 perturbations avec DeepSeek : 12/12
+  réponses exploitables après reprise ciblée, sensibilité **91,7 %** et grounding des
+  sorties perturbées **95,7 %**. `no_deaths`, `unspent_gold_zero` et
+  `no_opponent_spike` passent 3/3 ; `zone_to_top` passe 2/3. L'annotation humaine de cette
+  cohorte est explicitement sautée : sa fidélité est mesurée, son utilité n'est donc pas
+  nouvellement validée. **Ne pas présenter ce lot comme annoté.**
+- [ ] **Décider si la cohorte peut être publiée sans nouvelle mesure
+  d'utilité.** La cohorte Kimi précédente reste la seule preuve humaine (100 % de mistakes
+  utiles sur 10 reviews) ; le lot DeepSeek ne valide que fidélité et sensibilité.
+- [x] **Synchroniser la cohorte DeepSeek dans KV** en mode coaching-only : 10 reviews
+  `07692894c681` présentes dans `riftsense:spadzze:reviews`, avec conservation d'une review
+  web-only lors de la fusion. Aucun silver/gold/ML n'a été réécrit.
+- [x] **Redéployer le Worker** pour activer le hash `07692894c681`. Version Cloudflare
+  `b0f1bdf7-1c35-42c3-a24a-bfa3c8456c27` vérifiée via l'API publique : 10/10 reviews
+  DeepSeek servies, 5 victoires + 5 défaites, 10 matchs `ready`. Les 21 anciennes analyses
+  restent conservées et classées `stale`.
 - [ ] **Décider du coût d'une mise à jour globale** côté site. Le verrou `CoachGate` et le
   coaching unitaire à la demande évitent la régénération de 30 games d'un clic ; il reste à
   fixer si un bouton « tout mettre à jour » existe, et sous quel plafond.

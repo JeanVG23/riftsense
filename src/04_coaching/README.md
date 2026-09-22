@@ -3,9 +3,13 @@
 Compte-rendu de coaching agrégé, narré par un LLM (Ollama Cloud, structured output)
 à partir d'un payload déterministe dérivé du diff perso ↔ référentiel.
 
-Le coaching global et le coaching par partie restent séparés : toutes les métriques du
-bilan viennent des parties réelles du scope choisi. Les causes qualitatives sont ajoutées
-ensuite avec un échantillon borné : aucune review (`none`), une seule review lorsque seule
+Le coaching global et le coaching par partie restent séparés. Sur le site, il n'existe
+qu'un seul coaching global par joueur : toujours `overall`, sur le rôle principal déjà
+sélectionné pour l'analyse ML/SHAP par `service/main_role.py`. Le navigateur ne choisit
+ni le rôle ni l'issue ; le Worker relit la décision persistée dans `shap:<slug>:role` et
+charge le benchmark correspondant. Toutes les métriques du bilan viennent des parties
+réelles de ce rôle. Les causes qualitatives sont ajoutées ensuite avec un échantillon
+borné : aucune review (`none`), une seule review lorsque seule
 une issue existe (`unbalanced`), ou un ensemble symétrique de 2 victoires + 2 défaites au
 maximum (`balanced`). Les compteurs `available_*` et `used_*` distinguent toujours le
 corpus disponible de ce qui est réellement envoyé au LLM ; cette parité ne représente pas
@@ -25,11 +29,14 @@ gold (perso + référentiel) → payload.build (déterministe) → prompt.render
 |---|---|
 | `payload.py` | gold perso+réf → payload déterministe, **safe-only** ; par-game : fatal damage, matchup complet et prochain achat réel |
 | `prompt.py` | system (asymétrie + benchmark-relatif + règle format, FR) + user |
-| `schema.py` | Pydantic `Review` : 1–3 forces / 3 erreurs / 2 habitudes / 1 focus ; schémas par-game et agents spécialisés |
+| `schema.py` | Pydantic `Review` agrégée inchangée ; par-game : 0–2 forces, 1–5 erreurs, `category` fermée, `title` court et textes plafonnés ; schémas d'agents spécialisés |
 | `llm_client.py` | client `https://ollama.com/api/chat`, `OLLAMA_API_KEY`, `format`=JSON-schema, retries 429/5xx. `generate` renvoie aussi la télémétrie du run (latence, tokens, coût) |
 | `coach.py` | CLI : payload→prompt→client→validation→affiche+persiste. `DEFAULT_MODEL = "kimi-k2.6"` |
 
 ## Usage
+
+Le CLI conserve `--scope` et `--outcome` pour les expériences hors production. Le flux web
+les force depuis le rôle principal et utilise `overall`.
 
 ```bash
 python3 src/04_coaching/coach.py --player spadzze --scope adc [--outcome loss] \
@@ -73,19 +80,19 @@ générations globales et unitaires d'un même joueur.
 ## Boucle d'évaluation (`feedback.py`)
 
 Ferme le « ce conseil était-il utile ? » sur les reviews persistées — **sans
-re-générer**. CLI interactive par-insight (9 items), tag fixe sur jugement négatif.
+re-générer**. CLI interactive par-insight, tag fixe sur jugement négatif.
 
 ```bash
 python3 src/04_coaching/feedback.py annotate --player spadzze   # choisir + juger
 python3 src/04_coaching/feedback.py summary  --player spadzze   # agrégation
 ```
 
-- **annotate** : liste les reviews (`ts`/modèle/issue), défile 3 forces / 3 erreurs /
-  2 habitudes / focus, prompt `y/n/s` (+ tag numéroté + note sur `n`). `--ts <ts>`
+- **annotate** : liste les reviews (`ts`/modèle/issue), défile les insights puis le focus
+  (et les habitudes pour l'agrégé), prompt `y/n/s` (+ tag numéroté + note sur `n`). `--ts <ts>`
   ou `--last` court-circuithe la sélection. Persiste dans
   `data/07_coaching/<player>/feedback.jsonl` (1 ligne/review ; réannotation écrase).
-- **summary** : taux d'utilité global + par section, top tags (conseils faux),
-  par modèle, tendance (5 dernières vs précédentes ; low_sample `<10`). Filtres
+- **summary** : taux d'utilité global + par section + par catégorie (avec `n`), top tags
+  (conseils faux), par modèle, tendance (5 dernières vs précédentes ; low_sample `<10`). Filtres
   `--tag <t>` / `--model <m>`. `--json` sort le rapport machine (`eval_report`)
   publié sur le site et la page CV.
 - `--pending` enchaîne toutes les reviews non annotées (le chemin normal pour
@@ -115,6 +122,8 @@ Les annotations et reviews locales rejoignent KV via :
 
 ```bash
 poetry run python3 src/collection/sync_cloudflare.py --push-coaching   # fusion, pas écrasement
+# publication ciblée des seules reviews/annotations d'un compte
+poetry run python3 src/collection/sync_cloudflare.py --slug spadzze --coaching-only
 ```
 
 ---
@@ -161,6 +170,8 @@ dimension du payload, on régénère, et on vérifie que la sortie suit.
 
 ```bash
 python3 src/04_coaching/counterfactual.py --player spadzze --n 3 [--dry-run]
+# après un incident transitoire, reprendre seulement les appels techniques en erreur
+python3 src/04_coaching/counterfactual.py --player spadzze --retry-errors
 ```
 
 | perturbation | attente vérifiable |
@@ -168,6 +179,7 @@ python3 src/04_coaching/counterfactual.py --player spadzze --n 3 [--dry-run]
 | `no_deaths` | journal pauvre → `confidence` baisse (règle 7 du prompt) |
 | `zone_to_top` | les morts citées basculent en TOP |
 | `unspent_gold_zero` | le gold non dépensé cité s'effondre |
+| `no_opponent_spike` | les objets du spike adverse retiré cessent d'être cités |
 
 La review déjà persistée sert de référence : une perturbation coûte **un** appel.
 Chaque sortie perturbée est en plus passée à `grounding` **contre le payload
@@ -180,7 +192,7 @@ elle ne doit ni être annotée ni remonter sur le site.
 
 ### A/B reproductible sur le payload enrichi
 
-`model_ab.py` regénère une baseline propre à chaque modèle, puis rejoue les trois
+`model_ab.py` regénère une baseline propre à chaque modèle, puis rejoue les quatre
 perturbations. Il compare ancrage, sensibilité, erreurs, retries de schéma, tokens et
 latence sans annotation humaine. Les valeurs par défaut sont `kimi-k2.6` et `glm-5.3`.
 
@@ -195,6 +207,34 @@ le corpus de reviews.
 ---
 
 ## A/B testing des modèles (2026-06-30)
+
+### Essai `deepseek-v4.1-flash` sur le prompt enrichi (2026-09-21)
+
+Neuf reviews ont complété la review Kimi déjà présente sous le prompt
+`e1f3a4cb13da`. DeepSeek a produit 9/9 sorties valides sans retry, en 94,6 s de
+latence médiane (772 s cumulées). Les horodatages sont tous exacts (271/271) et
+l'asymétrie ne remonte aucune violation. En revanche, l'ancrage numérique strict
+n'est que de 81,2 % : le modèle compacte les preuves (`Stormrazor (3200)`,
+`Yasuo 550`, `19 vs 17`) sans répéter l'unité. Ces valeurs existent dans le payload,
+mais le contrôleur refuse à raison de les rapprocher de n'importe quel nombre sans
+unité. Le modèle est donc un candidat de latence, pas encore un candidat publiable ;
+le prompt doit imposer des unités explicites avant une nouvelle cohorte homogène.
+
+Le prompt suivant `07692894c681` impose l'unité ou le sens du champ pour chaque chiffre.
+Les **mêmes 10 games** ont été rejouées avec `deepseek-v4.1-flash` uniquement : 10/10
+sorties valides, aucun retry, latence médiane 93,2 s (890,9 s cumulées), 359 128 tokens.
+Le gate automatique passe avec **91,8 %** d'ancrage strict (669/729 chiffres, dont 645
+exacts), 308/308 horodatages exacts et 0 violation d'asymétrie. Le détecteur accepte la
+notation anglaise des milliers (`3,200`) comme l'équivalent de `3200`, mais conserve le
+cloisonnement par unité ; les 60 raccourcis résiduels comme `847 of 1,260 damage` restent
+donc refusés. Cette cohorte est éligible à l'annotation humaine, mais n'est pas publiée.
+
+L'annotation humaine a ensuite été explicitement sautée. Les 12 contrefactuels
+(3 games × 4 perturbations) donnent **91,7 %** de sensibilité et **95,7 %** de grounding,
+sans erreur technique après reprise ciblée. `no_deaths`, `unspent_gold_zero` et
+`no_opponent_spike` passent 3/3 ; `zone_to_top` passe 2/3, soit un défaut réel de
+sensibilité spatiale sur une game. Le lot démontre donc une bonne fidélité mécanique,
+pas une utilité utilisateur nouvellement mesurée, et reste non publié.
 
 **Protocole** : même payload (`spadzze`, scope `adc`, issue `loss`, vs challenger) rejoué sur
 4 modèles d'Ollama Cloud. Comparaison sur 5 critères : conformité au schéma, respect de

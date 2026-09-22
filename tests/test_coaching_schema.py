@@ -47,10 +47,21 @@ def test_review_rejects_confidence_out_of_range():
 
 def _game_good():
     return {"strengths": [{"point": "p", "cause": "bon reset avant drake",
-                           "evidence": "bon reset à 10:04, 1451 g"}],
+                           "evidence": "bon reset à 10:04, 1451 g",
+                           "category": "ECONOMIE_RECALL", "title": "Reset avant drake"}],
             "mistakes": [{"point": "m", "cause": "solo 1v1 sans flash en overextension",
-                          "evidence": "mort à 17:05, drake dans 6 s"}],
+                          "evidence": "mort à 17:05, drake dans 6 s",
+                          "category": "POSITIONNEMENT_COMBAT", "title": "Duel trop avancé"}],
             "next_focus": "f", "confidence": 0.5}
+
+
+def _game_insight(**over):
+    base = {"point": "Recall avant le drake plutôt qu'après.",
+            "cause": "tu prolonges en lane sans gold à dépenser",
+            "evidence": "recall à 7:38, 6 CS perdus à 2 près",
+            "category": "ECONOMIE_RECALL",
+            "title": "Recall tardif avant drake"}
+    return {**base, **over}
 
 
 def test_game_review_accepts_valid_and_empty_strengths():
@@ -64,8 +75,7 @@ def test_game_review_accepts_valid_and_empty_strengths():
 def test_game_review_mistake_evidence_requires_timestamp():
     # L'ancrage temporel est une contrainte de SCHÉMA, pas une politesse de prompt.
     bad = _game_good()
-    bad["mistakes"] = [{"point": "m", "cause": "ok",
-                       "evidence": "tu meurs trop en botlane"}]
+    bad["mistakes"] = [_game_insight(evidence="tu meurs trop en botlane")]
     with pytest.raises(ValidationError):
         S.GameReview.model_validate(bad)
 
@@ -73,15 +83,14 @@ def test_game_review_mistake_evidence_requires_timestamp():
 def test_game_review_mistake_requires_cause():
     # Cause obligatoire (feedback « je sais pas pourquoi je suis mort »).
     bad = _game_good()
-    bad["mistakes"] = [{"point": "m", "evidence": "mort à 17:05, drake dans 6 s"}]
+    bad["mistakes"] = [{k: v for k, v in _game_insight().items() if k != "cause"}]
     with pytest.raises(ValidationError):
         S.GameReview.model_validate(bad)
 
 
 def test_game_review_rejects_empty_cause():
     bad = _game_good()
-    bad["mistakes"] = [{"point": "m", "cause": "  ",
-                       "evidence": "mort à 17:05, drake dans 6 s"}]
+    bad["mistakes"] = [_game_insight(cause="  ")]
     with pytest.raises(ValidationError):
         S.GameReview.model_validate(bad)
 
@@ -89,11 +98,10 @@ def test_game_review_rejects_empty_cause():
 def test_game_review_strength_requires_timestamp_and_cause():
     # Les forces sont aussi ancrées + causées (feedback « aucune idée de pourquoi »).
     bad = _game_good()
-    bad["strengths"] = [{"point": "p", "cause": "ok",
-                         "evidence": "bonne macro tout au long"}]   # pas de mm:ss
+    bad["strengths"] = [_game_insight(evidence="bonne macro tout au long")]  # pas de mm:ss
     with pytest.raises(ValidationError):
         S.GameReview.model_validate(bad)
-    bad["strengths"] = [{"point": "p", "evidence": "bon reset à 10:04, 1451 g"}]  # pas de cause
+    bad["strengths"] = [{k: v for k, v in _game_insight().items() if k != "cause"}]
     with pytest.raises(ValidationError):
         S.GameReview.model_validate(bad)
 
@@ -107,7 +115,7 @@ def test_game_review_requires_at_least_one_mistake():
 def test_game_review_json_schema_lengths():
     sch = S.game_review_json_schema()
     assert sch["properties"]["mistakes"]["minItems"] == 1
-    assert sch["properties"]["mistakes"]["maxItems"] == 3
+    assert sch["properties"]["mistakes"]["maxItems"] == 5
     assert sch["properties"]["strengths"]["maxItems"] == 2
 
 
@@ -128,7 +136,8 @@ def test_json_schema_is_inlined_and_strict():
     for sch in (S.review_json_schema(), S.game_review_json_schema()):
         blob = json.dumps(sch)
         assert "$defs" not in sch and "$ref" not in blob
-        assert "title" not in blob and "description" not in blob
+        assert "description" not in blob
+        assert "title" not in {key for key in sch if key != "properties"}
         assert sch["additionalProperties"] is False
         assert sch["properties"]["mistakes"]["items"]["additionalProperties"] is False
 
@@ -219,3 +228,49 @@ def test_chief_schema_version_is_stable_across_id_sets():
     # ...mais la version publiée (bloc `run`) reste celle du contrat, fixe.
     assert S.CHIEF_SELECTION_SCHEMA_VERSION == S.schema_version_of(
         S._strict(S.ChiefSelection.model_json_schema()))
+
+
+def test_game_insight_requires_a_category_from_the_closed_list():
+    ok = S.GameInsight.model_validate(_game_insight())
+    assert ok.category == "ECONOMIE_RECALL"
+    with pytest.raises(ValidationError):
+        S.GameInsight.model_validate(_game_insight(category="VISION"))
+    with pytest.raises(ValidationError):
+        S.GameInsight.model_validate(_game_insight(category="economie_recall"))
+    with pytest.raises(ValidationError):
+        S.GameInsight.model_validate({k: v for k, v in _game_insight().items()
+                                      if k != "category"})
+
+
+def test_categories_are_exposed_as_a_tuple():
+    assert "TRACKING_JUNGLE" in S.CATEGORIES
+    assert "VISION" not in S.CATEGORIES
+    assert len(S.CATEGORIES) == 9
+
+
+def test_game_insight_caps_title_cause_and_evidence():
+    S.GameInsight.model_validate(_game_insight(title="x" * 60))
+    with pytest.raises(ValidationError):
+        S.GameInsight.model_validate(_game_insight(title="x" * 61))
+    with pytest.raises(ValidationError):
+        S.GameInsight.model_validate(_game_insight(title=""))
+    S.GameInsight.model_validate(_game_insight(cause="c" * 350))
+    with pytest.raises(ValidationError):
+        S.GameInsight.model_validate(_game_insight(cause="c" * 351))
+    S.GameInsight.model_validate(_game_insight(evidence="8:31 " + "e" * 345))
+    with pytest.raises(ValidationError):
+        S.GameInsight.model_validate(_game_insight(evidence="8:31 " + "e" * 346))
+
+
+def test_game_review_accepts_five_mistakes_and_rejects_six():
+    def review(n):
+        return {"strengths": [], "mistakes": [_game_insight() for _ in range(n)],
+                "next_focus": "Recentre-toi après chaque vague poussée.",
+                "confidence": 0.6}
+    S.GameReview.model_validate(review(5))
+    with pytest.raises(ValidationError):
+        S.GameReview.model_validate(review(6))
+
+
+def test_chief_selection_follows_to_five():
+    assert S.ChiefSelection.model_fields["priority_mistake_ids"].metadata[1].max_length == 5

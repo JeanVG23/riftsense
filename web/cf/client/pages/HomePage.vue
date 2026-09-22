@@ -143,7 +143,7 @@ function goToDemo(): void {
     </section>
 
     <!-- Séparation céleste Targon entre le haut (Hero) et les sections -->
-    <div class="home-hero-divider" aria-hidden="true">
+    <div class="celestial-divider home-hero-divider" aria-hidden="true">
       <span class="divider-line"></span>
       <span class="divider-gem">✦</span>
       <span class="divider-line"></span>
@@ -469,10 +469,6 @@ function goToDemo(): void {
   z-index: 2;
 }
 
-.hero-banner {
-  display: contents;
-}
-
 /* Hero unboxed avec arrière-plan Targon en transparence fluide */
 .home-intro {
   position: relative;
@@ -620,24 +616,8 @@ function goToDemo(): void {
 
 /* Artefacts Targon sacrés en filigrane le long de la page sur les côtés (strictement sous la séparation) */
 .home-side-artefacts {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100vw;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
   mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 90px), transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 90px), transparent 100%);
-}
-
-.side-artefact {
-  position: absolute;
-  mix-blend-mode: multiply;
-  pointer-events: none;
-  z-index: 0;
 }
 
 /* 1. Haut GAUCHE : Relique sacrée Solari vers 'Mes comptes' (strictement sous la séparation) */
@@ -700,64 +680,10 @@ function goToDemo(): void {
   }
 }
 
-/* Séparation céleste Targon */
+/* Home-specific spacing for the shared celestial divider. */
 .home-hero-divider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   gap: 22px;
-  width: 100%;
-  max-width: 1040px;
   margin: 6px auto 14px;
-  padding: 0 16px;
-  position: relative;
-  z-index: 2;
-}
-
-.home-hero-divider .divider-line {
-  flex: 1;
-  height: 1px;
-}
-
-.home-hero-divider .divider-line:first-child {
-  background: linear-gradient(90deg, transparent, rgba(120, 32, 37, 0.35) 25%, rgba(185, 143, 83, 0.45) 70%, rgba(185, 143, 83, 0.7) 100%);
-}
-
-.home-hero-divider .divider-line:last-child {
-  background: linear-gradient(90deg, rgba(185, 143, 83, 0.7) 0%, rgba(185, 143, 83, 0.45) 30%, rgba(120, 32, 37, 0.35) 75%, transparent);
-}
-
-.home-hero-divider .divider-gem {
-  display: inline-block;
-  font-size: 16px;
-  line-height: 1;
-  background: linear-gradient(
-    135deg,
-    #fffbe8 0%,
-    #ffe27d 25%,
-    #ffffff 50%,
-    #f5af19 75%,
-    #b87413 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter:
-    drop-shadow(0 0 8px rgba(255, 225, 90, 0.95))
-    drop-shadow(0 0 22px rgba(240, 175, 45, 0.75))
-    drop-shadow(0 0 36px rgba(210, 150, 40, 0.45));
-  user-select: none;
-  animation: celestialGemPulse 4s ease-in-out infinite alternate;
-}
-
-@keyframes celestialGemPulse {
-  0% {
-    transform: scale(1);
-    filter: drop-shadow(0 0 8px rgba(255, 225, 90, 0.85)) drop-shadow(0 0 18px rgba(240, 175, 45, 0.6));
-  }
-  100% {
-    transform: scale(1.18);
-    filter: drop-shadow(0 0 14px rgba(255, 240, 130, 1)) drop-shadow(0 0 28px rgba(255, 195, 50, 0.9)) drop-shadow(0 0 45px rgba(220, 160, 40, 0.6));
-  }
 }
 
 /* Sections */
@@ -818,7 +744,7 @@ function goToDemo(): void {
   border: 1px solid rgba(195, 178, 155, 0.55);
   border-radius: 14px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 1px 0 var(--surface-inset-highlight),
     inset 0 -1px 2px rgba(175, 155, 130, 0.10),
     0 2px 8px rgba(45, 35, 22, 0.05),
     0 1px 3px rgba(20, 23, 24, .04);
@@ -844,7 +770,7 @@ function goToDemo(): void {
 .account-card--owner {
   border-color: rgba(185, 143, 83, 0.55);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 1px 0 var(--surface-inset-highlight),
     inset 0 -1px 2px rgba(175, 155, 130, 0.12),
     0 3px 12px rgba(45, 35, 22, 0.07);
 }
@@ -1029,7 +955,7 @@ function goToDemo(): void {
   border: 1px solid rgba(195, 178, 155, 0.55);
   border-radius: 12px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 1px 0 var(--surface-inset-highlight),
     inset 0 -1px 2px rgba(175, 155, 130, 0.10),
     0 2px 8px rgba(45, 35, 22, 0.05);
 }
@@ -1070,7 +996,6 @@ function goToDemo(): void {
   .workflow-steps-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 860px) {
-  .hero-banner { padding: 34px 26px 30px; }
   .hero-preview-card { align-self: stretch; }
 }
 @media (max-width: 768px) {
@@ -1086,7 +1011,6 @@ function goToDemo(): void {
   .preview-cta-btn { width: 100%; justify-content: center; }
 }
 @media (max-width: 640px) {
-  .hero-banner { padding: 28px 20px; border-radius: 14px; }
   .hero-headline { font-size: 30px; }
   .workflow-steps-grid { grid-template-columns: 1fr; }
   .ac-arrow { display: none; }

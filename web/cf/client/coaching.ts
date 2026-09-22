@@ -35,6 +35,31 @@ export function insightBody(text: unknown): string {
   return "";
 }
 
+export const CATEGORY_LABELS: Record<string, string> = {
+  TRADE_LANE: "Trades",
+  WAVE_MANAGEMENT: "Wave management",
+  TRACKING_JUNGLE: "Jungle tracking",
+  POSITIONNEMENT_COMBAT: "Fight positioning",
+  ECONOMIE_RECALL: "Recalls",
+  BUILD_ACHATS: "Build",
+  OBJECTIFS: "Objectives",
+  EXECUTION_TEAMFIGHT: "Teamfights",
+  GESTION_AVANCE_RETARD: "Lead / deficit",
+};
+
+export function categoryLabel(category: unknown): string {
+  const key = String(category || "");
+  return CATEGORY_LABELS[key] || key;
+}
+
+export function insightHeading(item: { title?: unknown; point?: unknown } | null | undefined): string {
+  return item?.title ? String(item.title) : insightTitle(item?.point);
+}
+
+export function insightDetail(item: { title?: unknown; point?: unknown } | null | undefined): string {
+  return item?.title ? String(item.point || "") : insightBody(item?.point);
+}
+
 export function outcomeLabel(outcome: string): string {
   return outcome === "loss" ? "Losses" : outcome === "win" ? "Wins" : "Overall";
 }

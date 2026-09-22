@@ -8,6 +8,7 @@ import type { Env } from "./index";
 import { GAME_REVIEW_SCHEMA_VERSION } from "./generated/shared";
 
 type JsonRecord = Record<string, any>;
+const SCHEMA_ATTEMPTS = 3;
 
 export interface GameCoachParams {
   slug: string;
@@ -59,7 +60,7 @@ export async function* gameCoachFlow(
 
   let review: GameReview | null = null;
   try {
-    for (let attempt = 0; attempt < 2 && review === null; attempt += 1) {
+    for (let attempt = 0; attempt < SCHEMA_ATTEMPTS && review === null; attempt += 1) {
       review = validateGameReview(await deps.generate(
         params.model, system, user, gameReviewJsonSchema(),
       ));
@@ -69,7 +70,7 @@ export async function* gameCoachFlow(
     return;
   }
   if (review === null) {
-    yield { event: "error", data: { error: "LLM output did not match the schema after 2 attempts" } };
+    yield { event: "error", data: { error: `LLM output did not match the schema after ${SCHEMA_ATTEMPTS} attempts` } };
     return;
   }
 
@@ -117,7 +118,9 @@ export async function apiGameCoach(request: Request, env: Env): Promise<Response
     force: body.force === true,
   };
   const generate: GameGenerateFn = (model, system, user, schema) => {
-    return generateJson(model, system, user, schema, { apiKey: env.OLLAMA_API_KEY! });
+    return generateJson(model, system, user, schema, {
+      apiKey: env.OLLAMA_API_KEY!, timeoutMs: 180_000, maxAttempts: 1,
+    });
   };
   const stream = new ReadableStream({
     async start(controller) {

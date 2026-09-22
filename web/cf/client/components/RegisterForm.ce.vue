@@ -279,7 +279,7 @@ onBeforeUnmount(stopPolling);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 1px 0 var(--surface-inset-highlight),
     inset 0 -1px 2px rgba(175, 155, 130, 0.12),
     0 20px 60px -18px rgba(20, 23, 24, 0.36);
   width: 100%;
@@ -356,23 +356,22 @@ onBeforeUnmount(stopPolling);
   font-weight: 700;
   white-space: nowrap;
   flex-shrink: 0;
-  color: #fffdf8 !important;
-  background-color: #2e1e20 !important;
-  background: var(--targon-veil-button) !important;
-  border: 1px solid rgba(215, 175, 110, 0.55) !important;
+  color: var(--targon-veil-text);
+  background: var(--targon-veil-button);
+  border: 1px solid rgba(215, 175, 110, 0.55);
   box-shadow:
     0 4px 14px rgba(35, 25, 27, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    inset 0 -2px 6px rgba(0, 0, 0, 0.35) !important;
+    inset 0 -2px 6px var(--targon-veil-overlay);
   transition: var(--transition-base);
 }
 .register-submit-btn:hover:not(:disabled) {
-  background: var(--targon-veil-button-hover) !important;
-  border-color: #ffd269 !important;
+  background: var(--targon-veil-button-hover);
+  border-color: var(--targon-veil-accent);
   box-shadow:
     0 6px 18px rgba(35, 25, 27, 0.40),
     0 0 16px rgba(255, 205, 80, 0.30),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transform: translateY(-1px);
 }
 .register-submit-btn:disabled {
@@ -380,13 +379,13 @@ onBeforeUnmount(stopPolling);
   cursor: not-allowed;
 }
 .register-btn-arrow {
-  color: #ffd269;
+  color: var(--targon-veil-accent);
   filter: drop-shadow(0 0 4px rgba(255, 210, 80, 0.75));
   transition: transform 150ms ease;
 }
 .register-submit-btn:hover:not(:disabled) .register-btn-arrow {
   transform: translateX(3px);
-  color: #fff0a8;
+  color: var(--targon-veil-accent-soft);
   filter: drop-shadow(0 0 8px rgba(255, 220, 100, 0.95));
 }
 
@@ -435,7 +434,7 @@ onBeforeUnmount(stopPolling);
   border-radius: 18px;
   box-shadow:
     0 8px 32px rgba(20, 23, 24, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+    inset 0 1px 0 var(--surface-inset-highlight);
   text-align: left;
 }
 

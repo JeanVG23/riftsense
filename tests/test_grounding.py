@@ -55,7 +55,15 @@ def test_cited_numbers_reads_units_and_ignores_clocks():
     assert [c[2] for c in cites] == ["g", "pct", "s", "cs"]
 
 
+def test_cited_numbers_reads_english_thousands_without_breaking_decimal_commas():
+    cites = G.cited_numbers(
+        "3,200 gold, 11,220 units, 12,345,678 damage, 29,06 %, 0,290 ratio")
+    assert [c[1] for c in cites] == [3200.0, 11220.0, 12345678.0, 29.06, 0.290]
+    assert [c[2] for c in cites[:4]] == ["g", "u", "dmg", "pct"]
+
+
 def test_unit_of_citation_reads_full_words():
+    assert G.unit_of_citation(" gold spent") == "g"
     assert G.unit_of_citation(" secondes avant") == "s"
     assert G.unit_of_citation(" minutes") == "min"
     assert G.unit_of_citation("% des morts") == "pct"
@@ -339,6 +347,26 @@ def test_same_term_in_a_neutral_section_is_not_flagged():
                              "evidence": "profondeur moyenne 254 u"}],
               "mistakes": [], "next_focus": "f"}
     assert G.asymmetry_violations(review) == []
+
+
+def test_literal_outer_turret_boundary_makes_overextension_actionable():
+    review = {"mistakes": [{
+        "title": "Repeated overextension mid as ADC",
+        "point": "Do not push beyond your outer turret without team escort.",
+        "cause": "You positioned past the mid outer turret twice.",
+        "evidence": "11:43 death beyond mid outer turret.",
+    }], "next_focus": "Group before objectives."}
+    assert G.asymmetry_violations(review) == []
+
+
+def test_overextension_without_a_literal_turret_boundary_stays_flagged():
+    review = {"mistakes": [{
+        "title": "Repeated overextension",
+        "point": "Reduce your average map depth.",
+        "cause": "You play too deep.",
+        "evidence": "Average depth 1840 units.",
+    }], "next_focus": "Play less deep."}
+    assert G.asymmetry_violations(review)
 
 
 # --- controle negatif (le test qui donne sa valeur au chiffre) -----------------

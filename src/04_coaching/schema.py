@@ -123,6 +123,20 @@ class AnchoredInsight(Insight):
     evidence: Annotated[str, Field(pattern=r"\d+:\d\d")]
 
 
+InsightCategory = Literal[
+    "TRADE_LANE",
+    "WAVE_MANAGEMENT",
+    "TRACKING_JUNGLE",
+    "POSITIONNEMENT_COMBAT",
+    "ECONOMIE_RECALL",
+    "BUILD_ACHATS",
+    "OBJECTIFS",
+    "EXECUTION_TEAMFIGHT",
+    "GESTION_AVANCE_RETARD",
+]
+CATEGORIES: tuple[str, ...] = get_args(InsightCategory)
+
+
 class GameInsight(AnchoredInsight):
     """Insight par-game : `point` = la leçon actionnable, `cause` = le POURQUOI
     (mécanisme), `evidence` = la preuve chiffrée + l'horodatage mm:ss (hérité).
@@ -133,7 +147,10 @@ class GameInsight(AnchoredInsight):
     le mécanisme (solo 1v1 vs gank, comportement à l'origine d'une force), et ancre les
     forces sur un moment au même titre que les erreurs."""
 
-    cause: Annotated[str, Field(min_length=1, description=(
+    category: InsightCategory
+    title: Annotated[str, Field(min_length=1, max_length=60)]
+    evidence: Annotated[str, Field(pattern=r"\d+:\d\d", max_length=350)]
+    cause: Annotated[str, Field(min_length=1, max_length=350, description=(
         "The WHY behind the insight: death mechanism (solo 1v1 without Flash, 3v1 gank, "
         "overextension) or behavior behind a strength. Never just the outcome."))]
 
@@ -154,7 +171,7 @@ class GameReview(BaseModel):
     explicite (cf. GameInsight) — une force sans preuve temporelle ni cause est du
     remplissage vague, on l'exclut plutôt que de la produire."""
     strengths: Annotated[list[GameInsight], Field(max_length=2)]
-    mistakes: Annotated[list[GameInsight], Field(min_length=1, max_length=3)]
+    mistakes: Annotated[list[GameInsight], Field(min_length=1, max_length=5)]
     next_focus: Annotated[str, Field(min_length=1)]
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
 
@@ -176,7 +193,7 @@ class AxisReview(GameReview):
 class ChiefSelection(BaseModel):
     """Le chef ne rédige rien : il sélectionne les IDs des sous-agents."""
     summary_insight_id: str
-    priority_mistake_ids: Annotated[list[str], Field(min_length=1, max_length=3)]
+    priority_mistake_ids: Annotated[list[str], Field(min_length=1, max_length=5)]
     strength_insight_ids: Annotated[list[str], Field(max_length=2)]
     next_focus_insight_id: str
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]

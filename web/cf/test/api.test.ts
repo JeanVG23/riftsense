@@ -31,6 +31,9 @@ async function seed(): Promise<{ env: Env; kv: MemoryKV }> {
     slug: "spadzze", riot_id: "Spadzze#euw", region: "euw1", source: "curated",
   }));
   await kv.put(KEYS.accounts_index(), JSON.stringify(["spadzze"]));
+  await kv.put(KEYS.role_shap("spadzze"), JSON.stringify({
+    schema_version: 1, available: true, role: "BOTTOM", scope: "adc",
+  }));
   await kv.put(KEYS.games("spadzze"), [
     JSON.stringify({ match_id: "EUW1_10", champion: "Zeri", win: true }),
     JSON.stringify({ match_id: "EUW1_30", champion: "Jinx", win: false }),
@@ -294,10 +297,12 @@ describe("contexte et coaching unitaire", () => {
     );
     expect(response.status).toBe(200);
     const context = await response.json() as Record<string, any>;
-    expect(context).toHaveProperty("default_scope");
+    expect(context).toMatchObject({
+      default_scope: "adc", main_role: "BOTTOM", main_role_label: "ADC",
+    });
     expect(context).toHaveProperty("matches.EUW1_30.review_status");
     expect(context).toHaveProperty("review_samples.adc");
-    expect(context).toHaveProperty("aggregate_status.adc.loss");
+    expect(context).toHaveProperty("aggregate_status.adc.overall");
   });
 
   it("exige l'authentification puis valide le body et la configuration avant d'ouvrir le flux unitaire", async () => {
