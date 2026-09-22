@@ -378,7 +378,7 @@ onBeforeUnmount(() => {
   color: var(--gold-deep);
   background: var(--surface);
   border: 1.5px solid rgba(195, 160, 110, 0.48);
-  border-radius: 11px;
+  border-radius: var(--radius-sm);
   box-shadow:
     0 2px 6px rgba(20, 23, 24, .08),
     inset 0 1px 0 var(--surface-inset-highlight);
@@ -410,7 +410,7 @@ onBeforeUnmount(() => {
   background: var(--targon-veil-button);
   color: var(--targon-veil-text);
   border: 1px solid rgba(215, 175, 110, 0.55);
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   text-transform: uppercase;
   box-shadow:
     0 2px 6px var(--targon-veil-overlay),
@@ -432,7 +432,7 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(215, 175, 110, 0.50);
   font-size: var(--fs-small);
   font-weight: 650;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   transition: var(--transition-base);
   text-decoration: none;
   white-space: nowrap;
@@ -481,7 +481,7 @@ onBeforeUnmount(() => {
   background-color: var(--targon-veil-surface);
   background: var(--targon-veil-button);
   border: 1px solid rgba(215, 175, 110, 0.50);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-small);
   font-weight: 650;
   cursor: pointer;
@@ -517,7 +517,7 @@ onBeforeUnmount(() => {
 .switcher-avatar {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.35);
   object-fit: cover;
   background: rgba(0, 0, 0, 0.4);
@@ -527,7 +527,7 @@ onBeforeUnmount(() => {
   width: 26px;
   height: 26px;
   place-items: center;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.28);
   color: var(--targon-veil-accent-strong);
   border: 1px solid rgba(185, 143, 83, 0.35);
@@ -553,7 +553,7 @@ onBeforeUnmount(() => {
   width: 290px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: var(--radius);
   box-shadow: var(--shadow-overlay);
   z-index: 100;
   overflow: hidden;
@@ -593,7 +593,7 @@ onBeforeUnmount(() => {
   margin-right: 5px;
   flex: 0 0 auto;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-faint);
   background: transparent;
   cursor: pointer;
@@ -607,7 +607,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--ink);
   text-decoration: none;
   transition: var(--transition-fast);
@@ -619,7 +619,7 @@ onBeforeUnmount(() => {
 .switcher-card-avatar img {
   width: 100%;
   height: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   border: 1px solid var(--border);
 }
@@ -650,7 +650,7 @@ onBeforeUnmount(() => {
   font-size: var(--fs-micro);
   font-weight: 700;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -677,7 +677,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: var(--text-dim);
   font-size: var(--fs-small);
   font-weight: 600;
@@ -740,7 +740,7 @@ onBeforeUnmount(() => {
   height: 38px;
   background: rgba(255, 255, 255, 0.08);
   border: 1.5px solid rgba(195, 155, 90, 0.45);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 2px 6px var(--targon-veil-overlay);
 }
 .footer-brand .brand-svg {
@@ -755,7 +755,7 @@ onBeforeUnmount(() => {
   padding: 10px 12px;
   background: var(--targon-veil-overlay);
   border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-label);
   line-height: 1.5;
   color: var(--targon-veil-text-muted);
@@ -787,7 +787,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--targon-veil-text-strong);
   text-decoration: none;
   background: rgba(0, 0, 0, 0.28);
@@ -803,7 +803,7 @@ onBeforeUnmount(() => {
 .footer-account-avatar {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -842,7 +842,7 @@ onBeforeUnmount(() => {
   padding: 6px 12px;
   background: var(--targon-veil-overlay);
   border: 1px solid var(--targon-veil-border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--targon-veil-text-strong);
   font-size: var(--fs-small);
   font-weight: 650;
@@ -867,7 +867,7 @@ onBeforeUnmount(() => {
   background-color: var(--targon-veil-surface);
   background: var(--targon-veil-button);
   border: 1px solid rgba(215, 175, 110, 0.50);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   align-items: center;
   justify-content: center;
@@ -989,7 +989,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-radius: 11px;
+  border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(215, 175, 110, 0.20);
   text-decoration: none;
@@ -1006,7 +1006,7 @@ onBeforeUnmount(() => {
 .mobile-nav-icon-wrap {
   width: 36px;
   height: 36px;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--targon-veil-overlay);
   border: 1px solid var(--targon-veil-border-warm);
   color: var(--targon-veil-accent);

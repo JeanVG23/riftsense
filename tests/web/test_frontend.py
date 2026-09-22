@@ -145,6 +145,76 @@ def test_global_feedback_saving_is_wired():
     assert 'class="eval-strip"' not in controls and "mistake_useful_rate" not in controls
 
 
+def test_game_review_leads_with_a_timeline_not_a_wall_of_text():
+    # La vue par game se lit d'abord comme une frise : l'horodatage que le
+    # schéma impose dans chaque evidence est la seule matière que l'onglet ML
+    # ne peut pas produire, puisque sa décomposition n'a pas d'axe temporel.
+    component = _read("client/components/GameReviews.vue")
+    for marker in ("game-timeline-band", "timeline-mark", "game-verdict",
+                   "markPosition(mark.at, durationMin)", "focusMark(mark)"):
+        assert marker in component, marker
+    # Niveau 1 = catégorie, titre, horodatages. Le reste attend le clic : sans
+    # ce repli, six insights posent ~2 100 caractères d'un bloc.
+    assert "insight-toggle" in component and "insight-expanded" in component
+    assert "stamp-chip" in component and "insightOpen(" in component
+    assert "game-chat-toggle" in component and 'v-if="chatOpen"' in component
+    # Branches mortes retirées : ni `review.summary` ni `review.axes` n'existent
+    # dans game_review.schema.json ni dans les données publiées.
+    assert "game-chief-summary" not in component and "game-axis" not in component
+
+
+def test_coaching_does_not_borrow_the_shap_bar_idiom():
+    # Le coaching est un COMPLÉMENT de l'onglet ML, pas son doublon. Servir un
+    # classement à barres des deux côtés ferait passer un comptage
+    # d'occurrences pour un poids de modèle. La vue globale publie donc une
+    # grille de présence à colonnes fixes (une par partie, dans l'ordre du
+    # temps), et la vue par game une frise.
+    for name in ("GlobalCoaching.ce.vue", "GameReviews.vue"):
+        component = _read(f"client/components/{name}")
+        for borrowed in ("bar-track", "barStyle", "shap-theme-row", "shap-highlight", "gauge-track"):
+            assert borrowed not in component, f"{name} emprunte {borrowed} à l'onglet ML"
+    global_coaching = _read("client/components/GlobalCoaching.ce.vue")
+    for marker in ("recurrence-grid", "recurrence-cell", "data-match", "game-select"):
+        assert marker in global_coaching, marker
+    # La frise globale superpose les frises des parties sur une horloge de jeu.
+    # Ses bandes ont la largeur de leur DURÉE : une largeur proportionnelle au
+    # compte referait le diagramme en barres de l'onglet ML.
+    for marker in ("global-timeline", "global-timeline-mark", "phase-band",
+                   "bandWidth(band.from, band.to)", "global-timeline-trend"):
+        assert marker in global_coaching, marker
+    # Le focus n'est plus servi deux fois : le hero le porte, la quatrième
+    # colonne qui le répétait a disparu.
+    assert "Focus &amp; Confidence" not in global_coaching
+    assert "global-focus-confidence" in global_coaching
+
+
+def test_both_coaching_views_share_one_collapse_idiom_and_one_clock():
+    # Deux gestes différents sur deux onglets de la même fonctionnalité
+    # coûteraient plus cher que le texte économisé : le repli et l'axe de
+    # temps vivent donc dans la feuille partagée, pas en scoped dans un seul
+    # composant, et les deux vues portent la même classe de frise.
+    sheet = _read("client/styles/coaching-insights.css")
+    for rule in (".shared-insights .insight-toggle", ".shared-insights .insight-chevron",
+                 ".shared-insights .insight-expanded", ".coach-timeline .timeline-axis",
+                 ".coach-timeline .legend-dot"):
+        assert rule in sheet, rule
+    for name in ("GameReviews.vue", "GlobalCoaching.ce.vue"):
+        component = _read(f"client/components/{name}")
+        assert "coach-timeline" in component, name
+        assert "insight-toggle" in component, name
+
+
+def test_timestamp_reading_has_a_single_owner():
+    # Le Worker publie les instants, le client les replace sur un axe : la
+    # regex qui les lit dans une evidence ne doit exister qu'UNE fois, sinon
+    # les deux runtimes divergent en silence sur ce que « 14:16 » veut dire.
+    owner = _read("src/game_moments.ts")
+    assert "[0-5]" in owner and "export function parseTimestamps" in owner
+    for name in ("client/game-timeline.ts", "client/components/GameReviews.vue",
+                 "client/components/GlobalCoaching.ce.vue", "src/index.ts"):
+        assert "[0-5]\\d" not in _read(name), name
+
+
 def test_shap_renders_the_breakdown_without_a_canvas():
     # L'onglet ML n'a plus de canvas : les barres sont du DOM natif, donc
     # lisibles, sélectionnables et correctes en mobile. Un retour de Chart.js

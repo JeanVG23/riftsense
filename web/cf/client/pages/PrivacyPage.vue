@@ -221,7 +221,9 @@ function goHome(): void {
 
 .legal-disclaimer-card.privacy-accent {
   border-color: rgba(87, 116, 93, 0.40);
-  background: linear-gradient(135deg, rgba(255, 253, 248, 0.98) 0%, rgba(244, 248, 245, 0.92) 100%);
+  background:
+    linear-gradient(135deg, rgba(87, 116, 93, 0.08) 0%, transparent 65%),
+    var(--card-marble-bg);
   box-shadow: 0 4px 18px rgba(20, 23, 24, 0.05), inset 0 1px 0 var(--surface-inset-highlight);
 }
 

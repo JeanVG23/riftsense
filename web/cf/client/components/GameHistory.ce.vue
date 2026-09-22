@@ -464,7 +464,7 @@ onMounted(loadGames);
   background: var(--card-marble-bg);
   border: 1px solid var(--card-marble-border);
   border-left: 4px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   transition: background 150ms ease, transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
   overflow: hidden;
 }
@@ -533,7 +533,7 @@ onMounted(loadGames);
   align-items: center;
   gap: 4px;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--info-soft);
   border: 1px solid var(--info-border);
   color: var(--info);
@@ -546,7 +546,7 @@ onMounted(loadGames);
   align-items: center;
   gap: 4px;
   padding: 1px 7px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-size: var(--fs-micro);
   font-weight: 700;
   letter-spacing: .02em;
@@ -616,7 +616,7 @@ onMounted(loadGames);
   padding: 3px 8px;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-dim);
   font-size: var(--fs-label);
 }
@@ -654,7 +654,7 @@ onMounted(loadGames);
   padding: 8px 16px;
   background: var(--primary-soft);
   border: 1px solid var(--gold);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--gold-deep);
   font-size: var(--fs-body-sm);
   font-weight: 700;
@@ -684,7 +684,7 @@ onMounted(loadGames);
 .gd-card {
   background: var(--surface);
   border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -719,7 +719,7 @@ onMounted(loadGames);
   padding: 8px 12px;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin-bottom: 12px;
 }
 .gd-matchup-side {
@@ -745,7 +745,7 @@ onMounted(loadGames);
 .gd-mini-icon {
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   object-fit: cover;
   border: 1px solid var(--border);
   background: var(--bg);
@@ -807,7 +807,7 @@ onMounted(loadGames);
 .gd-sides-banner {
   background: var(--surface-alt);
   border: 1px solid var(--border-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 10px 14px;
   margin-bottom: 14px;
   display: flex;
@@ -853,7 +853,7 @@ onMounted(loadGames);
   font-size: var(--fs-micro);
   font-weight: 800;
   padding: 2px 7px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   letter-spacing: .04em;
   text-transform: uppercase;
 }
@@ -873,7 +873,7 @@ onMounted(loadGames);
   color: var(--gold-deep);
   background: var(--surface-alt);
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border-left: 3px solid var(--gold);
   line-height: 1.4;
 }
@@ -886,7 +886,7 @@ onMounted(loadGames);
 }
 .gd-team-col {
   background: var(--panel-2);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 10px 12px;
   border: 1px solid var(--border-soft);
   min-width: 0;
@@ -916,7 +916,7 @@ onMounted(loadGames);
   gap: 8px;
   font-size: var(--fs-small);
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--surface-alt);
   min-width: 0;
 }
@@ -932,7 +932,7 @@ onMounted(loadGames);
   padding: 2px 5px;
   background: var(--surface);
   border: 1px solid var(--border-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   letter-spacing: .04em;
   flex-shrink: 0;
   text-align: center;
@@ -953,7 +953,7 @@ onMounted(loadGames);
   padding: 1px 4px;
   background: var(--gold);
   color: var(--paper);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   text-transform: uppercase;
   flex-shrink: 0;
 }
@@ -982,7 +982,7 @@ onMounted(loadGames);
   padding: 5px 8px;
   background: var(--panel-2);
   border: 1px solid var(--border-soft);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   transition: background .15s ease;
 }
 .gd-obj-entry:hover,
@@ -1022,7 +1022,7 @@ onMounted(loadGames);
   font-size: var(--fs-micro);
   font-weight: 800;
   padding: 1px 6px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   text-transform: uppercase;
   letter-spacing: .03em;
   flex-shrink: 0;
@@ -1124,7 +1124,7 @@ onMounted(loadGames);
   font-size: var(--fs-micro);
   font-weight: 800;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   text-transform: uppercase;
   letter-spacing: .03em;
   flex-shrink: 0;
@@ -1190,7 +1190,7 @@ onMounted(loadGames);
   font-size: var(--fs-micro);
   font-weight: 700;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   text-transform: uppercase;
 }
 .tag-solo {
@@ -1219,7 +1219,7 @@ onMounted(loadGames);
 .champ-icon {
   width: 44px;
   height: 44px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   display: block;
   background: var(--bg);
   box-shadow: var(--card-shadow);
@@ -1282,7 +1282,7 @@ onMounted(loadGames);
   padding: 2px 7px;
   background: var(--panel-2);
   border: 1px solid var(--border-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-label);
   font-weight: 650;
   color: var(--text-dim);
@@ -1301,7 +1301,7 @@ onMounted(loadGames);
   padding: 2px 7px;
   background: var(--panel-2);
   border: 1px solid var(--border-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 .gr-vs {
   color: var(--text-faint);

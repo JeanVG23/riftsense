@@ -61,3 +61,98 @@
 .shared-insights .card-accent-mistake { border-left-color: var(--loss); }
 .shared-insights .card-accent-habit { border-left-color: var(--info); }
 .shared-insights .card-accent-focus { border-left-color: var(--primary); }
+
+/* Niveau 1 d'un insight : tout le bloc est le bouton d'ouverture, pour que la
+   cible de clic soit la carte entière et pas un chevron de 12 pixels. */
+.shared-insights .insight-toggle {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.shared-insights .insight-chevron {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--text-faint);
+  font-size: 15px;
+  line-height: 1.2;
+  transition: transform 140ms ease;
+}
+
+.shared-insights .insight-chevron.is-open { transform: rotate(90deg); }
+
+.shared-insights .insight-summary {
+  flex: 1;
+  min-width: 0;
+}
+
+.shared-insights .insight-expanded {
+  padding-left: 20px;
+  margin-top: 9px;
+}
+
+.shared-insights .insight-cause {
+  margin: 0 0 8px;
+  color: var(--text-dim);
+  font-size: var(--fs-label);
+  line-height: 1.45;
+}
+
+.shared-insights .insight-feedback {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Axe et légende communs aux deux frises : celle d'UNE partie (GameReviews)
+   et la superposition de toutes (GlobalCoaching). Le coaching se lit sur le
+   temps ; c'est ce que l'onglet ML, qui n'a pas d'axe temporel, ne peut pas
+   faire, et le seul endroit où les deux vues doivent parler pareil. */
+.coach-timeline .timeline-axis {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.coach-timeline .timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 9px 0 0;
+  color: var(--text-dim);
+  font-size: var(--fs-micro);
+}
+
+.coach-timeline .timeline-legend em {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-style: normal;
+}
+
+.coach-timeline .legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.coach-timeline .legend-dot + * { margin-right: 8px; }
+
+.coach-timeline .legend-dot.is-strength { background: var(--win); }
+
+.coach-timeline .legend-dot.is-mistake { background: var(--loss); }
+
+@media (max-width: 640px) {
+  .coach-timeline .timeline-legend em { width: 100%; margin-left: 0; }
+}

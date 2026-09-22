@@ -90,7 +90,7 @@ auth-control {
   padding: 6px 12px;
   background: var(--targon-veil-overlay);
   border: 1px solid var(--targon-veil-border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-label);
   font-weight: 600;
   color: var(--targon-veil-text);
@@ -117,7 +117,7 @@ auth-control {
   padding: 5px 10px;
   background: rgba(16, 185, 129, 0.22);
   border: 1px solid rgba(16, 185, 129, 0.45);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-label);
   font-weight: 650;
   color: #6ee7b7;
@@ -129,7 +129,7 @@ auth-control {
   padding: 5px 8px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-label);
   color: #e6d3cf;
   cursor: pointer;

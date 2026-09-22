@@ -211,6 +211,37 @@ web/
                   L'onglet ML rend ces groupes en DOM natif (jauge, verdict, lignes de
                   thème) : Chart.js est retiré du bundle (`web/cf/package.json`) et
                   ShapProfile.ce.vue n'a plus de `<canvas>`.
+                  game-timeline.ts = frises, côté vue. Celle d'UNE partie place un repère
+                  par instant cité (jamais un insight planté à zéro faute de date) ;
+                  `PHASE_BANDS` découpe en minutes ABSOLUES (0-5 / 5-15 / 15-25 / 25+) parce
+                  qu'agréger N parties de durées différentes interdit le tiers relatif.
+                  `dominantCategory`/`dominantPhase` ne désignent rien à égalité (une review
+                  de 5 erreurs porte souvent 5 catégories distinctes ; « X domine : 1 sur 5 »
+                  se lirait comme une conclusion), et la vue globale publie pour la même
+                  raison une CONCENTRATION (`denseSpan` : la plus courte fenêtre contiguë
+                  tenant 70 % des erreurs, « 113 sur 139 entre 5 et 25 minutes ») plutôt
+                  qu'un classement, laning (55) et mid (58) étant à égalité de fait ;
+                  coaching-recurrence.ts = grille de présence de la vue globale, une colonne
+                  par partie dans l'ordre du temps, alimentée par `summary.categories` que
+                  le Worker publie dans la liste légère des reviews.
+                  ⚠️ `src/game_moments.ts` est le SEUL endroit où la regex d'horodatage est
+                  écrite : le Worker en dérive `summary.moments` (la liste légère porte les
+                  instants, donc la vue globale superpose N frises sans relire N détails) et
+                  le client la réexporte via `game-timeline.ts`. `tests/web/test_frontend.py`
+                  échoue si `[0-5]\d` réapparaît ailleurs.
+                  ⚠️ Le coaching est un COMPLÉMENT de l'onglet ML, pas son doublon : il ne
+                  reprend AUCUN de ses idiomes visuels (barres de contribution, jauge,
+                  colonnes forces/leviers). Servir un classement à barres des deux côtés
+                  ferait passer un comptage d'occurrences pour un poids de modèle. Le
+                  coaching a l'axe que l'EBM n'a pas, le TEMPS : frise par partie, grille
+                  chronologique en global. `tests/web/test_frontend.py` échoue si un de ces
+                  idiomes revient dans GameReviews.vue ou GlobalCoaching.ce.vue.
+                  Les insights sont repliés au niveau 1 (catégorie + titre + horodatages) :
+                  déplié, un lot de 6 posait ~2 100 caractères d'un bloc. Le repli et l'axe
+                  de temps vivent dans `styles/coaching-insights.css` (`.shared-insights
+                  .insight-toggle`, `.coach-timeline .timeline-axis`), pas en scoped dans un
+                  seul composant : deux gestes différents sur deux onglets de la même
+                  fonctionnalité coûteraient plus cher que le texte économisé.
   cf/public/      assets statiques copiés tels quels par Vite
 service/          Service d'ingestion Cloud Run (Flask + gunicorn, 1 worker/1 thread) :
                   app.py (routes + secret partagé), riot_ingest.py (métier : profil,

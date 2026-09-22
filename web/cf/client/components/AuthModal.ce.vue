@@ -149,9 +149,9 @@ onBeforeUnmount(() => {
 .auth-modal-card {
   width: 100%;
   max-width: 440px;
-  background: var(--panel);
-  border: 1px solid var(--border-active);
-  border-radius: 16px;
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
+  border-radius: var(--radius-lg);
   padding: 24px;
   box-shadow:
     var(--shadow-overlay);
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
 .auth-modal-icon-wrap {
   width: 42px;
   height: 42px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--primary-soft);
   border: 1px solid var(--primary-border);
   display: flex;
@@ -208,7 +208,7 @@ onBeforeUnmount(() => {
   font-size: 18px;
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   transition: all 0.15s ease;
   line-height: 1;
 }

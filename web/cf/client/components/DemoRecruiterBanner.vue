@@ -64,8 +64,8 @@ const emit = defineEmits<{
 .demo-banner {
   margin: 0 0 24px;
   padding: 18px 22px;
-  background: var(--surface);
-  border: 1px solid rgba(195, 160, 110, 0.42);
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
   border-radius: var(--radius);
   display: flex;
   flex-direction: column;

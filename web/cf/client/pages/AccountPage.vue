@@ -315,7 +315,7 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
         <strong>Global coaching could not be generated.</strong>
         <span>{{ job.error }}</span>
       </div>
-      <GlobalCoaching v-if="coachingView === 'overall'" :slug="slug" :review="review" :reviews="globalReviews" :loading="reviewsLoading" :scope="scope" :scope-name="mainRoleLabel" :authenticated="authenticated" :busy="coachBusy" @generate="generateGlobal" @review-select="selectGlobalReview" />
+      <GlobalCoaching v-if="coachingView === 'overall'" :slug="slug" :review="review" :reviews="globalReviews" :game-reviews="gameReviews" :loading="reviewsLoading" :scope="scope" :scope-name="mainRoleLabel" :authenticated="authenticated" :busy="coachBusy" @generate="generateGlobal" @review-select="selectGlobalReview" @game-select="goToGameReview" />
       <GameReviews v-else :slug="slug" :reviews="gameReviews" :total="gameReviewsCount" :page="gameReviewsPage" :loading="reviewsLoading" :authenticated="authenticated" :target-match-id="pendingReviewId" @reviews-loaded="syncGameReviews" @review-select="selectGameTarget" />
     </div>
   </div>
@@ -331,7 +331,7 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   color: var(--loss);
   background: color-mix(in srgb, var(--loss) 8%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--loss) 30%, var(--border));
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-small);
 }
 
@@ -344,7 +344,7 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   color: var(--text);
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-small);
 }
 
@@ -468,7 +468,7 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
   color: var(--text-dim);
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-body-sm);
 }
 

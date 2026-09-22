@@ -137,7 +137,7 @@ const emit = defineEmits<{
   color: var(--primary);
   background: var(--primary-soft);
   border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-title);
   line-height: 1;
 }
@@ -207,7 +207,7 @@ const emit = defineEmits<{
     linear-gradient(120deg, var(--primary-soft), transparent 45%),
     var(--card-marble-bg);
   border: 1px solid var(--card-marble-border);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--card-shadow);
 }
 
@@ -251,7 +251,7 @@ const emit = defineEmits<{
   padding: 10px 12px;
   background: var(--panel);
   border: 1px solid var(--border-soft);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
 }
 
 .choice-label {
@@ -324,7 +324,7 @@ const emit = defineEmits<{
 @media (max-width: 640px) {
   .coach-builder {
     padding: 18px;
-    border-radius: 14px;
+    border-radius: var(--radius);
   }
   .coach-options {
     grid-template-columns: 1fr;

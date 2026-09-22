@@ -49,8 +49,6 @@ export interface GameReview {
   payload?: { meta?: Record<string, any> };
   review?: {
     confidence?: number;
-    summary?: string;
-    axes?: Array<{ axis: string; label: string; strengths: any[]; mistakes: any[] }>;
     next_focus?: string;
     strengths?: any[];
     mistakes?: any[];

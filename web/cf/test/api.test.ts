@@ -55,7 +55,7 @@ async function seed(): Promise<{ env: Env; kv: MemoryKV }> {
       ts: "2026-08-30T12:00:00", kind: "game", model: "kimi-k2.6", match_id: "EUW1_30",
       run: { prompt_version: gamePromptVersion },
       payload: { meta: { champion: "Jinx", win: false } },
-      review: { strengths: [], mistakes: [{ point: "m", evidence: "12:30", cause: "c" }], next_focus: "focus", confidence: 0.7 },
+      review: { strengths: [], mistakes: [{ point: "m", evidence: "12:30", cause: "c", category: "TRACKING_JUNGLE" }], next_focus: "focus", confidence: 0.7 },
     }),
     JSON.stringify({
       ts: "2026-08-29T12:00:00", kind: "game", model: "legacy-fr", match_id: "EUW1_10",
@@ -273,7 +273,15 @@ describe("GET /api/c/{slug}/reviews|feedback|shap", () => {
     expect(data).toMatchObject({ page: 1, size: 1, total: 1 });
     expect(data.items[0]).toMatchObject({
       ts: "2026-08-30T12:00:00", kind: "game", match_id: "EUW1_30",
-      summary: { strengths_count: 0, mistakes_count: 1, next_focus: "focus", confidence: 0.7 },
+      // Les catégories voyagent dans la liste légère : la grille de récurrence
+      // de la vue globale se calcule dessus, sans relire chaque détail.
+      summary: {
+        strengths_count: 0, mistakes_count: 1, next_focus: "focus", confidence: 0.7,
+        categories: ["TRACKING_JUNGLE"],
+        // Les instants cités, pour que la vue globale superpose les frises de
+        // N parties sans relire N détails. "12:30" vaut 12.5 minutes.
+        moments: [{ at: 12.5, kind: "mistake" }],
+      },
     });
     expect(data.items[0]).not.toHaveProperty("payload");
 

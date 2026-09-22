@@ -526,7 +526,7 @@ onMounted(loadAnalysis);
   padding: 18px;
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius);
   text-align: left;
 }
 
@@ -552,7 +552,7 @@ onMounted(loadAnalysis);
   padding: 10px 14px;
   background: var(--panel);
   border: 1px solid var(--border-soft);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   text-decoration: none;
   transition: var(--transition-base);
@@ -662,7 +662,7 @@ onMounted(loadAnalysis);
   color: var(--text-dim);
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 /* ---- Couche 1 : le score situé ---- */
@@ -672,7 +672,7 @@ onMounted(loadAnalysis);
   padding: 18px 20px;
   background: var(--panel);
   border: 1px solid var(--border-soft);
-  border-radius: 14px;
+  border-radius: var(--radius);
 }
 
 .shap-score-head {
@@ -773,7 +773,7 @@ onMounted(loadAnalysis);
   padding: 14px 16px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
 }
 
 .shap-help-panel .section-hint,
@@ -787,7 +787,7 @@ onMounted(loadAnalysis);
   padding: 10px 12px;
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
 }
@@ -839,7 +839,7 @@ onMounted(loadAnalysis);
 .bar-track {
   position: relative;
   height: 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: var(--surface-alt);
   overflow: hidden;
 }
@@ -858,7 +858,7 @@ onMounted(loadAnalysis);
   position: absolute;
   top: 2px;
   bottom: 2px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 
 .bar--pos { background: var(--gold); }
@@ -906,7 +906,7 @@ onMounted(loadAnalysis);
 
 .shap-highlight {
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   border: 1px solid var(--border-soft);
   background: var(--panel);
   border-left-width: 3px;
@@ -949,7 +949,7 @@ onMounted(loadAnalysis);
   margin: 0 0 12px;
   padding: 10px 14px;
   background: var(--surface-alt);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   flex-wrap: wrap;
 }
@@ -965,7 +965,7 @@ onMounted(loadAnalysis);
 .legend-box {
   width: 14px;
   height: 14px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 .legend-box--gold { background: var(--gold); }
@@ -979,7 +979,7 @@ onMounted(loadAnalysis);
 
 .shap-metric-row {
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
 }
 
@@ -1053,7 +1053,7 @@ onMounted(loadAnalysis);
   padding: 10px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .metric-definition {
@@ -1111,7 +1111,7 @@ onMounted(loadAnalysis);
   color: var(--text-dim);
   background: var(--panel);
   border: 1px dashed var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius);
 }
 
 @media (max-width: 860px) {

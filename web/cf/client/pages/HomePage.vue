@@ -741,11 +741,9 @@ function goToDemo(): void {
   flex-direction: column;
   min-height: 142px;
   padding: 18px 20px;
-  background-color: #fffdf9;
-  background-image: linear-gradient(176deg, rgba(255, 255, 255, 0.97) 0%, rgba(251, 248, 240, 0.94) 60%, rgba(246, 239, 228, 0.90) 100%);
-  background-repeat: no-repeat;
-  border: 1px solid rgba(195, 178, 155, 0.55);
-  border-radius: 14px;
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
+  border-radius: var(--radius);
   box-shadow:
     inset 0 1px 0 var(--surface-inset-highlight),
     inset 0 -1px 2px rgba(175, 155, 130, 0.10),
@@ -799,7 +797,7 @@ function goToDemo(): void {
 .ac-avatar-img {
   width: 50px;
   height: 50px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   object-fit: cover;
   border: 1.5px solid var(--border);
   background: var(--surface);
@@ -893,7 +891,7 @@ function goToDemo(): void {
   color: var(--text-faint);
   background: transparent;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   opacity: .4;
   transition: var(--transition-fast);
@@ -910,7 +908,7 @@ function goToDemo(): void {
   font-size: var(--fs-micro);
   font-weight: 700;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -923,7 +921,7 @@ function goToDemo(): void {
   align-items: center;
   gap: 5px;
   padding: 1.5px 7px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   font-size: var(--fs-label);
   font-weight: 700;
   line-height: 1.35;
@@ -952,11 +950,9 @@ function goToDemo(): void {
 .workflow-step-card {
   position: relative;
   padding: 20px;
-  background-color: #fffdf9;
-  background-image: linear-gradient(176deg, rgba(255, 255, 255, 0.97) 0%, rgba(251, 248, 240, 0.94) 60%, rgba(246, 239, 228, 0.90) 100%);
-  background-repeat: no-repeat;
-  border: 1px solid rgba(195, 178, 155, 0.55);
-  border-radius: 12px;
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
+  border-radius: var(--radius);
   box-shadow:
     inset 0 1px 0 var(--surface-inset-highlight),
     inset 0 -1px 2px rgba(175, 155, 130, 0.10),

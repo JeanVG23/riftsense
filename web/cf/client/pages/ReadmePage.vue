@@ -452,7 +452,7 @@ function goPrivacy(): void {
   color: var(--primary);
   background: var(--primary-soft);
   border: 1px solid var(--primary-border);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: var(--fs-small);
 }
@@ -463,7 +463,7 @@ function goPrivacy(): void {
   overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--border-soft);
-  border-radius: 10px;
+  border-radius: var(--radius);
   border-collapse: collapse;
   font-size: var(--fs-body-sm);
 }
@@ -509,7 +509,7 @@ function goPrivacy(): void {
     linear-gradient(95deg, rgba(255, 253, 248, .98) 0%, rgba(255, 253, 248, .92) 52%, rgba(247, 244, 237, .35) 100%),
     url('/images/targon/observatoire-zenith.jpg') right 12% center / cover no-repeat;
   border: 1.5px solid rgba(195, 160, 110, 0.45);
-  border-radius: 14px;
+  border-radius: var(--radius);
   box-shadow:
     0 4px 18px rgba(20, 23, 24, 0.05),
     inset 0 1px 0 var(--surface-inset-highlight);

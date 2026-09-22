@@ -97,7 +97,7 @@ const tagLabels: Record<string, string> = {
   color: var(--text-dim);
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: var(--transition-fast);
   display: inline-flex;
@@ -136,7 +136,7 @@ const tagLabels: Record<string, string> = {
   z-index: 30;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -160,7 +160,7 @@ const tagLabels: Record<string, string> = {
   border: none;
   color: var(--text-dim);
   padding: 6px 9px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: var(--fs-label);
   font-family: inherit;

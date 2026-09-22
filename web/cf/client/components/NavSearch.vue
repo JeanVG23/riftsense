@@ -115,7 +115,7 @@ onBeforeUnmount(() => {
   padding: 3px 8px 3px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   box-shadow: var(--card-shadow);
   transition: all 180ms ease;
 }
@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
   color: var(--primary);
   background: var(--primary-soft);
   border: 1px solid var(--primary-border);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   padding: 1px 5px;
   margin-left: 4px;
   line-height: 1;
@@ -266,7 +266,7 @@ onBeforeUnmount(() => {
   padding: 7px 11px;
   background: var(--surface);
   border: 1px solid var(--loss-border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--danger);
   font-size: var(--fs-small);
   font-weight: 550;

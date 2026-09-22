@@ -1,4 +1,5 @@
 import { listAccounts, readAccount, type Account } from "./accounts";
+import { momentsOf } from "./game_moments";
 import { apiCoach } from "./coach";
 import { apiGameCoach } from "./game_coach";
 import { CoachGate } from "./coach_gate";
@@ -118,6 +119,17 @@ function gameReviewSummary(item: StoredReview): Record<string, unknown> {
       mistakes_count: Array.isArray(review?.mistakes) ? review.mistakes.length : 0,
       next_focus: typeof review?.next_focus === "string" ? review.next_focus : null,
       confidence: typeof review?.confidence === "number" ? review.confidence : null,
+      // Les catégories d'erreur, du vocabulaire fermé du schéma. Elles pèsent
+      // quelques octets et évitent au site de relire les N détails pour savoir
+      // ce qui revient d'une partie à l'autre. Les reviews d'avant la
+      // taxonomie n'en portent pas : la liste est alors vide, pas absente.
+      categories: (Array.isArray(review?.mistakes) ? review.mistakes : [])
+        .map((item) => recordOf(item)?.category)
+        .filter((category): category is string => typeof category === "string"),
+      // Les instants cités, pour que la vue globale superpose les frises des
+      // parties sans relire N détails. ~16 entrées par partie, 20 parties par
+      // page : quelques kilo-octets, contre autant de requêtes économisées.
+      moments: momentsOf(review),
     },
   };
 }

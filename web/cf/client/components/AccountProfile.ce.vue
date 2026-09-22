@@ -342,7 +342,7 @@ onMounted(() => { void loadProfile(); });
   color: var(--gold-deep);
   background: var(--surface);
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: var(--transition-base);
   font-family: inherit;
@@ -381,7 +381,7 @@ onMounted(() => { void loadProfile(); });
   overflow: hidden;
   background: rgba(195, 160, 110, 0.45);
   border: 1.5px solid rgba(195, 160, 110, 0.45);
-  border-radius: 12px;
+  border-radius: var(--radius);
   box-shadow: 0 2px 8px rgba(20, 23, 24, 0.04);
 }
 
@@ -514,7 +514,7 @@ onMounted(() => { void loadProfile(); });
   .profile-hero {
     gap: 20px;
     padding: 20px;
-    border-radius: 14px;
+    border-radius: var(--radius);
   }
   .profile-identity {
     flex-direction: column;

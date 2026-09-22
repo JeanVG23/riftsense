@@ -271,11 +271,9 @@ onBeforeUnmount(stopPolling);
   flex-direction: column;
   gap: 10px;
   padding: 18px 22px;
-  background-color: #fffdfa;
-  background-image: linear-gradient(176deg, rgba(255, 255, 255, 0.97) 0%, rgba(252, 248, 240, 0.94) 60%, rgba(246, 239, 227, 0.90) 100%);
-  background-repeat: no-repeat;
-  border: 1px solid rgba(195, 178, 155, 0.60);
-  border-radius: 14px;
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
+  border-radius: var(--radius);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow:
@@ -322,7 +320,7 @@ onBeforeUnmount(stopPolling);
   font-weight: 550;
   background: var(--surface);
   border-color: var(--gold);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
 }
 .register-input-id:focus {
   border-color: var(--primary);
@@ -341,7 +339,7 @@ onBeforeUnmount(stopPolling);
   font-weight: 600;
   background: var(--surface);
   border-color: var(--gold);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
@@ -351,7 +349,7 @@ onBeforeUnmount(stopPolling);
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-body);
   font-weight: 700;
   white-space: nowrap;
@@ -429,9 +427,9 @@ onBeforeUnmount(stopPolling);
 
 .status-progress-card {
   padding: 32px 28px;
-  background: var(--surface);
-  border: 1.5px solid rgba(195, 160, 110, 0.45);
-  border-radius: 18px;
+  background: var(--card-marble-bg);
+  border: 1px solid var(--card-marble-border);
+  border-radius: var(--radius-lg);
   box-shadow:
     0 8px 32px rgba(20, 23, 24, 0.08),
     inset 0 1px 0 var(--surface-inset-highlight);
@@ -522,7 +520,7 @@ onBeforeUnmount(stopPolling);
 .status-error-box {
   background: var(--loss-soft);
   border: 1px solid var(--loss-border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   padding: 22px;
 }
 
@@ -535,7 +533,7 @@ onBeforeUnmount(stopPolling);
 .status-error-icon {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--loss-soft);
   border: 1px solid var(--loss-border);
   display: grid;
@@ -591,7 +589,7 @@ onBeforeUnmount(stopPolling);
   padding: 2px 6px;
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   color: var(--primary);
   font-family: ui-monospace, monospace;
   font-size: var(--fs-label);
@@ -610,7 +608,7 @@ onBeforeUnmount(stopPolling);
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-body-sm);
   font-weight: 700;
   text-decoration: none;
@@ -628,7 +626,7 @@ onBeforeUnmount(stopPolling);
   align-items: center;
   gap: 8px;
   padding: 10px 18px;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-body-sm);
   font-weight: 600;
   color: var(--text-dim);
@@ -657,7 +655,7 @@ onBeforeUnmount(stopPolling);
 .status-loading-box {
   background: var(--primary-soft);
   border: 1px solid var(--primary-border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   padding: 24px 20px;
 }
 
