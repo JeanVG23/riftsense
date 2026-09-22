@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { ref, watch } from "vue";
 import { formatDate } from "../account-profile";
 import { insightBody, insightTitle } from "../coaching";
 import { withAuthHeaders } from "../auth";
@@ -19,30 +19,11 @@ interface ReviewContent {
   confidence?: number;
 }
 
-interface ReviewMeta {
-  scope?: string;
-  n_games_me?: number;
-  n_games_ref?: number;
-  winrate_me?: number;
-  low_sample?: boolean;
-  n_game_reviews_available?: number;
-  n_game_reviews_available_wins?: number;
-  n_game_reviews_available_losses?: number;
-  n_game_reviews_used?: number;
-  n_game_reviews_used_wins?: number;
-  n_game_reviews_used_losses?: number;
-  n_game_reviews_wins?: number;
-  n_game_reviews_losses?: number;
-  qualitative_mode?: string;
-  unbalanced_causes?: unknown;
-}
-
 interface AggregateReview {
   ts: string;
   model?: string;
   scope?: string;
   outcome_focus?: string;
-  payload?: { meta?: ReviewMeta };
   review: ReviewContent;
 }
 
@@ -52,11 +33,6 @@ interface FeedbackValue {
   note?: string | null;
 }
 
-interface CoachingContext {
-  aggregate_status?: Record<string, Record<string, { needs_refresh?: boolean; stale_prompt?: boolean }>>;
-  review_samples?: Record<string, { latest_ts?: string }>;
-}
-
 const props = withDefaults(defineProps<{
   slug: string;
   review?: AggregateReview | null;
@@ -64,20 +40,16 @@ const props = withDefaults(defineProps<{
   loading?: boolean;
   scope?: string;
   scopeName?: string;
-  outcome?: string;
   authenticated?: boolean;
   busy?: boolean;
-  coachingContext?: CoachingContext | null;
 }>(), {
   review: null,
   reviews: () => [],
   loading: false,
   scope: "",
   scopeName: "",
-  outcome: "overall",
   authenticated: false,
   busy: false,
-  coachingContext: null,
 });
 
 const emit = defineEmits<{
@@ -91,15 +63,6 @@ const feedbackBusy = ref<Record<string, boolean>>({});
 const openFeedback = ref<string | null>(null);
 const feedbackError = ref<string | null>(null);
 let feedbackSequence = 0;
-
-const meta = computed(() => props.review?.payload?.meta || {});
-const needsRefresh = computed(() => {
-  if (!props.review?.ts) return false;
-  const status = props.coachingContext?.aggregate_status?.[props.scope]?.[props.outcome];
-  if (status) return Boolean(status.needs_refresh || status.stale_prompt);
-  const latest = props.coachingContext?.review_samples?.[props.scope]?.latest_ts;
-  return Boolean(latest && latest > props.review.ts);
-});
 
 function key(kind: string, index: number): string {
   return `${kind},${index}`;
@@ -176,47 +139,6 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
   </div>
 
   <div v-else>
-    <div class="meta-strip row wrap">
-      <span class="num">{{ meta.n_games_me || 0 }} games analyzed</span>
-      <span class="faint">compared with {{ meta.n_games_ref || 0 }} Challenger reference games</span>
-      <span class="num">Win rate: {{ Math.round((meta.winrate_me || 0) * 100) }}%</span>
-      <span class="badge badge-neutral">Global coaching</span>
-      <span class="badge badge-scope">Main role · {{ scopeName }}</span>
-      <span v-if="meta.low_sample" class="badge badge-loss">limited sample</span>
-      <span class="faint">{{ review.model }}</span>
-      <span class="faint">{{ formatDate(review.ts) }}</span>
-    </div>
-
-    <div class="sample-transparency-card">
-      <div class="sample-transparency-main">
-        <span class="sample-stat-icon">📊</span>
-        <div class="sample-stat-text">
-          <div class="sample-stat-header">
-            <strong>Statistical basis: {{ meta.n_games_me || 0 }} real games on your main role ({{ scopeName }})</strong>
-            <span class="faint">· Actual win rate: {{ Math.round((meta.winrate_me || 0) * 100) }}%</span>
-          </div>
-          <div class="sample-stat-sub faint">
-            <span v-if="meta.n_game_reviews_available != null">
-              <strong>{{ meta.n_game_reviews_available || 0 }}</strong> per-game analyses available
-              ({{ meta.n_game_reviews_available_wins || 0 }}W · {{ meta.n_game_reviews_available_losses || 0 }}L) ·
-            </span>
-            <span v-if="meta.n_game_reviews_used">
-              ✦ <strong>{{ meta.n_game_reviews_used }}</strong> per-game analyses included
-              ({{ meta.n_game_reviews_used_wins ?? meta.n_game_reviews_wins ?? 0 }}W · {{ meta.n_game_reviews_used_losses ?? meta.n_game_reviews_losses ?? 0 }}L)
-            </span>
-            <span v-else>✦ No per-game analysis required: global coaching uses your real game data directly.</span>
-          </div>
-        </div>
-      </div>
-      <div v-if="meta.qualitative_mode === 'unbalanced' || meta.unbalanced_causes" class="sample-warning-banner">
-        ⚠️ <strong>Unbalanced per-game sample:</strong> you have only analyzed {{ (meta.n_game_reviews_available_losses ?? meta.n_game_reviews_losses ?? 0) > 0 ? "losses" : "wins" }}. Only one is included to avoid distorting the review, which remains based on your {{ meta.n_games_me }} real games. Analyze a game with the opposite outcome to balance the context.
-      </div>
-      <div v-if="needsRefresh" class="sample-warning-banner refresh">
-        <span>↻ A new game analysis can improve this review.</span>
-        <button type="button" class="btn btn-small" :disabled="busy" @click="emit('generate')">{{ authenticated ? "Refresh coaching" : "🔒 Refresh coaching" }}</button>
-      </div>
-    </div>
-
     <div v-if="review.review.next_focus" class="global-focus-hero">
       <div class="global-focus-content">
         <span class="global-focus-eyebrow">YOUR #1 IMPROVEMENT PRIORITY</span>
@@ -286,79 +208,6 @@ watch([() => props.slug, () => props.review?.ts], loadFeedback, { immediate: tru
 </template>
 
 <style scoped>
-.meta-strip {
-  display: flex;
-  gap: 12px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  color: var(--text-dim);
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  border-radius: 11px;
-}
-
-.badge-scope {
-  color: var(--primary);
-  background: var(--primary-soft);
-  border: 1px solid var(--primary-border);
-}
-
-.sample-transparency-card {
-  margin-bottom: 18px;
-  padding: 12px 18px;
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sample-transparency-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.sample-stat-icon {
-  font-size: 20px;
-  line-height: 1;
-}
-
-.sample-stat-text {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 13px;
-}
-
-.sample-stat-header strong {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.sample-stat-sub {
-  font-size: 12px;
-  color: var(--text-dim);
-}
-
-.sample-warning-banner {
-  padding: 8px 12px;
-  background: var(--primary-soft);
-  border: 1px solid var(--primary-border);
-  border-radius: 6px;
-  font-size: 12px;
-  color: var(--gold-deep);
-  line-height: 1.45;
-}
-
-.sample-warning-banner.refresh {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .global-focus-hero {
   display: flex;
   justify-content: space-between;

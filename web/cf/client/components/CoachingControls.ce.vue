@@ -1,30 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
 import { rankEmblem } from "../account-profile";
-import { withAuthHeaders } from "../auth";
-import { categoryLabel } from "../coaching";
 
 type CoachingView = "overall" | "games";
 
-interface EvaluationReport {
-  target_met?: boolean;
-  objective?: {
-    mistake_useful_rate?: number | null;
-    n_game_reviews_annotated?: number;
-    target_n?: number;
-  };
-  by_category?: Record<string, { n: number; useful: number; rate: number | null }>;
-}
-
-const props = withDefaults(defineProps<{
-  slug: string;
+withDefaults(defineProps<{
   view?: CoachingView;
   gameReviewsCount?: number;
   mainRoleName?: string;
   roleReady?: boolean;
   authenticated?: boolean;
   busy?: boolean;
-  evalRevision?: number;
 }>(), {
   view: "overall",
   gameReviewsCount: 0,
@@ -32,39 +17,12 @@ const props = withDefaults(defineProps<{
   roleReady: false,
   authenticated: false,
   busy: false,
-  evalRevision: 0,
 });
 
 const emit = defineEmits<{
   "view-change": [view: CoachingView];
   generate: [];
 }>();
-
-const evaluation = ref<EvaluationReport | null>(null);
-const categoryScores = computed(() => Object.entries(evaluation.value?.by_category || {})
-  .filter(([category, score]) => category !== "none" && score.n > 0)
-  .sort((left, right) => right[1].n - left[1].n));
-let requestSequence = 0;
-
-function percent(value: number | null | undefined): string {
-  return value == null ? "—" : `${Math.round(value * 100)}%`;
-}
-
-async function loadEvaluation(): Promise<void> {
-  const sequence = ++requestSequence;
-  try {
-    const response = await fetch(`/api/c/${encodeURIComponent(props.slug)}/eval`, {
-      headers: withAuthHeaders(),
-    });
-    const next = response.ok ? await response.json() as EvaluationReport : null;
-    if (sequence === requestSequence) evaluation.value = next;
-  } catch {
-    if (sequence === requestSequence) evaluation.value = null;
-  }
-}
-
-watch([() => props.slug, () => props.evalRevision], loadEvaluation);
-onMounted(loadEvaluation);
 </script>
 
 <template>
@@ -75,7 +33,11 @@ onMounted(loadEvaluation);
       :aria-selected="view === 'overall'"
       @click="emit('view-change', 'overall')"
     >
-      Global coaching
+      <span class="coach-tab-icon" aria-hidden="true">✦</span>
+      <span class="coach-tab-copy">
+        <strong>Global coaching</strong>
+        <small>Overview and recurring habits</small>
+      </span>
     </button>
     <button
       type="button"
@@ -83,28 +45,16 @@ onMounted(loadEvaluation);
       :aria-selected="view === 'games'"
       @click="emit('view-change', 'games')"
     >
-      Game analyses <span v-if="gameReviewsCount" class="coach-tab-count">{{ gameReviewsCount }}</span>
+      <span class="coach-tab-icon" aria-hidden="true">◎</span>
+      <span class="coach-tab-copy">
+        <strong>Game analyses</strong>
+        <small>Detailed reviews, game by game</small>
+      </span>
+      <span v-if="gameReviewsCount" class="coach-tab-count">{{ gameReviewsCount }}</span>
     </button>
   </div>
 
   <template v-if="view === 'overall'">
-    <div v-if="evaluation" class="eval-strip">
-      <div class="eval-head">
-        <span class="eval-kicker">MEASURED QUALITY</span>
-        <strong>{{ evaluation.objective?.mistake_useful_rate == null ? "No ratings yet" : `${percent(evaluation.objective.mistake_useful_rate)} of mistakes rated useful` }}</strong>
-        <span class="eval-meta">{{ evaluation.objective?.n_game_reviews_annotated || 0 }} / {{ evaluation.objective?.target_n || 10 }} rated analyses</span>
-        <span class="eval-badge" :class="evaluation.target_met ? 'met' : 'pending'">
-          {{ evaluation.target_met ? "target met" : "target ≥70%" }}
-        </span>
-      </div>
-      <p class="eval-note">This rate comes from your votes on per-game analysis mistakes. It is recalculated without another LLM call.</p>
-      <div v-if="categoryScores.length" class="eval-categories" aria-label="Usefulness by coaching category">
-        <span v-for="[category, score] in categoryScores" :key="category">
-          {{ categoryLabel(category) }}: <strong>{{ percent(score.rate) }}</strong> <small>n={{ score.n }}</small>
-        </span>
-      </div>
-    </div>
-
     <section class="coach-builder" aria-labelledby="coach-builder-title">
       <div class="coaching-intro">
         <span class="coaching-kicker">GLOBAL ANALYSIS &amp; HABITS</span>
@@ -132,131 +82,122 @@ onMounted(loadEvaluation);
 
 <style scoped>
 .coach-view-tabs {
-  display: flex;
-  width: max-content;
-  max-width: 100%;
-  gap: 4px;
-  padding: 4px;
-  margin: 0 0 18px;
-  overflow-x: auto;
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  gap: 12px;
+  margin: 0 0 22px;
 }
 
 .coach-view-tabs button {
-  display: inline-flex;
-  flex: 0 0 auto;
+  position: relative;
+  display: flex;
   align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 7px 12px;
-  color: var(--text-dim);
-  background: transparent;
-  border: 0;
-  border-radius: 7px;
+  gap: 14px;
+  min-width: 0;
+  min-height: 102px;
+  padding: 22px;
+  color: var(--text);
+  text-align: left;
+  background:
+    linear-gradient(120deg, var(--primary-soft), transparent 45%),
+    var(--panel-gradient);
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  transition: var(--transition-fast);
+  transition: var(--transition-base);
 }
 
 .coach-view-tabs button:hover {
   color: var(--text);
-  background: var(--surface-alt);
+  border-color: var(--primary-border);
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-1px);
 }
 
 .coach-view-tabs button.active {
-  color: var(--primary-text);
-  background: var(--primary-gradient);
+  color: var(--text);
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--primary) 18%, transparent), transparent 52%),
+    var(--panel-gradient);
+  border-color: var(--primary);
+  box-shadow:
+    var(--card-shadow),
+    inset 0 0 0 1px var(--primary-border);
+}
+
+.coach-tab-icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  border-radius: 10px;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.coach-view-tabs button.active .coach-tab-icon {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  border-color: var(--primary-border);
+}
+
+.coach-tab-copy {
+  display: block;
+  min-width: 0;
+}
+
+.coach-tab-copy strong,
+.coach-tab-copy small {
+  display: block;
+}
+
+.coach-tab-copy strong {
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 750;
+  line-height: 1.26;
+  letter-spacing: -.025em;
+}
+
+.coach-tab-copy small {
+  margin-top: 5px;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.coach-view-tabs button.active .coach-tab-copy small {
+  color: var(--text-dim);
 }
 
 .coach-tab-count {
   display: grid;
-  min-width: 18px;
-  height: 18px;
+  flex: 0 0 auto;
+  min-width: 25px;
+  height: 25px;
+  margin-left: auto;
+  padding: 0 6px;
   place-items: center;
-  color: inherit;
-  background: rgba(255, 253, 248, .18);
-  border-radius: 999px;
-  font-size: 10px;
-}
-
-.eval-strip {
-  margin: 0 0 16px;
-  padding: 12px 16px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--primary);
-  border-radius: 8px;
-  background: var(--panel);
-}
-
-.eval-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.eval-head strong {
-  font-size: 16px;
-  color: var(--text);
-}
-
-.eval-kicker {
-  font-size: 11px;
-  letter-spacing: .08em;
   color: var(--primary);
-  font-weight: 700;
-}
-
-.eval-meta {
-  font-size: 12px;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.eval-badge {
+  background: var(--primary-soft);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-radius: 999px;
   font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid currentColor;
+  font-weight: 800;
 }
 
-.eval-badge.met {
-  color: var(--win);
-}
-
-.eval-badge.pending {
-  color: var(--text-faint);
-}
-
-.eval-note {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: var(--text-dim);
-  line-height: 1.5;
-}
-
-.eval-categories {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 9px;
-}
-
-.eval-categories > span {
-  padding: 3px 8px;
-  color: var(--text-dim);
-  background: var(--surface-alt);
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  font-size: 10px;
-}
-
-.eval-categories small {
-  color: var(--text-faint);
+.coach-view-tabs button.active .coach-tab-count {
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-color: var(--primary-border);
 }
 
 .coach-builder {
@@ -392,11 +333,12 @@ onMounted(loadEvaluation);
     min-height: 44px;
   }
   .coach-view-tabs {
-    width: 100%;
+    grid-template-columns: 1fr;
   }
   .coach-view-tabs button {
-    flex: 1 0 auto;
-    justify-content: center;
+    width: 100%;
+    min-height: 94px;
+    padding: 18px;
   }
 }
 </style>

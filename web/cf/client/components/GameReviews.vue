@@ -231,8 +231,6 @@ watch([filterResult, filterChampion], applyFilter);
 <template>
   <section class="game-reviews" aria-labelledby="game-reviews-title">
     <div class="game-reviews-heading"><div><p class="eyebrow">DETAILED ANALYSES</p><h2 id="game-reviews-title">Review a game moment by moment</h2><p>Each analysis breaks down one game: deaths, recalls, objective timing, and the focus for your next match.</p></div></div>
-    <div class="review-primer"><strong>How this analysis is built</strong><span>The Riot API timeline is transformed locally into a verifiable journal. The AI receives only this cleaned journal and never reads through fog of war.</span></div>
-    <div class="game-privacy-banner"><span class="privacy-icon">🛡️</span><span><strong>Fair analysis:</strong> reconstructed from the Riot timeline with strict respect for information asymmetry.</span></div>
     <div v-if="loading" class="state">Loading game analyses…</div>
     <div v-else-if="!items.length" class="state empty-state"><strong>No game analyses available.</strong><span>Future individual analyses will appear here.</span></div>
     <div v-else class="game-review-layout">
@@ -303,42 +301,6 @@ watch([filterResult, filterChampion], applyFilter);
   margin: 5px 0 0;
   color: var(--text-dim);
   font-size: 13px;
-}
-
-.review-primer {
-  display: grid;
-  gap: 3px;
-  margin: 0 0 12px;
-  padding: 12px 14px;
-  color: var(--text-dim);
-  background: var(--primary-soft);
-  border: 1px solid var(--primary-border);
-  border-radius: 9px;
-  font-size: 12px;
-}
-
-.review-primer strong {
-  color: var(--text);
-}
-
-.game-privacy-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  margin: 0 0 16px;
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  border-left: 3px solid var(--primary);
-  border-radius: 9px;
-  color: var(--text-dim);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.privacy-icon {
-  font-size: 16px;
-  flex-shrink: 0;
 }
 
 .game-review-layout {

@@ -45,7 +45,6 @@ const gameReviewsPage = ref(1);
 const gameReviewsCount = ref(0);
 const reviewsLoading = ref(true);
 const coachingContext = ref<any | null>(null);
-const evalRevision = ref(0);
 let reviewsInFlight = false;
 
 const reloadToken = ref(0);
@@ -307,7 +306,7 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
     <GameHistory v-if="tab === 'history'" :slug="slug" :game-reviews="gameReviews" :coaching-context="coachingContext" :job="job" :predicted-rank="predictedRank" :authenticated="authenticated" @games-loaded="syncGamesPage" @coach-game="gameCoachAction" @regenerate-game="game => generateGame(game, true)" />
     <ShapProfile v-else-if="tab === 'shap'" :slug="slug" :sync="sync" :reload-token="reloadToken" />
     <div v-else-if="tab === 'coaching'">
-      <CoachingControls :slug="slug" :view="coachingView" :game-reviews-count="gameReviewsCount" :main-role-name="mainRoleLabel" :role-ready="mainRoleReady" :authenticated="authenticated" :busy="coachBusy" :eval-revision="evalRevision" @view-change="setCoachingView" @generate="generateGlobal" />
+      <CoachingControls :view="coachingView" :game-reviews-count="gameReviewsCount" :main-role-name="mainRoleLabel" :role-ready="mainRoleReady" :authenticated="authenticated" :busy="coachBusy" @view-change="setCoachingView" @generate="generateGlobal" />
       <div v-if="job?.type === 'coach' && job.status === 'running'" class="coaching-inline-progress" role="status">
         <strong>Generating global coaching…</strong>
         <span>DeepSeek usually needs 1–2 minutes. Keep this tab open.</span>
@@ -316,8 +315,8 @@ onBeforeUnmount(() => window.removeEventListener("coach-auth-change", onAuthChan
         <strong>Global coaching could not be generated.</strong>
         <span>{{ job.error }}</span>
       </div>
-      <GlobalCoaching v-if="coachingView === 'overall'" :slug="slug" :review="review" :reviews="globalReviews" :loading="reviewsLoading" :scope="scope" :scope-name="mainRoleLabel" :outcome="outcome" :authenticated="authenticated" :busy="coachBusy" :coaching-context="coachingContext" @generate="generateGlobal" @review-select="selectGlobalReview" @feedback-saved="evalRevision += 1" />
-      <GameReviews v-else :slug="slug" :reviews="gameReviews" :total="gameReviewsCount" :page="gameReviewsPage" :loading="reviewsLoading" :authenticated="authenticated" :target-match-id="pendingReviewId" @reviews-loaded="syncGameReviews" @review-select="selectGameTarget" @feedback-saved="evalRevision += 1" />
+      <GlobalCoaching v-if="coachingView === 'overall'" :slug="slug" :review="review" :reviews="globalReviews" :loading="reviewsLoading" :scope="scope" :scope-name="mainRoleLabel" :authenticated="authenticated" :busy="coachBusy" @generate="generateGlobal" @review-select="selectGlobalReview" />
+      <GameReviews v-else :slug="slug" :reviews="gameReviews" :total="gameReviewsCount" :page="gameReviewsPage" :loading="reviewsLoading" :authenticated="authenticated" :target-match-id="pendingReviewId" @reviews-loaded="syncGameReviews" @review-select="selectGameTarget" />
     </div>
   </div>
 </template>

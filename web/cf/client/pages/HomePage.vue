@@ -51,7 +51,10 @@ async function fetchRanks(): Promise<void> {
   const all = [...(props.accounts || []), ...(browserAccounts.value || [])];
   for (const acc of all) {
     if (!acc?.slug) continue;
-    if (getRank(acc)?.tier) continue;
+    // `accountRank` peut retourner un rang curé codé en dur. Ce rang n'est
+    // qu'un repli d'affichage : il ne doit pas empêcher la récupération du
+    // rang courant publié par l'API.
+    if (dynamicRanks.value[acc.slug]?.tier) continue;
     try {
       const res = await fetch(`/api/c/${encodeURIComponent(acc.slug)}/rank`);
       if (res.ok) {

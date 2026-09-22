@@ -211,5 +211,28 @@ describe("HomePage", () => {
     expect(wrapper.find(".badge-owner-tag").exists()).toBe(false);
     expect(wrapper.find(".badge-permanent-tag").exists()).toBe(false);
   });
-});
 
+  it("remplace le rang curé de secours par le rang courant de l'API", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (path: string) => ({
+      ok: path === "/api/c/aceofspadzze/rank",
+      json: async () => ({
+        tier: "MASTER",
+        division: "I",
+        league_points: 60,
+        wins: 202,
+        losses: 215,
+      }),
+    })));
+
+    const wrapper = mount(HomePage, {
+      props: { accounts: sampleAccounts, recentAccounts: [], loading: false },
+    });
+    await flushPromises();
+
+    const aceCard = wrapper.find("a[href='/c/aceofspadzze']");
+    expect(aceCard.text()).toContain("Master · 60 LP");
+    expect(aceCard.text()).not.toContain("Master · 2 LP");
+
+    vi.unstubAllGlobals();
+  });
+});

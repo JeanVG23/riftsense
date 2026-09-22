@@ -38,20 +38,21 @@ function json(value: unknown, status = 200): Response {
 }
 
 describe("GlobalCoaching", () => {
-  it("rend le bilan et sa transparence statistique", async () => {
+  it("rend le bilan sans les métadonnées techniques", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json([])));
     wrapper = mount(GlobalCoaching, {
       props: { slug: "Spadzze", review, reviews: [review], scope: "adc", scopeName: "ADC" },
     });
     await flushPromises();
 
-    expect(wrapper.text()).toContain("20 games analyzed");
-    expect(wrapper.text()).toContain("55%");
+    expect(wrapper.text()).not.toContain("20 games analyzed");
+    expect(wrapper.text()).not.toContain("Statistical basis");
+    expect(wrapper.text()).not.toContain("Main role · ADC");
+    expect(wrapper.text()).not.toContain("Refresh coaching");
     expect(wrapper.text()).toContain("Back tardif");
     expect(wrapper.text()).toContain("tempo perdu");
     expect(wrapper.text()).toContain("Confidence");
     expect(wrapper.text()).toContain("82%");
-    expect(wrapper.text()).toContain("Main role · ADC");
   });
 
   it("préserve tous les votes lors de l'enregistrement", async () => {
